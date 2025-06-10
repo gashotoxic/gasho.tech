@@ -1,0 +1,184 @@
+/* style.css */
+
+:root {
+    --bg-color: #f9f9f9;
+    --text-color: #333;
+    --primary-color: #007bff;
+    --secondary-color: #6c757d;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.container {
+    background-color: #fff;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    width: 90%;
+    max-width: 700px;
+    text-align: center;
+    transition: background-color 0.3s ease;
+}
+
+header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 30px;
+}
+
+.profile-image {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-right: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.header-info {
+    flex-grow: 1;
+    text-align: left;
+}
+
+h1 {
+    color: var(--primary-color);
+    margin-bottom: 5px;
+    font-size: 2.2em;
+}
+
+p {
+    color: var(--secondary-color);
+    font-size: 1.1em;
+    line-height: 1.6;
+}
+
+.bio,
+.skills,
+.contact {
+    margin-bottom: 30px;
+    padding: 20px;
+    border-radius: 8px;
+    background-color: #f4f4f4;
+    text-align: left;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: background-color 0.3s ease;
+}
+
+.bio h2,
+.skills h2,
+.contact h2 {
+    color: var(--primary-color);
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 1.6em;
+}
+
+.skills ul {
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.skills li {
+    background-color: #e0e0e0;
+    color: var(--secondary-color);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.95em;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.contact p {
+    margin: 10px 0;
+    font-size: 1.05em;
+}
+
+.contact a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+.contact a:hover {
+    text-decoration: underline;
+}
+
+.toggle-container {
+    align-self: flex-start;
+}
+
+#darkModeToggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    font-size: 1.3em;
+    color: var(--primary-color);
+    transition: color 0.3s ease;
+}
+
+#darkModeToggle:hover {
+    color: #0056b3;
+}
+
+.dark-icon {
+    display: none;
+}
+
+.light-icon {
+    display: inline;
+}
+
+body.dark-mode #darkModeToggle .light-icon {
+    display: none;
+}
+
+body.dark-mode #darkModeToggle .dark-icon {
+    display: inline;
+}
+
+/* Dark Mode Styles */
+body.dark-mode {
+    --bg-color: #181818;
+    --text-color: #f8f8f8;
+    --primary-color: #64b5f6;
+    --secondary-color: #a7a7a7;
+}
+
+body.dark-mode .container {
+    background-color: #222;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode h1,
+body.dark-mode .bio h2,
+body.dark-mode .skills h2,
+body.dark-mode .contact h2 {
+    color: var(--primary-color);
+}
+
+body.dark-mode .bio,
+body.dark-mode .skills,
+body.dark-mode .contact {
+    background-color: #333;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+}
+
+body.dark-mode .skills li {
+    background-color: #444;
+    color: #ccc;
+}

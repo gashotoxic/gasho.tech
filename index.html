@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>GashoTech: Innovating AI and Cybersecurity Solutions</title>
+	<link rel="shortcut icon" href="images/favicon.jpg">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<meta http-equiv="X-UA-Compatible" content="ie=Edge">
+	<meta name="description" content="GashoTech - Empowering the Future with AI and Innovation. We offer AI solutions, AI automation, cybersecurity, and ICT services to help businesses thrive.">
+	<meta name="keywords" content="AI, AI Automation, Cybersecurity, ICT Services, GashoTech">
+	<script type="application/ld+json">
+	{
+	  "@context": "http://schema.org",
+	  "@type": "Organization",
+	  "name": "GashoTech",
+	  "url": "http://www.gashotech.com",
+	  "logo": "http://www.gashotech.com/images/favicon.jpg",
+	  "sameAs": [
+	    "https://www.facebook.com/gashotech",
+	    "https://twitter.com/gashotech",
+	    "https://www.linkedin.com/company/gashotech"
+	  ],
+	  "contactPoint": [{
+	    "@type": "ContactPoint",
+	    "telephone": "+254792329179",
+	    "contactType": "Customer Service"
+	  }]
+	}
+	</script>
+	<link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+	<link rel="stylesheet" href="styles.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
+	<script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+	<script src="jquery.js" ></script>	
+<style>
+        #cosmic-jumbotron {
+            position: relative;
+            overflow: hidden;
+            /* background-color: #000; */ /* Removed to use original jumbotron background */
+            color: white;
+            padding: 100px 25px;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #cosmicCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .jumbotron-content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+        }
+
+        .jumbotron-content h1,
+        .jumbotron-content p,
+        .jumbotron-content .social-media-links,
+        .jumbotron-content form {
+            color: white; /* Ensure text is visible on dark background */
+        }
+    </style>
+	<style>
+		.social-icon {
+			font-size: 24px;
+			margin: 10px;
+			color: #1abc9c;
+		}
+		.styled-img {
+            width: 100%;
+            max-width: 300px;
+            margin: 20px auto;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        .styled-img:hover {
+            transform: scale(1.05);
+        }
+        .circular-img {
+            border-radius: 50% !important;
+        }
+        .fade-in {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+        }
+        .fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        html {
+            scroll-behavior: smooth;
+        }
+        .section-padding {
+            padding: 60px 0;
+        }
+        .section-transition {
+            transition: background-color 0.3s ease;
+        }
+        .section-transition:hover {
+            background-color: rgba(26, 188, 156, 0.05);
+        }
+        /* Service Section Styles */
+        .service-item {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            margin: 15px 0;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .service-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 25px rgba(26, 188, 156, 0.3);
+        }
+
+        .service-icon {
+            font-size: 40px;
+            color: #1abc9c;
+            margin-bottom: 20px;
+            transition: transform 0.3s ease;
+        }
+
+        .service-item:hover .service-icon {
+            transform: scale(1.1);
+        }
+
+        .service-title {
+            color: #333;
+            font-size: 24px;
+            margin: 15px 0;
+            font-weight: 600;
+        }
+
+        .service-description {
+            color: #666;
+            font-size: 16px;
+            line-height: 1.6;
+            flex-grow: 1;
+            margin-bottom: 20px;
+        }
+
+        .service-button {
+            background-color: #1abc9c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            font-weight: 600;
+            font-size: 14px;
+            letter-spacing: 1px;
+            margin-top: auto;
+        }
+
+        .service-button:hover {
+            background-color: #16a085;
+            transform: scale(1.05);
+        }
+
+        .service-row {
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .service-col {
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .service-item {
+                margin: 10px 0;
+            }
+        }
+        /* Solutions Section Styles */
+        .solution-card {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 3px 20px rgba(0,0,0,0.1);
+            transition: all 0.4s ease;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 30px;
+        }
+
+        .solution-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 8px 30px rgba(26, 188, 156, 0.3);
+        }
+
+        .solution-image-wrapper {
+            position: relative;
+            overflow: hidden;
+            height: 250px;
+        }
+
+        .solution-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.6s ease;
+        }
+
+        .solution-card:hover .solution-image {
+            transform: scale(1.1);
+        }
+
+        .solution-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(to bottom, rgba(26, 188, 156, 0.1), rgba(26, 188, 156, 0.4));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .solution-card:hover .solution-overlay {
+            opacity: 1;
+        }
+
+        .solution-content {
+            padding: 25px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .solution-title {
+            color: #333;
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            position: relative;
+            padding-bottom: 15px;
+        }
+
+        .solution-title:after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 50px;
+            height: 3px;
+            background: #1abc9c;
+            transition: width 0.3s ease;
+        }
+
+        .solution-card:hover .solution-title:after {
+            width: 100px;
+        }
+
+        .solution-description {
+            color: #666;
+            font-size: 16px;
+            line-height: 1.6;
+            flex-grow: 1;
+            margin-bottom: 20px;
+        }
+
+        .solution-button {
+            display: inline-block;
+            padding: 12px 30px;
+            background: #1abc9c;
+            color: white;
+            text-decoration: none;
+            border-radius: 25px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            align-self: flex-start;
+        }
+
+        .solution-button:hover {
+            background: #16a085;
+            transform: translateX(10px);
+            box-shadow: -5px 5px 15px rgba(26, 188, 156, 0.3);
+            color: white;
+            text-decoration: none;
+        }
+
+        .solutions-container {
+            padding: 40px 0;
+        }
+
+        .solutions-header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .solutions-header h2 {
+            font-size: 36px;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .solutions-header h4 {
+            color: #666;
+            font-size: 18px;
+            font-weight: 400;
+        }
+		/* Dark Mode Colors */
+        :root {
+            --primary-color: #1abc9c;
+            --primary-dark: #16a085;
+            --bg-light: #ffffff;
+            --text-light: #333333;
+            --bg-dark: #1a1a1a;
+            --bg-dark-secondary: #2d2d2d;
+            --text-dark: #ffffff;
+            --border-dark: #404040;
+        }
+
+        /* Dark Mode Styles */
+        body.dark-mode {
+            background-color: var(--bg-dark);
+            color: var(--text-dark);
+        }
+
+        .dark-mode .navbar {
+            background-color: var(--bg-dark);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .dark-mode .navbar-brand,
+        .dark-mode .navbar li a {
+            color: var(--text-dark) !important;
+        }
+
+        .dark-mode .navbar li a:hover {
+            color: var(--primary-color) !important;
+        }
+
+        .dark-mode .jumbotron,
+        .dark-mode .container-fluid,
+        .dark-mode .content-section {
+            background-color: var(--bg-dark-secondary);
+            color: var(--text-dark);
+        }
+
+        .dark-mode .bg-grey {
+            background-color: var(--bg-dark);
+        }
+
+        .dark-mode .service-card,
+        .dark-mode .solution-card {
+            background-color: var(--bg-dark-secondary);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+
+        .dark-mode .service-card:hover,
+        .dark-mode .solution-card:hover {
+            box-shadow: 0 8px 16px rgba(0,0,0,0.4);
+        }
+
+        .dark-mode footer {
+            background-color: var(--bg-dark);
+            box-shadow: 0 -2px 4px rgba(0,0,0,0.3);
+        }
+
+        .dark-mode .dropdown-menu {
+            background-color: var(--bg-dark-secondary);
+            border-color: var(--border-dark);
+        }
+
+        .dark-mode .dropdown-menu > li > a {
+            color: var(--text-dark);
+        }
+
+        .dark-mode .dropdown-menu > li > a:hover {
+            background-color: var(--bg-dark);
+        }
+
+        .dark-mode .dropdown-menu .divider {
+            background-color: var(--border-dark);
+        }
+
+        .dark-mode .testimonial {
+            background-color: var(--bg-dark-secondary);
+        }
+
+        .dark-mode .blog-card {
+            background-color: var(--bg-dark-secondary);
+        }
+
+        /* Service and Blog Panels Dark Mode */
+        .dark-mode .service-card {
+            background-color: var(--bg-dark-secondary);
+            color: var(--text-dark);
+            border: 1px solid var(--border-dark);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .dark-mode .service-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+            border-color: var(--primary-color);
+        }
+
+        .dark-mode .service-card h3 {
+            color: var(--primary-color);
+        }
+
+        .dark-mode .service-card p {
+            color: var(--text-dark-secondary);
+        }
+
+        .dark-mode .service-card .learn-more {
+            background-color: var(--primary-color);
+            color: var(--text-dark);
+        }
+
+        .dark-mode .service-card .learn-more:hover {
+            background-color: var(--primary-dark);
+            color: var(--text-dark);
+        }
+
+        .dark-mode .blog-card {
+            background: var(--bg-dark-secondary);
+            border: 1px solid var(--border-dark);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .dark-mode .blog-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+            border-color: var(--primary-color);
+        }
+
+        .dark-mode .blog-card .blog-image {
+            border-bottom: 1px solid var(--border-dark);
+        }
+
+        .dark-mode .blog-card .blog-title {
+            color: var(--primary-color);
+        }
+
+        .dark-mode .blog-card .blog-excerpt {
+            color: var(--text-dark);
+        }
+
+        .dark-mode .blog-card .blog-meta {
+            color: var(--text-dark-secondary);
+            border-top: 1px solid var(--border-dark);
+        }
+
+        .dark-mode .blog-card .read-more {
+            color: var(--primary-color);
+        }
+
+        .dark-mode .blog-card .read-more:hover {
+            color: var(--primary-dark);
+        }
+
+        /* Theme Toggle Button */
+        .theme-toggle {
+            position: fixed;
+            right: 20px;
+            top: 70px; /* Position it just below the navbar */
+            z-index: 999;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .theme-toggle:hover {
+            background-color: var(--primary-dark);
+            transform: scale(1.1);
+        }
+
+        .dark-mode .theme-toggle {
+            background-color: var(--primary-dark);
+        }
+
+        .dark-mode .theme-toggle:hover {
+            background-color: var(--primary-color);
+        }
+
+        /* Improved text visibility in dark mode */
+        .dark-mode {
+            --text-dark: #e1e1e1;
+            --text-dark-secondary: #b0b0b0;
+        }
+
+        .dark-mode p,
+        .dark-mode .service-card p,
+        .dark-mode .solution-card p,
+        .dark-mode .testimonial p,
+        .dark-mode .blog-card p {
+            color: var(--text-dark);
+        }
+
+        .dark-mode h2,
+        .dark-mode h3,
+        .dark-mode h4,
+        .dark-mode .service-card h3,
+        .dark-mode .solution-card h3 {
+            color: var(--primary-color);
+        }
+
+        .dark-mode .navbar li a,
+        .dark-mode .dropdown-menu > li > a {
+            color: var(--text-dark) !important;
+        }
+
+        .dark-mode .bg-grey {
+            background-color: var(--bg-dark);
+            color: var(--text-dark);
+        }
+
+        .dark-mode .testimonial-text {
+            color: var(--text-dark);
+        }
+
+        .dark-mode .testimonial-author {
+            color: var(--text-dark-secondary);
+        }
+
+        .dark-mode .blog-card .blog-content {
+            color: var(--text-dark);
+        }
+
+        .dark-mode footer p,
+        .dark-mode footer a {
+            color: var(--text-dark);
+        }
+		/* Social Media Icons */
+        .social-icon {
+            color: #555555; /* Different color for visibility */
+            transition: color 0.3s ease, transform 0.3s ease;
+        }
+
+        .social-icon:hover {
+            color: var(--primary-color);
+            transform: scale(1.1);
+        }
+
+        .dark-mode .social-icon {
+            color: var(--text-dark);
+        }
+        /* Adjust Margin for Sections Below Navbar */
+        .content-section,
+        .jumbotron,
+        .container-fluid {
+            margin-top: 50px; /* Ensure content is not hidden under navbar */
+            padding: 20px;
+        }
+
+        header {
+            padding: 0;
+        }
+	</style>
+
+</head>
+<body id="myPage" data-spy="scroll" data-target=".navbar" data-offset="60">
+    <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle Dark Mode">
+        <i class="fa fa-moon-o"></i>
+    </button>
+<header>
+    <nav class="navbar navbar-default navbar-fixed-top">
+        <div class="container">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#myNavbar">
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>                        
+                </button>
+                <a class="navbar-brand" href="#myPage">GashoTech</a>
+            </div>
+            <div class="collapse navbar-collapse" id="myNavbar">
+                <ul class="nav navbar-nav navbar-right">
+                    <li><a href="#about">ABOUT</a></li>
+                    <li><a href="#services">SERVICES</a></li>
+                    <li><a href="#solutions">SOLUTIONS</a></li>
+                    <li><a href="#testimonials">TESTIMONIALS</a></li>
+                    <li><a href="#blogs">BLOGS</a></li>
+                    <li><a href="#contact">CONTACT</a></li>
+                    <li class="dropdown">
+                        <a class="dropdown-toggle" data-toggle="dropdown" href="#">
+                            MORE <i class="fa fa-chevron-down"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a href="#hacking"><i class="fa fa-shield"></i> Hacking</a></li>
+                            <li><a href="#cracking"><i class="fa fa-key"></i> Cracking</a></li>
+                            <li><a href="#stories"><i class="fa fa-book"></i> Stories</a></li>
+                            <li class="divider"></li>
+                            <li><a href="#resources"><i class="fa fa-folder-open"></i> Resources</a></li>
+                            <li><a href="#tools"><i class="fa fa-wrench"></i> Tools</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+</header>
+<main>
+    <div class="jumbotron text-center" id="cosmic-jumbotron">
+        <canvas id="cosmicCanvas"></canvas>
+        <div class="jumbotron-content">
+            <div class="social-media-links social-media-links-jumbotron">
+                <a href="https://www.facebook.com/gashotech" target="_blank" class="social-icon"><i class="fa fa-facebook"></i></a>
+                <a href="https://twitter.com/gashotech" target="_blank" class="social-icon"><i class="fa fa-twitter"></i></a>
+                <a href="https://www.linkedin.com/company/gashotech" target="_blank" class="social-icon"><i class="fa fa-linkedin"></i></a>
+                <a href="https://www.instagram.com/gashotech" target="_blank" class="social-icon"><i class="fa fa-instagram"></i></a>
+                <a href="https://www.youtube.com/gashotech" target="_blank" class="social-icon"><i class="fa fa-youtube"></i></a>
+            </div>
+            <h1 class="jumbotron-heading">GashoTech | Innovating AI,Automation and Cybersecurity Solutions</h1>
+            <p class="jumbotron-subheading">THE BEST EXPERIENCE WITH ICT</p>
+            <form class="form-inline" action="https://formsubmit.io/send/YOUR_EMAIL_HERE" method="POST">
+                <input name="_redirect" type="hidden" value="https://gasho.tech/thankyou.html">
+                <input type="email" class="form-control" name="emailadr" size="50" placeholder="Email Address" required>
+                <button type="submit" class="btn btn-primary">Subscribe</button>
+            </form>
+        </div>
+    </div>
+    <div id="about" class="container-fluid bg-grey section-padding section-transition">
+        <div class="row fade-in">
+            <div class="col-sm-8">
+                <h2>About Us</h2>
+                <h4>Empowering the Future with AI and Innovation</h4>
+                <p>At GashoTech, we are a cutting-edge AI startup in Kenya dedicated to transforming industries through the power of artificial intelligence, automation, and advanced cybersecurity solutions. We harness the latest in AI technology to deliver smarter, faster, and more secure solutions, enabling businesses to thrive in an increasingly digital world.</p>
+                <h4>Why Choose Us?</h4>
+                <ul>
+                    <li><strong>Expertise & Innovation:</strong> Our team consists of industry experts with deep knowledge in AI, automation, cybersecurity, and ICT. We stay ahead of the curve by constantly researching and integrating the latest technologies into our solutions.</li>
+                    <li><strong>Tailored Solutions:</strong> We understand that every business is unique. That’s why we offer customized solutions that are specifically designed to address your specific challenges and goals.</li>
+                    <li><strong>Security-First Approach:</strong> With the growing threats in the digital landscape, cybersecurity is at the heart of everything we do. Our AI-powered cybersecurity tools and services ensure that your business is safe, resilient, and prepared for the future.</li>
+                    <li><strong>Customer-Centric:</strong> Our clients are at the core of everything we do. We prioritize building long-term partnerships based on trust, transparency, and results.</li>
+                </ul>
+                <a href="#contact"><button class="btn btn-primary btn-lg">Get in Touch</button></a>
+            </div>
+            <div class="col-sm-4">
+                <img class="img-responsive styled-img about-us-image" src="images/mylogocop.PNG" alt="About Us Image" loading="lazy">
+            </div>
+        </div>
+    </div>
+    <div class="container-fluid"  >
+        <div class="row">
+            <div class="col-sm-4">
+             <img class="img-responsive styled-img circular-img" src="images/weblogocop.png" alt="GashoTech Company Logo" loading="lazy">
+            </div>
+            <div class="col-sm-8">
+              <h2>Our Values</h2>
+              <h4><strong>MISSION:</strong> Our mission is simple: to drive innovation and efficiency in every aspect of business through intelligent automation and AI-powered solutions. By combining expertise in AI, machine learning, and cybersecurity, we aim to provide businesses with the tools they need to stay competitive and secure in the ever-evolving tech landscape.</h4>
+              <p><strong>VISION:</strong> We envision a world where AI and automation empower businesses to unlock new levels of efficiency, security, and innovation. By pushing the boundaries of technology, we are committed to creating solutions that not only solve today’s problems but also anticipate the needs of tomorrow.</p>
+            </div>
+        </div>
+    </div>
+    <div id="services" class="container-fluid text-center bg-grey section-padding section-transition">
+        <div class="fade-in">
+            <h2>SERVICES</h2>
+            <h4>What We Offer</h4>
+            <br>
+            <div class="row service-row">
+                <div class="col-sm-4 service-col">
+                    <div class="service-item">
+                        <span class="glyphicon glyphicon-cog service-icon"></span>
+                        <h4 class="service-title">AI Solutions</h4>
+                        <p class="service-description">We develop custom AI systems that automate complex processes, enhance decision-making, and optimize workflows. Our AI solutions include natural language processing, machine learning, and predictive analytics, tailored to meet your business needs.</p>
+                        <a href="solutions_ai.html" class="service-button">Learn More</a>
+                    </div>
+                </div>
+                <div class="col-sm-4 service-col">
+                    <div class="service-item">
+                        <span class="glyphicon glyphicon-refresh service-icon"></span>
+                        <h4 class="service-title">AI Automation</h4>
+                        <p class="service-description">Our AI automation tools streamline repetitive tasks, reduce human error, and boost productivity. By automating manual processes, we enable organizations to focus on innovation and growth.</p>
+                        <a href="solutions_automation.html" class="service-button">Learn More</a>
+                    </div>
+                </div>
+                <div class="col-sm-4 service-col">
+                    <div class="service-item">
+                        <span class="glyphicon glyphicon-lock service-icon"></span>
+                        <h4 class="service-title">Cybersecurity</h4>
+                        <p class="service-description">Our advanced cybersecurity solutions protect your business from cyber threats, ensuring your data and systems are secure. We offer AI-driven threat detection and comprehensive risk management strategies for complete security.</p>
+                        <a href="solutions_cybersecurity.html" class="service-button">Learn More</a>
+                    </div>
+                </div>
+            </div>
+            <div class="row service-row">
+                <div class="col-sm-4 service-col">
+                    <div class="service-item">
+                        <span class="glyphicon glyphicon-cloud service-icon"></span>
+                        <h4 class="service-title">ICT Services</h4>
+                        <p class="service-description">Our ICT services range from infrastructure management and cloud solutions to software development and IT consulting. We provide scalable solutions to help your business succeed.</p>
+                        <a href="solutions_ict.html" class="service-button">Learn More</a>
+                    </div>
+                </div>
+                <div class="col-sm-4 service-col">
+                    <div class="service-item">
+                        <span class="glyphicon glyphicon-wrench service-icon"></span>
+                        <h4 class="service-title">Network & Data</h4>
+                        <p class="service-description">We are experts in database design and programming, offering solutions that handle vast amounts of business information efficiently. Our network solutions ensure seamless connectivity and data flow.</p>
+                        <a href="#" class="service-button">Learn More</a>
+                    </div>
+                </div>
+                <div class="col-sm-4 service-col">
+                    <div class="service-item">
+                        <span class="glyphicon glyphicon-headphones service-icon"></span>
+                        <h4 class="service-title">Computer Services</h4>
+                        <p class="service-description">From hardware maintenance to software solutions, our computer services keep your systems running smoothly. Expert support for all your computing needs.</p>
+                        <a href="solutions_computer.html" class="service-button">Learn More</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="solutions" class="container-fluid text-center section-padding section-transition">
+        <div class="fade-in solutions-container">
+            <div class="solutions-header">
+                <h2>SOLUTIONS</h2>
+                <h4>Innovative Solutions for Modern Challenges</h4>
+            </div>
+            <div class="row">
+                <div class="col-sm-4">
+                    <div class="solution-card">
+                        <div class="solution-image-wrapper">
+                            <img class="solution-image" src="images/AI.jpg" alt="AI Solutions" loading="lazy">
+                            <div class="solution-overlay"></div>
+                        </div>
+                        <div class="solution-content">
+                            <h4 class="solution-title">AI Solutions</h4>
+                            <p class="solution-description">Leverage the power of artificial intelligence to transform your business. Our AI solutions help you make better decisions, automate processes, and stay ahead of the competition.</p>
+                            <a href="solutions_ai.html" class="solution-button">Learn More</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="solution-card">
+                        <div class="solution-image-wrapper">
+                            <img class="solution-image" src="images/automation.jpg" alt="AI Automation" loading="lazy">
+                            <div class="solution-overlay"></div>
+                        </div>
+                        <div class="solution-content">
+                            <h4 class="solution-title">AI Automation</h4>
+                            <p class="solution-description">Streamline your operations with our AI-powered automation solutions. We help you reduce costs, improve efficiency, and free up your team to focus on strategic initiatives.</p>
+                            <a href="solutions_automation.html" class="solution-button">Learn More</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="solution-card">
+                        <div class="solution-image-wrapper">
+                            <img class="solution-image" src="images/cybersec.jpg" alt="Cyber Security" loading="lazy">
+                            <div class="solution-overlay"></div>
+                        </div>
+                        <div class="solution-content">
+                            <h4 class="solution-title">Cyber Security</h4>
+                            <p class="solution-description">Protect your business with our advanced cybersecurity solutions. We offer AI-driven threat detection and comprehensive risk management strategies to secure your digital assets.</p>
+                            <a href="solutions_cybersecurity.html" class="solution-button">Learn More</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-4">
+                    <div class="solution-card">
+                        <div class="solution-image-wrapper">
+                            <img class="solution-image" src="images/Network_data.png" alt="ICT Services" loading="lazy">
+                            <div class="solution-overlay"></div>
+                        </div>
+                        <div class="solution-content">
+                            <h4 class="solution-title">ICT Services</h4>
+                            <p class="solution-description">Our ICT services range from infrastructure management and cloud solutions to software development and IT consulting. We provide scalable solutions to help your business succeed.</p>
+                            <a href="solutions_ict.html" class="solution-button">Learn More</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="solution-card">
+                        <div class="solution-image-wrapper">
+                            <img class="solution-image" src="images/compsev.jpg" alt="Computer Services" loading="lazy">
+                            <div class="solution-overlay"></div>
+                        </div>
+                        <div class="solution-content">
+                            <h4 class="solution-title">Computer Services</h4>
+                            <p class="solution-description">From hardware maintenance to software solutions, our computer services keep your systems running smoothly. Expert support for all your computing needs.</p>
+                            <a href="solutions_computer.html" class="solution-button">Learn More</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="solution-card">
+                        <div class="solution-image-wrapper">
+                            <img class="solution-image" src="images/software.jpg" alt="Network and Data" loading="lazy">
+                            <div class="solution-overlay"></div>
+                        </div>
+                        <div class="solution-content">
+                            <h4 class="solution-title">Network & Data</h4>
+                            <p class="solution-description">We offer expert network and data management solutions to ensure seamless connectivity and efficient data handling. Our services include network design, data storage solutions, and more.</p>
+                            <a href="solutions_network_data.html" class="solution-button">Learn More</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="testimonials" class="container-fluid bg-grey section-padding section-transition">
+        <div class="fade-in">
+            <h2 class="text-center">What Our Customers Say</h2>
+            <div id="myCarousel" class="carousel slide text-center" data-ride="carousel">
+                <!-- Indicators -->
+                <ol class="carousel-indicators">
+                    <li data-target="#myCarousel" data-slide-to="0" class="active"></li>
+                    <li data-target="#myCarousel" data-slide-to="1"></li>
+                    <li data-target="#myCarousel" data-slide-to="2"></li>
+                </ol>
+
+                <!-- Wrapper for slides -->
+                <div class="carousel-inner" role="listbox">
+                    <div class="item active">
+                        <h4>"GashoTech transformed our business with their innovative AI solutions. Highly recommend!"<br><span style="font-style:normal;">Alex Johnson, CTO of Tech Innovations</span></h4>
+                    </div>
+                    <div class="item">
+                        <h4>"Their cybersecurity expertise is unparalleled. We feel much safer now."<br><span style="font-style:normal;">Maria Rodriguez, IT Manager at SecureNet</span></h4>
+                    </div>
+                    <div class="item">
+                        <h4>"Excellent service and support. GashoTech's team is always there when we need them."<br><span style="font-style:normal;">John Smith, CEO of Future Enterprises</span></h4>
+                    </div>
+                </div>
+
+                <!-- Left and right controls -->
+                <a class="left carousel-control" href="#myCarousel" role="button" data-slide="prev">
+                    <span class="glyphicon glyphicon-chevron-left" aria-hidden="true"></span>
+                    <span class="sr-only">Previous</span>
+                </a>
+                <a class="right carousel-control" href="#myCarousel" role="button" data-slide="next">
+                    <span class="glyphicon glyphicon-chevron-right" aria-hidden="true"></span>
+                    <span class="sr-only">Next</span>
+                </a>
+            </div>
+        </div>
+    </div>
+    <div id="blogs" class="container-fluid bg-grey section-padding section-transition">
+        <div class="fade-in">
+            <div class="text-center">
+                <h2>Our Blogs </h2>
+                <h4>Visit our sites and learn a thing or two about the cyber community</h4>
+            </div>
+            <div class="row">
+                <div class="col-sm-4">
+                    <div class="solution-card">
+                        <div class="solution-image-wrapper">
+                            <img class="solution-image" src="images/blog_placeholder.jpg" alt="Hacking Blog Image" loading="lazy">
+                            <div class="solution-overlay"></div>
+                        </div>
+                        <div class="solution-content">
+                            <h4 class="solution-title">HACKING</h4>
+                            <p class="solution-description">Top Hacking stories and links</p>
+                            <ul>
+                                <li><a href="#">How To Get IP Address Of Any Snapchat User</a></li>
+                                <li><a href="#">How To Bypass Mega.nz 50Gb Import Limit</a></li>
+                                <li><a href="#">3 Best Apps For Trading Crypto Currency</a></li>
+                            </ul>
+                            <a href="http://localhost/website/blog/hacking.php" class="solution-button">SEE MORE</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="solution-card">
+                        <div class="solution-image-wrapper">
+                            <img class="solution-image" src="images/blog_placeholder.jpg" alt="Portfolio Blog Image" loading="lazy">
+                            <div class="solution-overlay"></div>
+                        </div>
+                        <div class="solution-content">
+                            <h4 class="solution-title">PORTFOLIO</h4>
+                            <p class="solution-description">Top PROJECTS, WEBSITES and links</p>
+                            <ul>
+                                <li><a href="http://shujaamultimedia.com">shujaamultimedia</a></li>
+                                <li><a href="#">Cyber security blogs</a></li>
+                                <li><a href="#">ICDL REVISION</a></li>
+                                <li><a href="/MyProfile/profile.html">MY PROFILE</a></li>
+                                <li><a href="/AI_WEB/ai.html">AI WEBSITES</a></li>
+                            </ul>
+                            <a href="http://localhost/website/blog/cracking.php" class="solution-button">SEE MORE</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="solution-card">
+                        <div class="solution-image-wrapper">
+                            <img class="solution-image" src="images/blog_placeholder.jpg" alt="News Blog Image" loading="lazy">
+                            <div class="solution-overlay"></div>
+                        </div>
+                        <div class="solution-content">
+                            <h4 class="solution-title">NEWS</h4>
+                            <p class="solution-description">Top Cracking stories and links</p>
+                            <ul>
+                                <li><a href="#">Cracking Software And Reverse Engineering | Complete Course</a></li>
+                                <li><a href="#">Some Best Free Proxy Sources For Scraping</a></li>
+                                <li><a href="#">Ultimate Mailer SMTP Spread Tool</a></li>
+                            </ul>
+                            <a href="http://localhost/website/blog/stories.php" class="solution-button">SEE MORE</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="contact" class="container-fluid bg-grey section-padding section-transition">
+        <div class="fade-in">
+            <h2 class="text-center">CONTACT</h2>
+            <div class="row">
+                <div class="col-sm-5">
+                    <p>Contact us and we'll get back to you within 24 hours.</p>
+                    <p><span class="glyphicon glyphicon-map-marker"></span> Nairobi, Kenya</p>
+                    <p><span class="glyphicon glyphicon-phone"></span> Tel: +254 792329179/ +254 788467652</p>
+                    <p><span class="glyphicon glyphicon-envelope"></span> email: gashotech@gmail.com</p>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const canvas = document.getElementById('cosmicCanvas');
+        const ctx = canvas.getContext('2d');
+        const jumbotron = document.getElementById('cosmic-jumbotron');
+
+        let stars = [];
+        const numStars = 400;
+        const maxStarRadius = 4.0; /* Increased star size for better visibility */
+        const starSpeed = 0.08;
+        const connectionDistance = 85; // Max distance for lines
+        const connectionOpacity = 0.3; // Increased opacity of connection lines for better visibility
+
+        let mouse = { x: undefined, y: undefined };
+        let jumbotronRect;
+
+        function resizeCanvas() {
+            jumbotronRect = jumbotron.getBoundingClientRect();
+            canvas.width = jumbotronRect.width;
+            canvas.height = jumbotronRect.height;
+            initStars();
+        }
+
+        class Star {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.radius = Math.random() * maxStarRadius;
+                this.originalX = this.x;
+                this.originalY = this.y;
+                this.vx = (Math.random() - 0.5) * starSpeed;
+                this.vy = (Math.random() - 0.5) * starSpeed;
+                this.opacity = Math.random();
+                this.blinkSpeed = Math.random() * 0.02 + 0.005;
+                this.blinkDirection = 1;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                const isDarkMode = document.body.classList.contains('dark-mode');
+                const starColor = isDarkMode ? '26, 188, 156' : '255, 255, 255'; /* Primary in dark mode, white in light mode */
+                ctx.fillStyle = `rgba(${starColor}, ${this.opacity})`;
+                ctx.fill();
+            }
+
+            update() {
+                // Natural drift
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Boundary check for drift
+                if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+                if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+
+                // Tidal Interaction & Proximity Shine
+                if (mouse.x !== undefined && mouse.y !== undefined) {
+                    const dx = mouse.x - (this.x + jumbotronRect.left);
+                    const dy = mouse.y - (this.y + jumbotronRect.top);
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    // Tidal pull
+                    const pullStrength = 0.005;
+                    if (distance < connectionDistance * 2) {
+                        this.x -= dx * pullStrength;
+                        this.y -= dy * pullStrength;
+                    } else {
+                        // Gracefully drift back to original position
+                        this.x += (this.originalX - this.x) * 0.01;
+                        this.y += (this.originalY - this.y) * 0.01;
+                    }
+
+                    // Proximity Shine
+                    const maxBrightnessDistance = 150;
+                    if (distance < maxBrightnessDistance) {
+                        this.opacity = 1 - (distance / maxBrightnessDistance);
+                    } else {
+                        this.opacity = Math.max(0.1, this.opacity - 0.01); // Fade out slowly
+                    }
+                } else {
+                    // Drift back to original position when mouse leaves
+                    this.x += (this.originalX - this.x) * 0.01;
+                    this.y += (this.originalY - this.y) * 0.01;
+
+                    // Twinkling effect when no mouse interaction
+                    this.opacity += this.blinkSpeed * this.blinkDirection;
+                    if (this.opacity > 1 || this.opacity < 0.1) {
+                        this.blinkDirection *= -1;
+                    }
+                }
+
+                this.draw();
+            }
+        }
+
+        function initStars() {
+            stars = [];
+            for (let i = 0; i < numStars; i++) {
+                stars.push(new Star());
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let i = 0; i < stars.length; i++) {
+                stars[i].update();
+
+                // Subtle Constellations
+                for (let j = i + 1; j < stars.length; j++) {
+                    const dx = stars[i].x - stars[j].x;
+                    const dy = stars[i].y - stars[j].y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < connectionDistance) {
+                        ctx.beginPath();
+                        ctx.moveTo(stars[i].x, stars[i].y);
+                        ctx.lineTo(stars[j].x, stars[j].y);
+                        const isDarkMode = document.body.classList.contains('dark-mode');
+                        const lineColor = isDarkMode ? '26, 188, 156' : '255, 255, 255'; /* Primary in dark mode, white in light mode */
+                        ctx.strokeStyle = `rgba(${lineColor}, ${connectionOpacity * (1 - (distance / connectionDistance))})`;
+                        ctx.stroke();
+                    }
+                }
+            }
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        jumbotron.addEventListener('mousemove', (event) => {
+            mouse.x = event.clientX;
+            mouse.y = event.clientY;
+        });
+
+        jumbotron.addEventListener('mouseleave', () => {
+            mouse.x = undefined;
+            mouse.y = undefined;
+        });
+
+        resizeCanvas(); // Initial canvas size and star setup
+        animate(); // Start animation loop
+    });
+</script>
+                </div>
+                <div class="col-sm-7">
+                    <form method="POST" action="https://formsubmit.io/send/YOUR_EMAIL_HERE" id="contact-form" >
+                        <input name="_redirect" type="hidden" value="https://gasho.tech/thankyou.html">
+                        <div class="row">
+                            <div class="col-sm-6 form-group">
+                                <input class="form-control" id="name" name="name" placeholder="Name" type="text" required>
+                            </div>
+                            <div class="col-sm-6 form-group">
+                                <input class="form-control" id="email" name="email" placeholder="Email" type="email" required>
+                            </div>
+                        </div>
+                        <textarea class="form-control" id="comments" name="comments" placeholder="Comment" rows="5"></textarea><br>
+                        <div class="row">
+                            <div class="col-sm-12 form-group">
+                                <button class="btn btn-default pull-right" type="submit" >Send</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+<footer class="container-fluid text-center">
+    <a href="#myPage" title="To Top">
+        <span class="glyphicon glyphicon-chevron-up"></span>
+    </a>
+    <p>&copy; 2024 GashoTech. All rights reserved. | <a href="terms_of_service.html">Terms of Service</a> | <a href="privacy_policy.html">Privacy Policy</a> | <a href="#contact">Contact Us</a></p>
+    <div class="social-media-links">
+        <a href="https://www.facebook.com/gashotech" target="_blank" class="social-icon"><i class="fa fa-facebook"></i></a>
+        <a href="https://twitter.com/gashotech" target="_blank" class="social-icon"><i class="fa fa-twitter"></i></a>
+        <a href="https://www.linkedin.com/company/gashotech" target="_blank" class="social-icon"><i class="fa fa-linkedin"></i></a>
+        <a href="https://www.instagram.com/gashotech" target="_blank" class="social-icon"><i class="fa fa-instagram"></i></a>
+        <a href="https://www.youtube.com/gashotech" target="_blank" class="social-icon"><i class="fa fa-youtube"></i></a>
+    </div>
+</footer>
+<script src="theme-toggle.js"></script>
+<script src="mouse-trail.js"></script> <!-- Added mouse trail script -->
+<script>
+    // Smooth scroll for navigation links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            document.querySelector(this.getAttribute('href')).scrollIntoView({
+                behavior: 'smooth'
+            });
+        });
+    });
+
+    // Fade in elements on scroll
+    function fadeInOnScroll() {
+        const elements = document.querySelectorAll('.fade-in');
+        elements.forEach(element => {
+            const elementTop = element.getBoundingClientRect().top;
+            const elementBottom = element.getBoundingClientRect().bottom;
+            const isVisible = (elementTop < window.innerHeight - 100) && (elementBottom >= 0);
+            
+            if (isVisible) {
+                element.classList.add('visible');
+            }
+        });
+    }
+
+    // Initial check for elements in view
+    window.addEventListener('load', fadeInOnScroll);
+    // Check for new elements on scroll
+    window.addEventListener('scroll', fadeInOnScroll);
+
+    // Active section highlight
+    window.addEventListener('scroll', function() {
+        const sections = document.querySelectorAll('section');
+        const navItems = document.querySelectorAll('.navbar-nav li a');
+        
+        sections.forEach(section => {
+            const sectionTop = section.offsetTop - 100;
+            const sectionBottom = sectionTop + section.offsetHeight;
+            const scrollPosition = window.scrollY;
+            
+            if (scrollPosition >= sectionTop && scrollPosition < sectionBottom) {
+                const id = section.getAttribute('id');
+                navItems.forEach(item => {
+                    item.classList.remove('active');
+                    if (item.getAttribute('href') === '#' + id) {
+                        item.classList.add('active');
+                    }
+                });
+            }
+        });
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terms of Service | GashoTech</title>
+    <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <style>
+        /* Dark Mode Colors */
+        :root {
+            --primary-color: #1abc9c;
+            --primary-dark: #16a085;
+            --bg-light: #ffffff;
+            --text-light: #333333;
+            --bg-dark: #1a1a1a;
+            --bg-dark-secondary: #2d2d2d;
+            --text-dark: #e1e1e1;
+            --text-dark-secondary: #b0b0b0;
+            --border-dark: #404040;
+        }
+
+        /* Dark Mode Styles */
+        body.dark-mode {
+            background-color: var(--bg-dark);
+            color: var(--text-dark);
+        }
+
+        .dark-mode .navbar {
+            background-color: var(--bg-dark);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .dark-mode .navbar-brand,
+        .dark-mode .navbar li a {
+            color: var(--text-dark) !important;
+        }
+
+        .dark-mode .navbar li a:hover {
+            color: var(--primary-color) !important;
+        }
+
+        .dark-mode .jumbotron,
+        .dark-mode .container-fluid,
+        .dark-mode .content-section {
+            background-color: var(--bg-dark-secondary);
+            color: var(--text-dark);
+        }
+
+        .dark-mode .content-section h2 {
+            color: var(--primary-color);
+        }
+
+        .dark-mode footer {
+            background-color: var(--bg-dark);
+            box-shadow: 0 -2px 4px rgba(0,0,0,0.3);
+        }
+
+        .dark-mode footer p,
+        .dark-mode footer a {
+            color: var(--text-dark);
+        }
+
+        .dark-mode p,
+        .dark-mode li,
+        .dark-mode .content-section p,
+        .dark-mode .content-section li {
+            color: var(--text-dark);
+        }
+
+        .dark-mode h1,
+        .dark-mode h2,
+        .dark-mode h3,
+        .dark-mode .content-section h2 {
+            color: var(--primary-color);
+        }
+
+        /* Theme Toggle Button */
+        .theme-toggle {
+            position: fixed;
+            right: 20px;
+            top: 70px; /* Position it just below the navbar */
+            z-index: 999;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .theme-toggle:hover {
+            background-color: var(--primary-dark);
+            transform: scale(1.1);
+        }
+
+        .dark-mode .theme-toggle {
+            background-color: var(--primary-dark);
+        }
+
+        .dark-mode .theme-toggle:hover {
+            background-color: var(--primary-color);
+        }
+    </style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
+    <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('.theme-toggle').click(function() {
+                $('body').toggleClass('dark-mode');
+            });
+        });
+    </script>
+</head>
+<body id="myPage" data-spy="scroll" data-target=".navbar" data-offset="60">
+    <header>
+        <nav class="navbar navbar-default navbar-fixed-top">
+            <div class="container">
+                <div class="navbar-header">
+                    <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#myNavbar">
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>                        
+                    </button>
+                    <a class="navbar-brand" href="index.html">GashoTech</a>
+                </div>
+                <div class="collapse navbar-collapse" id="myNavbar">
+                    <ul class="nav navbar-nav navbar-right">
+                        <li><a href="index.html#about">ABOUT</a></li>
+                        <li><a href="index.html#services">SERVICES</a></li>
+                        <li><a href="index.html#solutions">SOLUTIONS</a></li>
+                        <li><a href="index.html#testimonials">TESTIMONIALS</a></li>
+                        <li><a href="index.html#blogs">BLOGS</a></li>
+                        <li><a href="index.html#contact">CONTACT</a></li>
+                        <li class="dropdown">
+                            <a class="dropdown-toggle" data-toggle="dropdown" href="#">
+                                MORE <i class="fa fa-chevron-down"></i>
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li><a href="#hacking"><i class="fa fa-shield"></i> Hacking</a></li>
+                                <li><a href="#cracking"><i class="fa fa-key"></i> Cracking</a></li>
+                                <li><a href="#stories"><i class="fa fa-book"></i> Stories</a></li>
+                                <li class="divider"></li>
+                                <li><a href="#resources"><i class="fa fa-folder-open"></i> Resources</a></li>
+                                <li><a href="#tools"><i class="fa fa-wrench"></i> Tools</a></li>
+                            </ul>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+        <button class="theme-toggle"><i class="fa fa-moon-o"></i></button>
+    </header>
+    <main>
+        <div class="jumbotron text-center">
+            <h1 style="text-align:center; font-size: 3em; font-weight: bold; margin-bottom: 20px;">Terms of Service</h1>
+        </div>
+        <div class="container-fluid bg-grey">
+            <div class="row">
+                <div class="col-sm-8 col-sm-offset-2">
+                    <section class="text-left">
+                        <h2>Introduction</h2>
+                        <p>Welcome to GashoTech. These terms and conditions outline the rules and regulations for the use of GashoTech's Website.</p>
+                    </section>
+                    <section class="text-left">
+                        <h2>Intellectual Property Rights</h2>
+                        <p>Other than the content you own, under these Terms, GashoTech and/or its licensors own all the intellectual property rights and materials contained in this Website.</p>
+                    </section>
+                    <section class="text-left">
+                        <h2>Restrictions</h2>
+                        <p>You are specifically restricted from all of the following: publishing any Website material in any other media, selling, sublicensing and/or otherwise commercializing any Website material, etc.</p>
+                    </section>
+                    <section class="text-left">
+                        <h2>Your Privacy</h2>
+                        <p>Please read our <a href="privacy_policy.html">Privacy Policy</a>.</p>
+                    </section>
+                    <section class="text-left">
+                        <h2>Limitation of liability</h2>
+                        <p>In no event shall GashoTech, nor any of its officers, directors, and employees, be held liable for anything arising out of or in any way connected with your use of this Website.</p>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </main>
+    <footer class="container-fluid text-center">
+        <a href="#myPage" title="To Top">
+            <span class="glyphicon glyphicon-chevron-up"></span>
+        </a>
+        <p>&copy; 2024 GashoTech. All rights reserved. | <a href="terms_of_service.html">Terms of Service</a> | <a href="privacy_policy.html">Privacy Policy</a> | <a href="index.html#contact">Contact Us</a></p>
+        <div class="social-media-links">
+            <a href="https://www.facebook.com/gashotech" target="_blank" class="social-icon"><i class="fa fa-facebook"></i></a>
+            <a href="https://twitter.com/gashotech" target="_blank" class="social-icon"><i class="fa fa-twitter"></i></a>
+            <a href="https://www.linkedin.com/company/gashotech" target="_blank" class="social-icon"><i class="fa fa-linkedin"></i></a>
+            <a href="https://www.instagram.com/gashotech" target="_blank" class="social-icon"><i class="fa fa-instagram"></i></a>
+            <a href="https://www.youtube.com/gashotech" target="_blank" class="social-icon"><i class="fa fa-youtube"></i></a>
+        </div>
+    </footer>
+    <script src="mouse-trail.js"></script>
+</body>
+</html>
