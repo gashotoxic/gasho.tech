@@ -1,0 +1,6 @@
+# Allow all search engines to crawl the entire site
+User-agent: *
+Disallow:
+
+# Link to sitemap for easier discovery
+Sitemap: https://gasho.tech/sitemap.xml
