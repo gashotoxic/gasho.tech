@@ -227,6 +227,10 @@
     color: white;
 }
 
+.dark-mode .chat-header-title {
+    color: white;
+}
+
 .chat-header-status {
     font-size: 12px;
     opacity: 0.95;
@@ -369,6 +373,54 @@
     opacity: 0.7;
     margin-top: 6px;
     font-weight: 500;
+}
+
+/* Message Reactions */
+.message-reactions {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.chat-message.bot:hover .message-reactions {
+    opacity: 1;
+}
+
+.reaction-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--chat-glass-border);
+    border-radius: 20px;
+    padding: 4px 10px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(5px);
+}
+
+.reaction-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+}
+
+.reaction-btn.active {
+    background: var(--chat-primary);
+    border-color: var(--chat-primary);
+    box-shadow: 0 0 10px var(--chat-neon-glow);
+}
+
+.dark-mode .message-reactions {
+    opacity: 0.7;
+}
+
+.dark-mode .reaction-btn {
+    background: rgba(61, 61, 61, 0.7);
+    border-color: var(--chat-border-dark);
+}
+
+.dark-mode .reaction-btn:hover {
+    background: rgba(80, 80, 80, 0.8);
 }
 
 /* Futuristic Input Area */
@@ -558,6 +610,15 @@
 
 .dark-mode .chat-input::placeholder {
     color: rgba(255, 255, 255, 0.4);
+}
+
+/* Light mode chat input fix */
+.chat-input {
+    color: var(--chat-text-light);
+}
+
+.chat-input::placeholder {
+    color: rgba(0, 0, 0, 0.4);
 }
 
 .dark-mode .quick-reply {

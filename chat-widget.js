@@ -66,6 +66,16 @@ class ChatWidget {
             }
         });
 
+        // Event delegation for quick replies and guide topics
+        this.quickReplies.addEventListener('click', (e) => {
+            if (e.target.classList.contains('quick-reply') || e.target.classList.contains('guide-topic')) {
+                const message = e.target.getAttribute('data-message');
+                this.chatInput.value = message;
+                this.clearQuickReplies(); // Clear the quick replies/guide topics after selection
+                this.sendMessage();
+            }
+        });
+
         // Close chat when clicking outside
         document.addEventListener('click', (e) => {
             if (this.isOpen && !this.widget.contains(e.target)) {
@@ -145,78 +155,18 @@ class ChatWidget {
         this.quickReplies.innerHTML = replies.map(reply => `
             <button class="quick-reply" data-message="${reply}">${reply}</button>
         `).join('');
-
-        // Add click handlers for quick replies
-        this.quickReplies.querySelectorAll('.quick-reply').forEach(button => {
-            button.addEventListener('click', () => {
-                const message = button.getAttribute('data-message');
-                this.chatInput.value = message;
-                this.sendMessage();
-            });
-        });
     }
 
     showGuideTopics() {
         const guideTopics = [
-            {
-                category: '🚀 Services',
-                topics: [
-                    'List all services',
-                    'AI solutions info',
-                    'Cybersecurity details'
-                ]
-            },
-            {
-                category: '💼 Company',
-                topics: [
-                    'About GashoTech',
-                    'Company location',
-                    'Contact information'
-                ]
-            },
-            {
-                category: '💰 Pricing',
-                topics: [
-                    'How much does it cost?',
-                    'Free consultation',
-                    'Custom quotes'
-                ]
-            },
-            {
-                category: '🎓 Learning',
-                topics: [
-                    'What is AI?',
-                    'Cybersecurity basics',
-                    'Automation benefits'
-                ]
-            }
+            'List all services',
+            'About GashoTech',
+            'Contact information'
         ];
 
-        let guideHTML = '<div class="guide-categories">';
-        guideTopics.forEach(category => {
-            guideHTML += `
-                <div class="guide-category">
-                    <div class="guide-category-title">${category.category}</div>
-                    <div class="guide-topics">
-                        ${category.topics.map(topic => `
-                            <button class="quick-reply guide-topic" data-message="${topic}">${topic}</button>
-                        `).join('')}
-                    </div>
-                </div>
-            `;
-        });
-        guideHTML += '</div>';
-
-        this.quickReplies.innerHTML = guideHTML;
-
-        // Add click handlers for guide topics
-        this.quickReplies.querySelectorAll('.guide-topic').forEach(button => {
-            button.addEventListener('click', () => {
-                const message = button.getAttribute('data-message');
-                this.chatInput.value = message;
-                this.sendMessage();
-            });
-        });
+        this.quickReplies.innerHTML = guideTopics.map(topic => `
+            <button class="quick-reply guide-topic" data-message="${topic}">${topic}</button>
+        `).join('');
     }
 
     clearQuickReplies() {
@@ -243,16 +193,58 @@ class ChatWidget {
         }, 1000);
     }
 
-    addMessage(message, sender) {
+    addMessage(message, sender, showReactions = true) {
+        const messageId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
         const messageHTML = `
-            <div class="chat-message ${sender}">
+            <div class="chat-message ${sender}" data-message-id="${messageId}">
                 <div class="message-bubble">${message}</div>
                 <div class="message-time">${this.getCurrentTime()}</div>
+                ${sender === 'bot' && showReactions ? this.addMessageReactionsHTML(messageId) : ''}
             </div>
         `;
 
         this.chatMessages.insertAdjacentHTML('beforeend', messageHTML);
         this.scrollToBottom();
+
+        // Add reaction listeners
+        if (sender === 'bot' && showReactions) {
+            this.attachReactionListeners(messageId);
+        }
+    }
+
+    addMessageReactionsHTML(messageId) {
+        return `
+            <div class="message-reactions" data-message-id="${messageId}">
+                <button class="reaction-btn" data-reaction="👍">👍</button>
+                <button class="reaction-btn" data-reaction="👎">👎</button>
+                <button class="reaction-btn" data-reaction="❤️">❤️</button>
+                <button class="reaction-btn" data-reaction="😂">😂</button>
+                <button class="reaction-btn" data-reaction="😮">😮</button>
+            </div>
+        `;
+    }
+
+    attachReactionListeners(messageId) {
+        const reactionsContainer = this.chatMessages.querySelector(`[data-message-id="${messageId}"] .message-reactions`);
+        if (reactionsContainer) {
+            reactionsContainer.addEventListener('click', (e) => {
+                if (e.target.classList.contains('reaction-btn')) {
+                    const reaction = e.target.getAttribute('data-reaction');
+                    this.handleReaction(messageId, reaction, e.target);
+                }
+            });
+        }
+    }
+
+    handleReaction(messageId, reaction, buttonElement) {
+        // Remove previous reaction from this user
+        const reactionsContainer = buttonElement.closest('.message-reactions');
+        reactionsContainer.querySelectorAll('.reaction-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+
+        // Add new reaction
+        buttonElement.classList.add('active');
     }
 
     getResponse(message) {
@@ -350,7 +342,7 @@ class ChatWidget {
                 <strong>Contact GashoTech</strong><br><br>
                 📍 <strong>Location:</strong> Nairobi, Kenya<br>
                 📞 <strong>Phone:</strong> +254 792329179 / +254 788467652<br>
-                📧 <strong>Email:</strong> gashotech@gmail.com<br><br>
+                📧 <strong>Email:</strong> gashotechnologies@gmail.com<br><br>
                 <strong>Follow us:</strong><br>
                 Facebook: /gashotech<br>
                 Twitter: @gashotech<br>
