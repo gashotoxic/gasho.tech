@@ -8,31 +8,6 @@
 	<meta https-equiv="X-UA-Compatible" content="ie=Edge">
 	<meta name="description" content="GashoTech - Empowering the Future with AI and Innovation. We offer AI solutions, AI automation, cybersecurity, and ICT services to help businesses thrive.">
 	<meta name="keywords" content="AI, AI Automation, Cybersecurity, ICT Services, GashoTech">
-	<!-- Google tag (gtag.js) -->
-	<script async src="https://www.googletagmanager.com/gtag/js?id=G-C1V1G33QVD"></script>
-	<script>
-	  window.dataLayer = window.dataLayer || [];
-	  function gtag(){dataLayer.push(arguments);}
-	  gtag('js', new Date());
-	  gtag('config', 'G-C1V1G33QVD');
-	</script>
-	<!-- Meta Pixel Code -->
-	<script>
-	!function(f,b,e,v,n,t,s)
-	{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-	n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-	if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-	n.queue=[];t=b.createElement(e);t.async=!0;
-	t.src=v;s=b.getElementsByTagName(e)[0];
-	s.parentNode.insertBefore(t,s)}(window, document,'script',
-	'https://connect.facebook.net/en_US/fbevents.js');
-	fbq('init', '1479801696585443');
-	fbq('track', 'PageView');
-	</script>
-	<noscript><img height="1" width="1" style="display:none"
-	src="https://www.facebook.com/tr?id=1479801696585443&ev=PageView&noscript=1"
-	/></noscript>
-	<!-- End Meta Pixel Code -->
 	<script type="application/ld+json">
 	{
 	  "@context": "https://schema.org",
@@ -55,7 +30,6 @@
 	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
 	<link rel="stylesheet" href="./styles.css">
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-	<link rel="stylesheet" href="./chat-widget.css">
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
 	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
 	<script src="jquery.js" ></script>	
@@ -590,61 +564,8 @@
         }
 
         .dark-mode .social-icon {
-            color: #e1e1e1; /* Light color for dark mode */
-        }
-
-        .dark-mode .social-icon:hover {
-            color: var(--primary-color);
-        }
-
-        /* Dropdown Menu Styling */
-        .dropdown-menu {
-            background-color: #ffffff;
-            border: 1px solid rgba(26, 188, 156, 0.2);
-            border-radius: 5px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            padding: 10px 0;
-            margin-top: 10px;
-        }
-
-        .dropdown-menu > li > a {
-            color: #333333;
-            padding: 10px 20px;
-            font-size: 14px;
-            transition: all 0.3s ease;
-        }
-
-        .dropdown-menu > li > a:hover {
-            background-color: rgba(26, 188, 156, 0.1);
-            color: var(--primary-color);
-            padding-left: 25px;
-        }
-
-        .dropdown-menu > li > a i {
-            margin-right: 10px;
-            color: var(--primary-color);
-        }
-
-        .dropdown-menu .divider {
-            margin: 5px 0;
-            border-color: rgba(26, 188, 156, 0.2);
-        }
-
-        /* Dark Mode Dropdown */
-        .dark-mode .dropdown-menu {
-            background-color: var(--bg-dark-secondary);
-            border-color: rgba(26, 188, 156, 0.3);
-        }
-
-        .dark-mode .dropdown-menu > li > a {
             color: var(--text-dark);
         }
-
-        .dark-mode .dropdown-menu > li > a:hover {
-            background-color: rgba(26, 188, 156, 0.2);
-            color: var(--primary-color);
-        }
-
         /* Adjust Margin for Sections Below Navbar */
         .content-section,
         .jumbotron,
@@ -687,6 +608,8 @@
                             MORE <i class="fa fa-chevron-down"></i>
                         </a>
                         <ul class="dropdown-menu">
+                            <li><a href="#hacking"><i class="fa fa-shield"></i> Hacking</a></li>
+                            <li><a href="#cracking"><i class="fa fa-key"></i> Cracking</a></li>
                             <li><a href="#stories"><i class="fa fa-book"></i> Stories</a></li>
                             <li class="divider"></li>
                             <li><a href="#resources"><i class="fa fa-folder-open"></i> Resources</a></li>
@@ -711,9 +634,8 @@
             </div>
             <h1 class="jumbotron-heading">GashoTech | Innovating AI,Automation and Cybersecurity Solutions</h1>
             <p class="jumbotron-subheading">THE BEST EXPERIENCE WITH ICT</p>
-            <form class="form-inline" action="https://formsubmit.io/send/gashotechnologies@gmail.com" method="POST">
+            <form class="form-inline" action="https://formsubmit.io/send/YOUR_EMAIL_HERE" method="POST">
                 <input name="_redirect" type="hidden" value="https://gasho.tech/thankyou.html">
-                <input name="_subject" type="hidden" value="from gashotech website info">
                 <input type="email" class="form-control" name="emailadr" size="50" placeholder="Email Address" required>
                 <button type="submit" class="btn btn-primary">Subscribe</button>
             </form>
@@ -950,8 +872,8 @@
                             <div class="solution-overlay"></div>
                         </div>
                         <div class="solution-content">
-                            <h4 class="solution-title">SECURITY AND SAFETY</h4>
-                            <p class="solution-description">Top security stories and links</p>
+                            <h4 class="solution-title">HACKING</h4>
+                            <p class="solution-description">Top Hacking stories and links</p>
                             <ul>
                                 <li><a href="#">How To Get IP Address Of Any Snapchat User</a></li>
                                 <li><a href="#">How To Bypass Mega.nz 50Gb Import Limit</a></li>
@@ -1010,7 +932,7 @@
                     <p>Contact us and we'll get back to you within 24 hours.</p>
                     <p><span class="glyphicon glyphicon-map-marker"></span> Nairobi, Kenya</p>
                     <p><span class="glyphicon glyphicon-phone"></span> Tel: +254 792329179/ +254 788467652</p>
-                    <p><span class="glyphicon glyphicon-envelope"></span> email: gashotechnologies@gmail.com</p>
+                    <p><span class="glyphicon glyphicon-envelope"></span> email: gashotech@gmail.com</p>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const canvas = document.getElementById('cosmicCanvas');
@@ -1160,9 +1082,8 @@
 </script>
                 </div>
                 <div class="col-sm-7">
-                    <form method="POST" action="https://formsubmit.io/send/gashotechnologies@gmail.com" id="contact-form" >
+                    <form method="POST" action="https://formsubmit.io/send/denismugo101@gmail.com" id="contact-form" >
                         <input name="_redirect" type="hidden" value="https://gasho.tech/thankyou.html">
-                        <input name="_subject" type="hidden" value="from gashotech website info">
                         <div class="row">
                             <div class="col-sm-6 form-group">
                                 <input class="form-control" id="name" name="name" placeholder="Name" type="text" required>
@@ -1198,7 +1119,6 @@
 </footer>
 <script src="theme-toggle.js"></script>
 <script src="mouse-trail.js"></script> <!-- Added mouse trail script -->
-<script src="./chat-widget.js"></script>
 <script>
     // Smooth scroll for navigation links
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {

@@ -5,15 +5,32 @@
     <link rel="shortcut icon" href="favicon.jpg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IT Specialist Profile</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="../chat-widget.css">
 </head>
 <body>
+    <a href="../index.html" class="back-to-home">
+        <i class="fa fa-arrow-left"></i>
+        Back to Home
+    </a>
+
     <div class="container">
+        <div class="corner-decoration top-right"></div>
+        <div class="corner-decoration bottom-left"></div>
+        <div class="corner-decoration bottom-right"></div>
+
         <header>
             <img src="favicon.jpg" alt="Profile Picture" class="profile-image">
             <div class="header-info">
                 <h1>DENIS MUGO</h1>
                 <p>IT SPECIALIST</p>
+                <div class="tech-status">
+                    <span>Available for Work</span>
+                </div>
             </div>
             <div class="toggle-container">
                 <button id="darkModeToggle">
@@ -49,14 +66,15 @@
 
         <section class="contact">
             <h2>Contact</h2>
-            <p>Email: <a href="mailto:denismugo101@gmail.com">denismugo101@gmail.com</a></p>
-            <p>YOUTUBE: <a href="https://youtube.com/gashotech">@Gashotech</a></p>
-            <p>INSTAGRAM: <a href="https://instagram.com/gashotech">@gashotech</a></p>
-            <p>TIKTOK: <a href="https://tiktok.com/gashotech">@gashotech</a></p>
-            <p>LinkedIn: <a href="https://www.linkedin.com/in/denismugo" target="_blank">linkedin.com/in/denismugo</a></p>
-            <p>GitHub: <a href="https://github.com/gashotoxic" target="_blank">github.com/GashoMugo</a></p>
+            <p><i class="fa fa-envelope"></i> <a href="mailto:denismugo101@gmail.com">denismugo101@gmail.com</a></p>
+            <p><i class="fa fa-youtube-play"></i> <a href="https://youtube.com/gashotech">@Gashotech</a></p>
+            <p><i class="fa fa-instagram"></i> <a href="https://instagram.com/gashotech">@gashotech</a></p>
+            <p><i class="fa fa-music"></i> <a href="https://tiktok.com/gashotech">@gashotech</a></p>
+            <p><i class="fa fa-linkedin"></i> <a href="https://www.linkedin.com/in/denismugo" target="_blank">linkedin.com/in/denismugo</a></p>
+            <p><i class="fa fa-github"></i> <a href="https://github.com/gashotoxic" target="_blank">github.com/GashoMugo</a></p>
         </section>
     </div>
     <script src="script.js"></script>
+    <script src="../chat-widget.js"></script>
 </body>
 </html>
