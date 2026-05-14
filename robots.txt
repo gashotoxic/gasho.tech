@@ -2,5 +2,15 @@
 User-agent: *
 Disallow:
 
+# LLM crawler directives
+User-agent: GPTBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
 # Link to sitemap for easier discovery
-Sitemap: https://gasho.tech/sitemap.xml
+Sitemap: https://gashotech.com/sitemap.xml
