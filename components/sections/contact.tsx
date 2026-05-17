@@ -50,7 +50,8 @@ export default function Contact() {
                 onSubmit={handleSubmit}
                 className="space-y-4"
               >
-                <input type="hidden" name="_redirect" value="https://gasho.tech/thankyou.html" />
+                <input type="hidden" name="_redirect" value="https://gashotech.com" />
+                <input type="hidden" name="_captcha" value="false" />
                 <input type="hidden" name="_subject" value="from gashotech website info" />
 
                 <div>

@@ -34,12 +34,14 @@ export const metadata: Metadata = {
     siteName: "GashoTech",
     locale: "en_US",
     type: "website",
+    images: [{url: 'https://gashotech.com/images/gashotech_logo.webp', width: 1200, height: 1200}],
   },
   twitter: {
     card: "summary_large_image",
     title: "GashoTech",
     description:
       "Empowering the Future with AI and Innovation. AI solutions, automation, cybersecurity & ICT services.",
+    images: [{url: 'https://gashotech.com/images/gashotech_logo.webp', width: 1200, height: 1200}],
   },
   robots: {
     index: true,
@@ -48,6 +50,8 @@ export const metadata: Metadata = {
 };
 
 import ChatWidget from "@/components/chat-widget-wrapper"
+import { GoogleAnalytics } from "@/components/analytics/google-analytics"
+import { FacebookPixel } from "@/components/analytics/facebook-pixel"
 
 export default function RootLayout({
   children,
@@ -81,6 +85,51 @@ export default function RootLayout({
             }),
           }}
         />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "LocalBusiness",
+              name: "GashoTech",
+              address: {
+                "@type": "PostalAddress",
+                addressLocality: "Nairobi",
+                addressCountry: "KE",
+              },
+              url: "https://www.gashotech.com",
+              logo: "https://www.gashotech.com/images/gashotech_logo.webp",
+            }),
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "GashoTech",
+              url: "https://www.gashotech.com",
+            }),
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "BreadcrumbList",
+              itemListElement: [
+                {
+                  "@type": "ListItem",
+                  position: 1,
+                  name: "Home",
+                  item: "https://www.gashotech.com",
+                },
+              ],
+            }),
+          }}
+        />
       </head>
       <body className="min-h-full flex flex-col antialiased">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
@@ -89,6 +138,8 @@ export default function RootLayout({
           <Footer />
           <ChatWidget />
         </ThemeProvider>
+          <GoogleAnalytics />
+          <FacebookPixel />
       </body>
     </html>
   );
