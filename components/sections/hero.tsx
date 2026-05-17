@@ -25,10 +25,10 @@ export default function Hero() {
       <div className="relative flex flex-col items-center justify-center px-4 py-20 md:py-28 text-center" style={{ zIndex: 2, minHeight: "400px" }}>
         <FadeIn>
           <div className="mb-8">
-            <SocialIcons iconClassName="text-white hover:text-white" />
+            <SocialIcons iconClassName="text-gray-800 dark:text-gray-300 hover:text-white dark:hover:text-white" />
           </div>
 
-          <h1 className="mb-4 text-3xl font-bold leading-tight md:text-5xl lg:text-6xl text-white">
+          <h1 className="mb-4 text-2xl font-semibold uppercase tracking-wider leading-tight md:text-4xl text-white">
             GashoTech | Innovating AI, Automation and Cybersecurity Solutions
           </h1>
 
@@ -54,7 +54,7 @@ export default function Hero() {
 
             <button
               type="submit"
-              className="rounded-lg px-6 py-2 font-semibold transition-all duration-300 bg-white text-[#1abc9c] hover:bg-[#1abc9c] hover:text-white hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] border-2 border-[#1abc9c]"
+              className="rounded-lg px-6 py-2 font-semibold transition-all duration-300 bg-[#0D0D0D] text-white hover:bg-black hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] border-2 border-[#0D0D0D]"
             >
               Subscribe
             </button>
