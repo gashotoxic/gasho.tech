@@ -49,7 +49,7 @@ export function Navbar() {
         </Link>
 
         {/* Desktop Navigation */}
-        <div className="hidden lg:flex items-center gap-1">
+        <div className="hidden md:flex items-center gap-1">
           <NavigationMenu>
             <NavigationMenuList>
               {navLinks.map((link) => (
@@ -72,8 +72,7 @@ export function Navbar() {
         </div>
 
         {/* Mobile Navigation */}
-        <div className="flex lg:hidden items-center gap-2">
-          <ThemeToggle />
+        <div className="flex md:hidden items-center gap-2">
           <Sheet>
             <SheetTrigger className="text-white hover:bg-white/20 inline-flex items-center justify-center rounded-md p-2 transition-colors">
               <Menu className="h-5 w-5" />

@@ -187,3 +187,57 @@
 .scroll-offset {
   scroll-margin-top: 60px;
 }
+
+/* ===== Card Hover Glow Effects ===== */
+/* Teal glow on hover for service/solution cards */
+.card-glow {
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+.card-glow:hover {
+  box-shadow: 0 0 20px rgba(26, 188, 156, 0.3),
+              0 0 40px rgba(26, 188, 156, 0.15),
+              0 0 60px rgba(26, 188, 156, 0.05);
+}
+.dark .card-glow:hover {
+  box-shadow: 0 0 20px rgba(26, 188, 156, 0.4),
+              0 0 40px rgba(26, 188, 156, 0.2),
+              0 0 60px rgba(26, 188, 156, 0.1);
+}
+
+/* Card hover glow effect */
+.hover-glow {
+  transition: all 0.3s ease;
+}
+.hover-glow:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 30px rgba(26, 188, 156, 0.3);
+}
+.dark .hover-glow:hover {
+  box-shadow: 0 8px 30px rgba(26, 188, 156, 0.2);
+}
+
+/* Better mobile container padding */
+@media (max-width: 640px) {
+  .container {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+  .section-padding {
+    padding: 40px 0;
+  }
+  .jumbotron {
+    padding: 60px 15px;
+  }
+}
+
+/* Chat widget slide-in animation */
+@keyframes chatSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

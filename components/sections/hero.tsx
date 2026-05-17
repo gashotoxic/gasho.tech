@@ -25,7 +25,7 @@ export default function Hero() {
       <div className="relative flex flex-col items-center justify-center px-4 py-20 md:py-28 text-center" style={{ zIndex: 2, minHeight: "400px" }}>
         <FadeIn>
           <div className="mb-8">
-            <SocialIcons />
+            <SocialIcons iconClassName="text-white hover:text-white" />
           </div>
 
           <h1 className="mb-4 text-3xl font-bold leading-tight md:text-5xl lg:text-6xl text-white">
@@ -49,12 +49,12 @@ export default function Hero() {
               name="emailadr"
               placeholder="Enter your email"
               required
-              className="flex-1 rounded-md border border-white/30 bg-white/10 px-4 py-3 text-white placeholder-white/50 backdrop-blur-sm focus:border-white focus:outline-none transition-colors duration-300"
+              className="flex-1 rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-700 placeholder-gray-400 focus:border-[#1abc9c] focus:outline-none transition-colors duration-300"
             />
 
             <button
               type="submit"
-              className="rounded-lg px-6 py-3 font-semibold text-white transition-all duration-300 bg-[#1abc9c] hover:bg-[#16a085] hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
+              className="rounded-lg px-6 py-2 font-semibold transition-all duration-300 bg-white text-[#1abc9c] hover:bg-[#1abc9c] hover:text-white hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] border-2 border-[#1abc9c]"
             >
               Subscribe
             </button>

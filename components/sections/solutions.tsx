@@ -22,7 +22,7 @@ export default function Solutions() {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
           {solutions.map((solution, index) => (
             <FadeIn key={solution.id} delay={index * 0.1}>
-              <Card className="group overflow-hidden transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl">
+              <Card className="group overflow-hidden hover-glow">
                 <div className="relative h-[250px] overflow-hidden rounded-t-lg">
                   <Image
                     src={solution.image}

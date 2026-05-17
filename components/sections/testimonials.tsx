@@ -43,7 +43,7 @@ export function Testimonials() {
           <CarouselContent>
             {testimonials.map((testimonial) => (
               <CarouselItem key={testimonial.id} className="md:basis-3/4 lg:basis-3/5">
-                <Card className="border-none shadow-none bg-transparent">
+                <Card className="border-none shadow-none bg-transparent hover-glow">
                   <CardContent className="flex flex-col items-center gap-6 py-12 px-6">
                     <p className="text-lg md:text-xl italic text-center leading-relaxed text-foreground">
                       &ldquo;{testimonial.quote}&rdquo;

@@ -151,14 +151,18 @@ export default function ChatWidget() {
       {/* Chat Window */}
       {isOpen && (
         <div
-          className="absolute bottom-[76px] right-0 w-[360px] max-h-[520px] flex flex-col overflow-hidden rounded-xl
-            bg-white dark:bg-[#1e1e1e]
+          className="absolute bottom-[76px] right-0 w-[320px] sm:w-[360px] max-h-[520px] flex flex-col overflow-hidden rounded-lg
+            bg-white/95 dark:bg-[#1e1e1e]/95 backdrop-blur-lg
             border border-gray-200 dark:border-gray-700
-            shadow-2xl
-            animate-in slide-in-from-bottom-4 fade-in duration-300"
+            shadow-2xl"
+          style={{
+            opacity: 1,
+            transform: 'translateY(0)',
+            animation: 'chatSlideIn 0.3s ease-out',
+          }}
         >
           {/* Header */}
-          <div className="bg-gradient-to-r from-[#1abc9c] to-[#16a085] text-white px-4 py-3.5 flex items-center justify-between shrink-0">
+          <div className="bg-gradient-to-r from-[#1abc9c] via-[#1abc9c] to-[#0e8c75] text-white px-4 py-3 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2.5">
               <span className="text-xl">💬</span>
               <div>
@@ -183,7 +187,7 @@ export default function ChatWidget() {
             {messages.map((msg) => (
               <div
                 key={msg.id}
-                className={`flex flex-col ${msg.sender === "bot" ? "items-start" : "items-end"} animate-in slide-in-from-left-1 duration-200`}
+                className={`flex flex-col ${msg.sender === "bot" ? "items-start" : "items-end"} transition-all duration-200`}
               >
                 <div
                   className={`max-w-[85%] px-3.5 py-2.5 text-sm leading-relaxed ${
@@ -256,12 +260,12 @@ export default function ChatWidget() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && sendMessage()}
                 placeholder="Type a message..."
-                className="flex-1 px-4 py-2.5 rounded-full bg-gray-100 dark:bg-gray-800 border-0 text-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:ring-2 focus:ring-[#1abc9c]/30 transition-all"
+                className="flex-1 px-4 py-2.5 rounded-full bg-gray-100 dark:bg-gray-800 border border-transparent text-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-[#1abc9c]/40 focus:ring-2 focus:ring-[#1abc9c]/20 transition-all duration-200"
               />
               <button
                 onClick={sendMessage}
                 disabled={!input.trim()}
-                className="w-10 h-10 rounded-full bg-[#1abc9c] hover:bg-[#16a085] disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white text-lg flex items-center justify-center transition-all shrink-0 disabled:cursor-not-allowed"
+                className="w-10 h-10 rounded-full bg-[#1abc9c] hover:bg-[#16a085] hover:scale-110 active:scale-95 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white text-lg flex items-center justify-center transition-all duration-200 shrink-0 disabled:cursor-not-allowed disabled:hover:scale-100"
                 aria-label="Send message"
               >
                 ➤

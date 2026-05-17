@@ -88,13 +88,13 @@ export default function About() {
             {/* Right column — 8/12 */}
             <div className="md:col-span-8">
               <h2 className="text-3xl font-bold mb-4">Our Values</h2>
-              <h4 className="text-xl font-semibold mb-4 text-foreground leading-relaxed">
+              <p className="text-foreground leading-relaxed mb-6">
                 <strong>MISSION:</strong> Our mission is simple: to drive innovation and efficiency
                 in every aspect of business through intelligent automation and AI-powered solutions.
                 By combining expertise in AI, machine learning, and cybersecurity, we aim to provide
                 businesses with the tools they need to stay competitive and secure in the ever-evolving
                 tech landscape.
-              </h4>
+              </p>
               <p className="text-foreground leading-relaxed">
                 <strong>VISION:</strong> We envision a world where AI and automation empower
                 businesses to unlock new levels of efficiency, security, and innovation. By pushing the

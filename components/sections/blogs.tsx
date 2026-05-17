@@ -35,7 +35,7 @@ export default function Blogs() {
             {posts.map((post, index) => (
               <FadeIn key={post.slug} delay={index * 0.1}>
                 <Link href={`/blogs/${post.slug}`} className="group block">
-                  <Card className="overflow-hidden border-none shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-2 bg-white dark:bg-card">
+                  <Card className="overflow-hidden border-none shadow-lg bg-white dark:bg-card hover-glow">
                     <div className="relative w-full h-48 overflow-hidden">
                       <Image
                         src={post.image || "/images/gashotech_logo.webp"}
