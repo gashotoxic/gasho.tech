@@ -1,0 +1,37 @@
+{
+  "posts": [
+    {
+      "slug": "getting-started-with-ai-automation",
+      "title": "Getting Started with AI Automation in 2026",
+      "excerpt": "Discover how businesses are leveraging AI automation to streamline operations, reduce costs, and drive innovation.",
+      "content": "## Why AI Automation Matters\n\nAI automation is transforming how businesses operate. By leveraging machine learning and robotic process automation (RPA), companies can automate repetitive tasks, reduce human error, and free up employees for strategic work.\n\n## Key Benefits\n\n- **Reduced Costs**: Automate routine tasks and save operational expenses\n- **Improved Accuracy**: Eliminate human error in data processing\n- **Scalability**: Handle increased workload without proportional cost increases\n- **24/7 Operations**: Run automated processes around the clock\n\n## Getting Started\n\n1. Identify repetitive tasks in your workflow\n2. Evaluate automation tools that fit your needs\n3. Start with a pilot project\n4. Measure results and scale gradually\n\nContact GashoTech for a personalized automation consultation!",
+      "author": "GashoTech Team",
+      "category": "AI Automation",
+      "date": "2026-05-15",
+      "image": "/images/automation.webp",
+      "published": true
+    },
+    {
+      "slug": "cybersecurity-best-practices-2026",
+      "title": "Cybersecurity Best Practices for Small Businesses",
+      "excerpt": "Essential cybersecurity strategies every small business needs to implement to protect against modern threats.",
+      "content": "## The Threat Landscape\n\nSmall businesses are increasingly targeted by cybercriminals. With limited resources, it's crucial to prioritize the most impactful security measures.\n\n## Essential Practices\n\n### 1. Use Strong Passwords & MFA\nImplement multi-factor authentication across all systems. Use a password manager to generate and store complex passwords.\n\n### 2. Keep Software Updated\nRegularly update all software, including operating systems, applications, and security tools. Enable automatic updates where possible.\n\n### 3. Train Your Team\nHuman error is the leading cause of security breaches. Regular training on phishing awareness and security best practices is essential.\n\n### 4. Backup Your Data\nMaintain regular backups using the 3-2-1 rule: 3 copies, 2 different media, 1 offsite.\n\n### 5. Use Firewalls & Antivirus\nDeploy firewalls and reputable antivirus software on all devices.\n\n## Need Help?\n\nGashoTech offers comprehensive cybersecurity assessments and solutions tailored for small businesses.",
+      "author": "GashoTech Team",
+      "category": "Cybersecurity",
+      "date": "2026-05-10",
+      "image": "/images/cybersec.webp",
+      "published": true
+    },
+    {
+      "slug": "future-of-ai-in-kenya",
+      "title": "The Future of AI in Kenya's Tech Ecosystem",
+      "excerpt": "Exploring how Kenya is positioning itself as a hub for AI innovation and what it means for local businesses.",
+      "content": "## Kenya's AI Revolution\n\nKenya is rapidly emerging as a tech hub in Africa, with AI playing an increasingly central role. From fintech to agriculture, AI solutions are addressing local challenges with innovative approaches.\n\n## Key Sectors\n\n### Fintech\nMobile money and digital banking platforms are using AI for fraud detection, credit scoring, and personalized financial services.\n\n### Agriculture\nAI-powered solutions help farmers optimize crop yields, predict weather patterns, and access market information.\n\n### Healthcare\nTelemedicine platforms use AI for diagnostics, patient triage, and health record management.\n\n## The Road Ahead\n\nWith growing internet penetration, a young tech-savvy population, and supportive government policies, Kenya is well-positioned to lead AI innovation in Africa.\n\nGashoTech is proud to be part of this exciting journey!",
+      "author": "GashoTech Team",
+      "category": "AI",
+      "date": "2026-05-05",
+      "image": "/images/AI.webp",
+      "published": true
+    }
+  ]
+}
