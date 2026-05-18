@@ -35,8 +35,8 @@ export default function Blogs() {
             {posts.map((post, index) => (
               <FadeIn key={post.slug} delay={index * 0.1}>
                 <Link href={`/blogs/${post.slug}`} className="group block">
-                  <Card className="overflow-hidden border-none shadow-lg bg-white dark:bg-card hover-glow">
-                    <div className="relative w-full h-48 overflow-hidden">
+                  <Card className="overflow-hidden border-none shadow-lg bg-white dark:bg-card hover-glow h-full">
+                    <div className="relative w-full h-48 overflow-hidden shrink-0">
                       <Image
                         src={post.image || "/images/gashotech_logo.webp"}
                         alt={post.title}
@@ -48,7 +48,7 @@ export default function Blogs() {
                         {post.category}
                       </div>
                     </div>
-                    <CardContent className="p-6">
+                    <CardContent className="flex flex-col p-6 flex-1">
                       <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3">
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
@@ -62,7 +62,7 @@ export default function Blogs() {
                       <h4 className="text-lg font-bold mb-2 text-foreground group-hover:text-[#1abc9c] transition-colors duration-300">
                         {post.title}
                       </h4>
-                      <p className="text-sm text-foreground/70 dark:text-[#cccccc] line-clamp-3">
+                      <p className="text-sm text-foreground/70 dark:text-[#cccccc] line-clamp-3 flex-1">
                         {post.excerpt}
                       </p>
                     </CardContent>

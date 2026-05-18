@@ -22,8 +22,8 @@ export default function Solutions() {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
           {solutions.map((solution, index) => (
             <FadeIn key={solution.id} delay={index * 0.1}>
-              <Card className="group overflow-hidden hover-glow">
-                <div className="relative h-[250px] overflow-hidden rounded-t-lg">
+              <Card className="group overflow-hidden hover-glow h-full">
+                <div className="relative h-[250px] overflow-hidden rounded-t-lg shrink-0">
                   <Image
                     src={solution.image}
                     alt={solution.title}
@@ -34,13 +34,13 @@ export default function Solutions() {
                   <div className="absolute inset-0 bg-gradient-to-t from-[rgba(26,188,156,0.4)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                 </div>
 
-                <CardContent className="flex flex-col gap-3 p-6">
-                  <h3 className="relative inline-block text-xl font-semibold text-foreground">
+                <CardContent className="flex flex-col gap-3 p-6 flex-1">
+                  <h3 className="relative inline-block text-xl font-semibold text-foreground shrink-0">
                     {solution.title}
                     <span className="absolute -bottom-1 left-0 h-[3px] w-[50px] bg-[#1abc9c] transition-all duration-300 group-hover:w-[100px]" />
                   </h3>
 
-                  <p className="mt-2 text-sm leading-relaxed text-foreground/75 dark:text-[#cccccc]">
+                  <p className="mt-2 text-sm leading-relaxed text-foreground/75 dark:text-[#cccccc] flex-1">
                     {solution.description}
                   </p>
 

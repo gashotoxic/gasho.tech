@@ -26,6 +26,10 @@ export const metadata: Metadata = {
     "GashoTech - Empowering the Future with AI and Innovation. We offer AI solutions, AI automation, cybersecurity, and ICT services to help businesses thrive.",
   keywords: ["AI", "AI Automation", "Cybersecurity", "ICT Services", "GashoTech", "Kenya", "Tech Startup"],
   metadataBase: new URL("https://gashotech.com"),
+  icons: {
+    icon: "/images/gashotech_logo.webp",
+    apple: "/images/gashotech_logo.webp",
+  },
   openGraph: {
     title: "GashoTech: Innovating AI and Cybersecurity Solutions",
     description:
@@ -132,7 +136,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col antialiased">
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+        <ThemeProvider attribute="class" defaultTheme="light" disableTransitionOnChange>
           <Navbar />
           <main className="flex-1">{children}</main>
           <Footer />

@@ -21,8 +21,8 @@ export default function Services() {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
           {services.map((service, index) => (
             <FadeIn key={service.id} delay={index * 0.1}>
-              <Card className="group overflow-hidden hover-glow">
-                <CardContent className="flex flex-col items-center p-8 text-center">
+              <Card className="group overflow-hidden hover-glow h-full">
+                <CardContent className="flex flex-col items-center p-8 text-center flex-1">
                   <service.icon className="text-[#1abc9c] h-10 w-10 mb-5" />
 
                   <h4 className="mb-3 text-lg font-semibold text-foreground">
