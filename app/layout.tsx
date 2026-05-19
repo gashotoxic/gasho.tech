@@ -19,13 +19,16 @@ const montserrat = Montserrat({
 
 export const metadata: Metadata = {
   title: {
-    default: "GashoTech: Innovating AI and Cybersecurity Solutions",
+    default: "GashoTech: AI, Automation & Cybersecurity Solutions in Kenya",
     template: "%s | GashoTech",
   },
   description:
-    "GashoTech - Empowering the Future with AI and Innovation. We offer AI solutions, AI automation, cybersecurity, and ICT services to help businesses thrive.",
-  keywords: ["AI", "AI Automation", "Cybersecurity", "ICT Services", "GashoTech", "Kenya", "Tech Startup"],
+    "GashoTech is a Nairobi-based AI startup offering custom AI solutions, intelligent automation, cybersecurity services, and ICT consulting for businesses across East Africa.",
+  keywords: ["AI Solutions", "AI Automation", "Cybersecurity", "ICT Services", "GashoTech", "Nairobi", "Kenya", "Tech Startup", "Artificial Intelligence", "East Africa", "Machine Learning", "RPA"],
   metadataBase: new URL("https://gashotech.com"),
+  alternates: {
+    canonical: "/",
+  },
   icons: {
     icon: "/images/gashotech_logo.webp",
     apple: "/images/gashotech_logo.webp",
@@ -36,9 +39,9 @@ export const metadata: Metadata = {
       "Empowering the Future with AI and Innovation. We offer AI solutions, AI automation, cybersecurity, and ICT services.",
     url: "https://gashotech.com",
     siteName: "GashoTech",
-    locale: "en_US",
+    locale: "en_KE",
     type: "website",
-    images: [{url: 'https://gashotech.com/images/gashotech_logo.webp', width: 1200, height: 1200}],
+    images: [{url: 'https://gashotech.com/images/gashotech_logo.webp', width: 1200, height: 630}],
   },
   twitter: {
     card: "summary_large_image",
@@ -63,8 +66,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${lato.variable} ${montserrat.variable}`}>
+    <html lang="en-KE" suppressHydrationWarning className={`${lato.variable} ${montserrat.variable}`}>
       <head>
+        {/* Preconnect for performance */}
+        <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+        <link rel="preconnect" href="https://www.googletagmanager.com" />
+        <link rel="dns-prefetch" href="https://www.google-analytics.com" />
+        <link rel="preconnect" href="https://www.google-analytics.com" />
+        <link rel="dns-prefetch" href="https://connect.facebook.net" />
+        <link rel="preconnect" href="https://connect.facebook.net" />
+        <link rel="canonical" href="https://gashotech.com" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -73,7 +84,7 @@ export default function RootLayout({
               "@type": "Organization",
               name: "GashoTech",
               url: "https://www.gashotech.com",
-              logo: "https://www.gashotech.com/images/favicon.jpg",
+              logo: "https://www.gashotech.com/images/gashotech_logo.webp",
               sameAs: [
                 "https://www.facebook.com/gashotech",
                 "https://twitter.com/gashotech",

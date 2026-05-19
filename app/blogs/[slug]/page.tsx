@@ -17,6 +17,23 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: post.title,
     description: post.excerpt,
+    alternates: {
+      canonical: `https://gashotech.com/blogs/${post.slug}`,
+    },
+    openGraph: {
+      title: post.title,
+      description: post.excerpt,
+      type: "article",
+      publishedTime: new Date(post.date).toISOString(),
+      authors: [post.author],
+      images: [{ url: `https://gashotech.com${post.image}`, width: 1200, height: 630 }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: post.title,
+      description: post.excerpt,
+      images: [{ url: `https://gashotech.com${post.image}` }],
+    },
   }
 }
 
@@ -49,6 +66,38 @@ export default async function BlogPostPage({ params }: Props) {
 
   return (
     <div className="pt-20 pb-12">
+      {/* Article Schema */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Article",
+            headline: post.title,
+            description: post.excerpt,
+            image: `https://gashotech.com${post.image}`,
+            datePublished: new Date(post.date).toISOString(),
+            dateModified: new Date(post.date).toISOString(),
+            author: {
+              "@type": "Organization",
+              name: "GashoTech",
+              url: "https://gashotech.com",
+            },
+            publisher: {
+              "@type": "Organization",
+              name: "GashoTech",
+              logo: {
+                "@type": "ImageObject",
+                url: "https://gashotech.com/images/gashotech_logo.webp",
+              },
+            },
+            mainEntityOfPage: {
+              "@type": "WebPage",
+              "@id": `https://gashotech.com/blogs/${post.slug}`,
+            },
+          }),
+        }}
+      />
       <article className="container mx-auto px-4 max-w-4xl">
         <Link
           href="/blogs"

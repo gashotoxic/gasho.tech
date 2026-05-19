@@ -3,7 +3,10 @@ import Link from "next/link"
 
 export const metadata: Metadata = {
   title: "Terms of Service",
-  description: "Terms of Service for GashoTech",
+  description: "Terms of Service for GashoTech - Terms governing the use of our AI, automation, and cybersecurity services",
+  alternates: {
+    canonical: "https://gashotech.com/terms",
+  },
 }
 
 export default function TermsPage() {

@@ -156,6 +156,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: service.title,
     description: service.description,
+    alternates: {
+      canonical: `https://gashotech.com/services/${slug}`,
+    },
   }
 }
 
@@ -172,8 +175,68 @@ export default async function ServicePage({ params }: Props) {
     notFound()
   }
 
+  const serviceSchema = {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    name: content.title,
+    provider: {
+      "@type": "Organization",
+      name: "GashoTech",
+      url: "https://www.gashotech.com",
+    },
+    description: content.overview,
+    areaServed: {
+      "@type": "Country",
+      name: "Kenya",
+    },
+    audience: {
+      "@type": "Audience",
+      audienceType: "Businesses in East Africa",
+    },
+  }
+
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      {
+        "@type": "Question",
+        name: `What is included in GashoTech's ${content.title}?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `GashoTech's ${content.title} includes ${content.features.map(f => f.title.toLowerCase()).join(", ")}. Our solutions are tailored to meet the specific needs of your business.`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: `How does ${content.title} benefit my business?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `${content.benefits.join(". ")}. Our team works closely with you to ensure maximum value from the engagement.`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Is GashoTech based in Kenya?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Yes, GashoTech is headquartered in Nairobi, Kenya, and we serve businesses across East Africa with AI, automation, cybersecurity, and ICT solutions.",
+        },
+      },
+    ],
+  }
+
   return (
     <div className="pt-16">
+      {/* JSON-LD Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
       {/* Hero Banner */}
       <div className="jumbotron text-center">
         <h1 className="text-4xl md:text-5xl font-bold mb-6">{content.title}</h1>
@@ -232,6 +295,31 @@ export default async function ServicePage({ params }: Props) {
                   <p className="text-muted-foreground text-sm">{u.desc}</p>
                 </div>
               ))}
+            </div>
+          </section>
+
+          {/* FAQ Section */}
+          <section className="mb-12">
+            <h2 className="text-2xl font-bold mb-4">Frequently Asked Questions</h2>
+            <div className="space-y-4">
+              <div className="bg-card rounded-lg p-6 shadow-sm">
+                <h3 className="font-semibold text-[#1abc9c] mb-2">What is included in GashoTech's {content.title}?</h3>
+                <p className="text-muted-foreground text-sm">
+                  GashoTech's {content.title} includes {content.features.map(f => f.title.toLowerCase()).join(", ")}. Our solutions are tailored to meet the specific needs of your business.
+                </p>
+              </div>
+              <div className="bg-card rounded-lg p-6 shadow-sm">
+                <h3 className="font-semibold text-[#1abc9c] mb-2">How does {content.title} benefit my business?</h3>
+                <p className="text-muted-foreground text-sm">
+                  {content.benefits.join(". ")}. Our team works closely with you to ensure maximum value from the engagement.
+                </p>
+              </div>
+              <div className="bg-card rounded-lg p-6 shadow-sm">
+                <h3 className="font-semibold text-[#1abc9c] mb-2">Is GashoTech based in Kenya?</h3>
+                <p className="text-muted-foreground text-sm">
+                  Yes, GashoTech is headquartered in Nairobi, Kenya, and we serve businesses across East Africa with AI, automation, cybersecurity, and ICT solutions.
+                </p>
+              </div>
             </div>
           </section>
 

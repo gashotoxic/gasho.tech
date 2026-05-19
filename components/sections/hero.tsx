@@ -41,7 +41,7 @@ export default function Hero() {
             method="POST"
             className="mx-auto flex w-full max-w-md flex-col gap-4 sm:flex-row"
           >
-            <input type="hidden" name="_redirect" value="https://gasho.tech/thankyou.html" />
+            <input type="hidden" name="_redirect" value="https://gashotech.com/thank-you" />
             <input type="hidden" name="_subject" value="from gashotech website info" />
 
             <input

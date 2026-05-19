@@ -7,7 +7,17 @@ import type { BlogPost } from "@/lib/blogs"
 
 export const metadata: Metadata = {
   title: "Blog",
-  description: "GashoTech Blog - AI, Automation, Cybersecurity insights and news",
+  description: "GashoTech Blog - AI, Automation, Cybersecurity insights and news from Nairobi, Kenya",
+  alternates: {
+    canonical: "https://gashotech.com/blogs",
+  },
+  openGraph: {
+    title: "GashoTech Blog",
+    description: "AI, automation, cybersecurity insights and news from East Africa's leading tech startup",
+    url: "https://gashotech.com/blogs",
+    type: "website",
+    images: [{ url: "https://gashotech.com/images/gashotech_logo.webp", width: 1200, height: 630 }],
+  },
 }
 
 export default function BlogsPage() {

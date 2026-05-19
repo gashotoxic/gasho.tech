@@ -3,7 +3,10 @@ import Link from "next/link"
 
 export const metadata: Metadata = {
   title: "Profile",
-  description: "GashoTech Company Profile",
+  description: "GashoTech Company Profile - AI, automation, and cybersecurity solutions in Nairobi, Kenya",
+  alternates: {
+    canonical: "https://gashotech.com/profile",
+  },
 }
 
 export default function ProfilePage() {

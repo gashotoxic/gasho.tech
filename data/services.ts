@@ -14,7 +14,7 @@ export const services: Service[] = [
     id: "ai-solutions",
     title: "AI Solutions",
     description:
-      "We develop custom AI systems that automate complex processes, enhance decision-making, and optimize workflows. Our AI solutions include natural language processing, machine learning, and predictive analytics, tailored to meet your business needs.",
+      "Custom AI solutions in Kenya — NLP, machine learning, predictive analytics, computer vision, and generative AI tailored to automate complex processes and enhance decision-making for businesses across East Africa.",
     icon: Cog,
     slug: "ai",
   },
@@ -22,7 +22,7 @@ export const services: Service[] = [
     id: "ai-automation",
     title: "AI Automation",
     description:
-      "Our AI automation tools streamline repetitive tasks, reduce human error, and boost productivity. By automating manual processes, we enable organizations to focus on innovation and growth.",
+      "AI automation services in Kenya — RPA, business process automation, workflow orchestration, and cloud-based automation to streamline repetitive tasks, reduce costs, and boost productivity.",
     icon: RefreshCw,
     slug: "automation",
   },
@@ -30,7 +30,7 @@ export const services: Service[] = [
     id: "cybersecurity",
     title: "Cybersecurity",
     description:
-      "Our advanced cybersecurity solutions protect your business from cyber threats, ensuring your data and systems are secure. We offer AI-driven threat detection and comprehensive risk management strategies for complete security.",
+      "Cybersecurity services in Kenya — AI-driven threat detection, vulnerability management, incident response, data encryption, IAM, and 24/7 monitoring to protect your business from cyber threats.",
     icon: Lock,
     slug: "cybersecurity",
   },
@@ -38,7 +38,7 @@ export const services: Service[] = [
     id: "ict-services",
     title: "ICT Services",
     description:
-      "Our ICT services range from infrastructure management and cloud solutions to software development and IT consulting. We provide scalable solutions to help your business succeed.",
+      "ICT services in Kenya — infrastructure management, cloud solutions, custom software development, IT consulting, system integration, and technical support for businesses of all sizes.",
     icon: Cloud,
     slug: "ict",
   },
@@ -46,7 +46,7 @@ export const services: Service[] = [
     id: "network-data",
     title: "Network & Data",
     description:
-      "We are experts in database design and programming, offering solutions that handle vast amounts of business information efficiently. Our network solutions ensure seamless connectivity and data flow.",
+      "Network and data services in Kenya — database design, network architecture, data analytics, business intelligence, and data security solutions for efficient information management.",
     icon: Wrench,
     slug: "network-data",
   },
@@ -54,7 +54,7 @@ export const services: Service[] = [
     id: "computer-services",
     title: "Computer Services",
     description:
-      "From hardware maintenance to software solutions, our computer services keep your systems running smoothly. Expert support for all your computing needs.",
+      "Computer services in Kenya — hardware maintenance, software solutions, network setup, help desk support, and affordable IT support for small businesses and home offices.",
     icon: Headphones,
     slug: "computer",
   },

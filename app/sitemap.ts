@@ -18,11 +18,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${baseUrl}/blogs`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.6 },
   ]
 
-  const blogPostEntries: MetadataRoute.Sitemap = (blogs as { posts: Array<{ slug: string; published: boolean }> }).posts
+  const blogPostEntries: MetadataRoute.Sitemap = (blogs as { posts: Array<{ slug: string; published: boolean; date: string }> }).posts
     .filter((post) => post.published)
     .map((post) => ({
       url: `${baseUrl}/blogs/${post.slug}`,
-      lastModified: new Date(),
+      lastModified: new Date(post.date),
       changeFrequency: "monthly" as const,
       priority: 0.6,
     }))
