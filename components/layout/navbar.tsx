@@ -90,16 +90,16 @@ export function Navbar() {
                     {link.label}
                   </Link>
                 ))}
-                {/* Theme toggle in mobile menu */}
-                <div className="flex items-center gap-3 px-6 py-4 border-b border-border/50">
-                  <span className="text-sm text-muted-foreground">Theme</span>
-                  <ThemeToggle />
-                </div>
               </div>
             </SheetContent>
           </Sheet>
         </div>
       </nav>
+
+      {/* Floating theme toggle — always accessible, visible on mobile below navbar */}
+      <div className="fixed top-14 right-3 z-40 md:hidden">
+        <ThemeToggle />
+      </div>
     </header>
   )
 }
