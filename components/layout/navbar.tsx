@@ -90,6 +90,11 @@ export function Navbar() {
                     {link.label}
                   </Link>
                 ))}
+                {/* Theme toggle in mobile menu */}
+                <div className="flex items-center gap-3 px-6 py-4 border-b border-border/50">
+                  <span className="text-sm text-muted-foreground">Theme</span>
+                  <ThemeToggle />
+                </div>
               </div>
             </SheetContent>
           </Sheet>

@@ -125,9 +125,11 @@
     @apply bg-background text-foreground font-sans;
     font-family: Lato, sans-serif;
     line-height: 1.8;
+    overflow-x: hidden;
   }
   html {
     scroll-behavior: smooth;
+    overflow-x: hidden;
   }
   h1, h2, h3, h4, h5, h6 {
     font-family: Montserrat, sans-serif;
@@ -228,6 +230,16 @@
   .jumbotron {
     padding: 60px 15px;
   }
+}
+
+/* Prevent cosmic canvas from causing overflow */
+#cosmic-jumbotron canvas {
+  max-width: 100%;
+}
+
+/* Ensure mobile Sheet doesn't cause horizontal scroll */
+[data-state="open"][data-sidebar-side="right"] {
+  max-width: 100vw;
 }
 
 /* Chat widget slide-in animation */
