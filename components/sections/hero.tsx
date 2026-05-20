@@ -31,7 +31,7 @@ export default function Hero() {
 
           {/* Headline — reduced ~30% from previous zoom, back near original scale */}
           {/* Uses progressive scaling: text-2xl → sm:text-3xl → md:text-4xl → lg:text-[2.5rem] */}
-          <h1 className="mb-4 text-2xl sm:text-3xl md:text-4xl lg:text-[2.5rem] font-semibold uppercase tracking-wide leading-snug text-white max-w-4xl mx-auto">
+          <h1 className="mb-4 text-2xl sm:text-3xl md:text-4xl lg:text-[2.5rem] font-semibold uppercase tracking-wide leading-snug text-white max-w-4xl mx-auto font-['Montserrat',sans-serif]">
             GashoTech | Innovating AI, Automation and Cybersecurity Solutions
           </h1>
 
