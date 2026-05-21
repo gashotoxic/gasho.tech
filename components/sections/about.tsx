@@ -7,7 +7,7 @@ export default function About() {
   return (
     <>
       {/* Section 1: About Us */}
-      <section className="bg-grey section-padding">
+      <section id="about" className="bg-grey section-padding scroll-mt-14">
         <FadeIn>
           <div className="container mx-auto grid grid-cols-1 md:grid-cols-12 gap-8 items-center px-4">
             {/* Left column — 8/12 */}

@@ -30,8 +30,13 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   icons: {
-    icon: "/images/gashotech_logo.webp",
-    apple: "/images/gashotech_logo.webp",
+    icon: [
+      { url: "/images/gashotech_favicon_16.png", sizes: "16x16", type: "image/png" },
+      { url: "/images/gashotech_favicon_32.png", sizes: "32x32", type: "image/png" },
+      { url: "/images/gashotech_favicon_48.png", sizes: "48x48", type: "image/png" },
+      { url: "/images/gashotech_favicon_64.png", sizes: "64x64", type: "image/png" },
+    ],
+    apple: "/images/gashotech_favicon_64.png",
   },
   openGraph: {
     title: "GashoTech: Innovating AI and Cybersecurity Solutions",

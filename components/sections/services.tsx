@@ -7,7 +7,7 @@ import { services } from "@/data/services"
 
 export default function Services() {
   return (
-    <section className="bg-grey section-padding">
+    <section id="services" className="bg-grey section-padding scroll-mt-14">
       <div className="container mx-auto px-4">
         <FadeIn>
           <h2 className="mb-2 text-center text-3xl font-bold tracking-wider md:text-4xl">
