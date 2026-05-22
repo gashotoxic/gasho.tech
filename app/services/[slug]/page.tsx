@@ -237,6 +237,23 @@ export default async function ServicePage({ params }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
+
+      {/* Breadcrumb Navigation */}
+      <nav className="bg-white dark:bg-[#1a1a1a] border-b border-gray-200 dark:border-gray-800">
+        <div className="container mx-auto px-4 py-3">
+          <ol className="flex items-center gap-2 text-sm text-muted-foreground">
+            <li>
+              <Link href="/" className="hover:text-[#1abc9c] transition-colors">Home</Link>
+            </li>
+            <li className="text-muted-foreground/50">/</li>
+            <li>
+              <Link href="/#services" className="hover:text-[#1abc9c] transition-colors">Services</Link>
+            </li>
+            <li className="text-muted-foreground/50">/</li>
+            <li className="text-[#1abc9c] font-semibold truncate max-w-[200px]">{content.title}</li>
+          </ol>
+        </div>
+      </nav>
       {/* Hero Banner */}
       <div className="jumbotron text-center">
         <h1 className="text-4xl md:text-5xl font-bold mb-6">{content.title}</h1>
@@ -335,6 +352,30 @@ export default async function ServicePage({ params }: Props) {
             >
               Get in Touch
             </Link>
+          </section>
+
+          {/* Back to Home */}
+          <section className="text-center py-6 border-t border-gray-200 dark:border-gray-800 mt-8">
+            <div className="flex flex-wrap justify-center gap-4">
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 text-muted-foreground hover:text-[#1abc9c] transition-colors font-medium"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                Back to Home
+              </Link>
+              <Link
+                href="/#services"
+                className="inline-flex items-center gap-2 text-muted-foreground hover:text-[#1abc9c] transition-colors font-medium"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                </svg>
+                View All Services
+              </Link>
+            </div>
           </section>
         </div>
       </div>

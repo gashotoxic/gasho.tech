@@ -56,14 +56,28 @@ export default function BlogAdminPage() {
     setLoggingIn(true)
     setLoginError("")
 
-    // Simulate delay then store token
-    setTimeout(() => {
-      const encoded = btoa(`admin:${password}`)
-      localStorage.setItem(TOKEN_KEY, encoded)
-      setToken(encoded)
+    try {
+      const res = await fetch("/api/blogs/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      })
+
+      if (!res.ok) {
+        setLoginError("Invalid password")
+        setLoggingIn(false)
+        return
+      }
+
+      const data = await res.json()
+      localStorage.setItem(TOKEN_KEY, data.token)
+      setToken(data.token)
       setPosts(blogPosts)
-      setLoggingIn(false)
-    }, 300)
+    } catch {
+      setLoginError("Failed to connect. Check your internet.")
+    }
+
+    setLoggingIn(false)
   }
 
   const handleLogout = () => {
