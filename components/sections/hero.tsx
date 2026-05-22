@@ -59,7 +59,7 @@ export default function Hero() {
 
             <button
               type="submit"
-              className="w-auto rounded-lg px-8 py-2.5 font-semibold text-sm tracking-wide transition-all duration-300 bg-[#0D0D0D] dark:bg-[#555555] text-white hover:bg-black dark:hover:bg-[#666666] hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] border-2 border-[#0D0D0D] dark:border-[#555555]"
+              className="w-auto rounded-lg px-8 py-2.5 font-semibold text-sm tracking-wide transition-all duration-300 bg-[#094d3e] dark:bg-[#555555] text-white hover:bg-[#06382d] dark:hover:bg-[#666666] hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] border-2 border-white/30 dark:border-[#555555] shadow-md"
             >
               Subscribe
             </button>
