@@ -21,7 +21,9 @@ export const metadata: Metadata = {
 }
 
 export default function BlogsPage() {
-  const posts = blogPosts.filter((p: BlogPost) => p.published)
+  const posts = blogPosts
+    .filter((p: BlogPost) => p.published)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   return (
     <div className="pt-20 pb-12">

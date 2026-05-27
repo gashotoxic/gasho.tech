@@ -8,7 +8,10 @@ import { blogPosts } from "@/lib/blogs";
 import { Calendar, Tag, ChevronRight } from "lucide-react";
 
 export default function Blogs() {
-  const posts = blogPosts.filter((p) => p.published).slice(0, 3);
+  const posts = blogPosts
+    .filter((p) => p.published)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 3);
 
   return (
     <section className="bg-grey section-padding">
