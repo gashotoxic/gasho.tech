@@ -1,0 +1,37 @@
+{
+  "AI": {
+    "futuristic": "futuristic neural network visualization with glowing connections, dark background, turquoise #1abc9c accents, high quality",
+    "corporate": "humanoid robot working alongside humans in modern office, professional tech aesthetic, clean lighting",
+    "abstract": "AI concept visualization with floating data nodes and connections, dark theme, turquoise accents",
+    "network": "cybersecurity network infrastructure with interconnected servers, dark background, green #1abc9c highlights",
+    "machine": "AI machine learning model architecture diagram, professional visualization, tech aesthetic"
+  },
+  "Cybersecurity": {
+    "futuristic": "cybersecurity shield protecting digital data streams, matrix code background, green #1abc9c accents, high quality",
+    "corporate": "network security team monitoring screens, modern SOC environment, professional photography style, dark theme",
+    "abstract": "cyber defense concept with firewalls and encrypted data, dark professional theme, tech aesthetic",
+    "network": "network security visualization with firewalls and encrypted data, dark professional theme",
+    "shield": "cybersecurity shield icon with digital lock, dark background, green accents"
+  },
+  "ICT": {
+    "futuristic": "data center servers with fiber optic cables, blue and green lighting, professional tech, clean aesthetic",
+    "corporate": "cloud infrastructure visualization with connected nodes, modern enterprise aesthetic, professional style",
+    "abstract": "network infrastructure diagram with servers and connectivity, clean professional style, tech theme",
+    "server": "data center rack with servers and cooling systems, professional photography, dark background",
+    "cloud": "cloud computing architecture visualization, interconnected nodes, modern tech aesthetic"
+  },
+  "Technology": {
+    "futuristic": "cutting-edge technology workspace with multiple screens, modern office, turquoise #1abc9c accents, professional",
+    "corporate": "innovation lab with emerging tech devices, professional photography style, clean lighting, corporate aesthetic",
+    "abstract": "digital transformation concept with floating UI elements, corporate tech aesthetic, modern design",
+    "workspace": "modern tech office with monitors and coding equipment, professional workspace, clean aesthetic",
+    "innovation": "technology innovation concept with holographic interfaces, futuristic office, tech aesthetic"
+  },
+  "News": {
+    "futuristic": "breaking news broadcast setup with screens, modern newsroom, professional journalism, dark theme",
+    "corporate": "technology news concept with data visualizations, clean editorial style, professional layout",
+    "abstract": "global tech news hub with interconnected information, international perspective, modern design",
+    "studio": "professional news studio with monitors and broadcast equipment, modern journalism aesthetic",
+    "editorial": "tech news editorial layout with charts and graphs, professional journalism style"
+  }
+}
