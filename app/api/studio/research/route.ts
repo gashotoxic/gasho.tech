@@ -49,13 +49,24 @@ export async function POST(request: Request) {
 
     const result = await callLLM(body.provider, body.model, messages, 1024, 0.7)
 
-    // Step 3: Parse JSON
+    // Step 3: Parse JSON (handle markdown-wrapped JSON)
     let data
     try {
-      data = JSON.parse(result.content)
+      // Strip possible markdown code block fences
+      let clean = result.content.trim()
+      if (clean.startsWith('```')) {
+        clean = clean.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '')
+      }
+      // Find the first { and last } to extract only the JSON object
+      const firstBrace = clean.indexOf('{')
+      const lastBrace = clean.lastIndexOf('}')
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        clean = clean.slice(firstBrace, lastBrace + 1)
+      }
+      data = JSON.parse(clean)
     } catch {
       // If JSON parsing fails, return raw content as fallback
-      console.warn('JSON parsing failed, returning raw content')
+      console.warn('JSON parsing failed, returning raw content. Content:', result.content.slice(0, 200))
       return NextResponse.json({
         title: '',
         excerpt: result.content,
