@@ -71,3 +71,65 @@ export async function commitBlogChanges(
     return { success: false, error: `Exception: ${err}` }
   }
 }
+
+export async function commitImage(
+  imageData: string,
+  filePath: string,
+  commitMessage: string
+): Promise<GitHubCommitResult> {
+  if (!GITHUB_TOKEN) {
+    return { success: false, error: "GH_TOKEN not set" }
+  }
+
+  const apiUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${filePath}`
+
+  try {
+    const getRes = await fetch(`${apiUrl}?ref=${BRANCH}`, {
+      headers: {
+        Authorization: `Bearer ${GITHUB_TOKEN}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    })
+
+    let currentSha: string
+    if (getRes.ok) {
+      const currentFile = await getRes.json()
+      currentSha = currentFile.sha
+    } else if (getRes.status === 404) {
+      currentSha = ""
+    } else {
+      return { success: false, error: `Failed to check file: ${getRes.status}` }
+    }
+
+    const commitData = {
+      message: commitMessage,
+      content: imageData,
+      sha: currentSha,
+      branch: BRANCH,
+    }
+
+    const commitRes = await fetch(apiUrl, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${GITHUB_TOKEN}`,
+        Accept: "application/vnd.github.v3+json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(commitData),
+    })
+
+    if (!commitRes.ok) {
+      const err = await commitRes.text()
+      return { success: false, error: `Commit failed: ${commitRes.status} - ${err}` }
+    }
+
+    const result = await commitRes.json()
+    return {
+      success: true,
+      sha: result.content?.sha,
+      url: `https://github.com/${REPO_OWNER}/${REPO_NAME}/commit/${result.commit?.sha}`,
+    }
+  } catch (err) {
+    return { success: false, error: `Exception: ${err}` }
+  }
+}
