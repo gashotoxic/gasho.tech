@@ -315,7 +315,7 @@ export default function StudioPage() {
     setMessage(null)
   }
 
-
+  return (
     <div className="pt-20 pb-12">
       <div className="container mx-auto px-4 max-w-5xl">
         {/* Header */}
