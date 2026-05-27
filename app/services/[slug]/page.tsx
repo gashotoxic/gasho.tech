@@ -122,25 +122,31 @@ const serviceContent: Record<string, { title: string; overview: string; benefits
       { title: "Home Office Setup", desc: "Professional setup for remote work environments." },
     ],
   },
-  "network-data": {
-    title: "Network & Data",
+  "blog-studio": {
+    title: "Blog Content Studio",
     overview:
-      "We are experts in database design and programming, offering solutions that handle vast amounts of business information efficiently. Our network solutions ensure seamless connectivity and data flow.",
+      "Create professional blog content at the speed of AI. GashoTech's Blog Content Studio combines web research, intelligent LLM writing, and AI image generation into one seamless workflow. Research trending topics, generate SEO-optimized articles, and produce custom blog header images — all from a single interface. Built for content creators, marketers, and business owners who want consistent, quality blog posts without the overhead.",
     benefits: [
-      "Efficient data management",
-      "Seamless network connectivity",
-      "Scalable database solutions",
-      "Data-driven insights",
+      "Generate complete blog posts in minutes",
+      "AI-researched topics with real web search data",
+      "SEO-optimized content with proper heading structure",
+      "Custom AI-generated blog header images",
+      "Copy-paste ready content for any platform",
+      "Premium publish-to-blog for GashoTech clients",
     ],
     features: [
-      { title: "Database Design", desc: "Design and implement robust database systems." },
-      { title: "Network Architecture", desc: "Design and deploy reliable network infrastructures." },
-      { title: "Data Analytics", desc: "Extract actionable insights from your data." },
-      { title: "Data Security", desc: "Protect your data assets with industry best practices." },
+      { title: "AI Topic Research", desc: "Enter a topic idea and our AI researches the web via DuckDuckGo, then generates a compelling title, meta excerpt, and key subtopics for your blog post. No more staring at a blank page." },
+      { title: "SEO Blog Post Writer", desc: "Get fully structured 1000-1500 word Markdown articles with H1-H3 headings, bullet lists, internal link suggestions, and a brand-aligned tone. Everything is editable before publishing." },
+      { title: "AI Image Generation", desc: "Generate custom 1200x630 blog header images matching your category — AI, Cybersecurity, Technology, and more. Dark theme, turquoise #1abc9c accents, professional GashoTech brand aesthetic." },
+      { title: "Image Prompt Copy", desc: "If the built-in image generator doesn't match your vision, copy the exact prompt and use it on Midjourney, DALL-E, or any AI image platform." },
+      { title: "Web Search Integration", desc: "Real DuckDuckGo web search feeds into topic generation, ensuring your blog posts are grounded in current information and trending discussions." },
+      { title: "Multi-Provider LLM Support", desc: "Choose from models across Chutes.ai and CrofAI — including DeepSeek, Kimi, GLM, and more — to match your preferred writing style and quality level." },
     ],
     useCases: [
-      { title: "Business Intelligence", desc: "Turn raw data into business insights." },
-      { title: "Network Optimization", desc: "Improve network performance and reliability." },
+      { title: "Content Marketers", desc: "Produce weekly blog content at scale. Research, draft, and publish without juggling multiple tools. Generate 4 posts per hour that used to take all day." },
+      { title: "Business Owners", desc: "Create professional blog content for your company website without hiring a dedicated writer. AI handles the heavy lifting while you review and publish." },
+      { title: "SEO Specialists", desc: "Generate keyword-optimized content with proper heading hierarchy, meta descriptions, and internal linking suggestions — all aligned with search engine best practices." },
+      { title: "Agency Teams", desc: "Scale content production across multiple client accounts. The studio produces consistently branded, high-quality blog posts that need minimal editing before delivery." },
     ],
   },
 }
@@ -277,6 +283,16 @@ export default async function ServicePage({ params }: Props) {
           <section className="mb-12">
             <h2 className="text-2xl font-bold mb-4">Overview</h2>
             <p className="text-muted-foreground leading-relaxed">{content.overview}</p>
+            {service.slug === "blog-studio" && (
+              <div className="mt-6 text-center">
+                <Link
+                  href="/blogs/studio"
+                  className="inline-block bg-[#1abc9c] hover:bg-[#16a085] text-white px-8 py-3 rounded-lg font-semibold transition-all duration-300 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  Try Blog Content Studio
+                </Link>
+              </div>
+            )}
           </section>
 
           {/* Benefits */}

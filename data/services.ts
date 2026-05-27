@@ -1,4 +1,4 @@
-import { Cog, RefreshCw, Lock, Cloud, Wrench, Headphones } from "lucide-react"
+import { Cog, RefreshCw, Lock, Cloud, PenTool, Headphones } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
 export interface Service {
@@ -43,12 +43,12 @@ export const services: Service[] = [
     slug: "ict",
   },
   {
-    id: "network-data",
-    title: "Network & Data",
+    id: "blog-content-studio",
+    title: "Blog Content Studio",
     description:
-      "Network and data services in Kenya — database design, network architecture, data analytics, business intelligence, and data security solutions for efficient information management.",
-    icon: Wrench,
-    slug: "network-data",
+      "AI-powered blog content creation — research, write, and generate images for SEO-optimized blog posts. Web research, topic generation, and smart image prompts at your fingertips.",
+    icon: PenTool,
+    slug: "blog-studio",
   },
   {
     id: "computer-services",

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { 
   Search, 
   FileText, 
@@ -12,7 +13,9 @@ import {
   RefreshCw, 
   ArrowRight,
   AlertCircle,
-  Check
+  Check,
+  Globe,
+  Lock
 } from 'lucide-react'
 
 interface ResearchResult {
@@ -46,14 +49,15 @@ const toneOptions = ['Professional but accessible', 'Technical deep-dive', 'Casu
 export default function StudioPage() {
   const router = useRouter()
   const [token, setToken] = useState<string | null>(null)
+  const [availableModels, setAvailableModels] = useState<Array<{id: string, name: string, provider: string}>>([])
   const [currentStep, setCurrentStep] = useState<Step>('research')
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
 
   // Research state
   const [query, setQuery] = useState('')
-  const [selectedModel, setSelectedModel] = useState('')
-  const [selectedProvider, setSelectedProvider] = useState('chutes')
+  const [selectedModel, setSelectedModel] = useState('glm-4.7-flash')
+  const [selectedProvider, setSelectedProvider] = useState('crofai')
   const [researchResult, setResearchResult] = useState<ResearchResult | null>(null)
   const [showSearchResults, setShowSearchResults] = useState(false)
 
@@ -74,13 +78,28 @@ export default function StudioPage() {
     published: true,
   })
 
-  // Check for existing token on mount
+  // Check for existing token on mount + load models
   useEffect(() => {
     const saved = localStorage.getItem('gashotech_admin_token')
     if (saved) {
       setToken(saved)
     }
+    fetchModels()
   }, [])
+
+  const fetchModels = async () => {
+    try {
+      const res = await fetch('/api/studio/models')
+      const data = await res.json()
+      if (data.models && data.models.length > 0) {
+        setAvailableModels(data.models)
+        // If user is logged in, they can pick any model
+        // Default is already glm-4.7-flash from crofai
+      }
+    } catch (e) {
+      console.warn('Failed to load models:', e)
+    }
+  }
 
   const handleLogin = async (password: string) => {
     const res = await fetch('/api/blogs/login', {
@@ -370,21 +389,44 @@ export default function StudioPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold">Blog Content Studio</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold">Blog Content Studio</h1>
+              {token ? (
+                <span className="text-xs px-2.5 py-1 bg-[#1abc9c]/10 text-[#1abc9c] rounded-full border border-[#1abc9c]/30 flex items-center gap-1">
+                  <Lock className="w-3 h-3" />
+                  Admin Mode
+                </span>
+              ) : (
+                <span className="text-xs px-2.5 py-1 bg-blue-500/10 text-blue-400 rounded-full border border-blue-500/30 flex items-center gap-1">
+                  <Globe className="w-3 h-3" />
+                  Public Mode
+                </span>
+              )}
+            </div>
             <p className="text-foreground/70 dark:text-[#cccccd] text-sm">
-              AI-powered blog content generation
+              {token ? 'AI-powered blog content generation with publishing' : 'Generate, copy, and paste — no login required'}
             </p>
           </div>
           <div className="flex gap-3">
-            <button
-              onClick={handleLogout}
-              className="inline-flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg hover:bg-accent transition-all text-sm"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              Sign Out
-            </button>
+            {token ? (
+              <button
+                onClick={handleLogout}
+                className="inline-flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg hover:bg-accent transition-all text-sm"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                Sign Out
+              </button>
+            ) : (
+              <Link
+                href="/blogs/admin"
+                className="inline-flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg hover:bg-accent transition-all text-sm"
+              >
+                <Lock className="w-4 h-4" />
+                Admin Login
+              </Link>
+            )}
           </div>
         </div>
 
@@ -406,7 +448,7 @@ export default function StudioPage() {
               { id: 'research', label: 'Research & Topic', icon: Search },
               { id: 'write', label: 'Write Content', icon: FileText },
               { id: 'image', label: 'Generate Image', icon: ImageIcon },
-              { id: 'publish', label: 'Review & Publish', icon: CheckCircle },
+              ...(token ? [{ id: 'publish', label: 'Review & Publish', icon: CheckCircle } as const] : []),
             ].map((step) => {
               const stepId = step.id as Step
               const isActive = currentStep === stepId
@@ -447,7 +489,7 @@ export default function StudioPage() {
           <div className="h-1 bg-border rounded-full">
             <div 
               className="h-full bg-[#1abc9c] rounded-full transition-all duration-300"
-              style={{ width: `${['research', 'write', 'image', 'publish'].indexOf(currentStep) * 25}%` }}
+              style={{ width: `${['research', 'write', 'image', 'publish'].filter(s => s === currentStep || ['research', 'write', 'image', 'publish'].indexOf(s) <= ['research', 'write', 'image', 'publish'].indexOf(currentStep)).length * 25}%` }}
             />
           </div>
         </div>
@@ -474,13 +516,32 @@ export default function StudioPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Select Model</label>
+                  <label className="block text-sm font-medium mb-1">
+                    Select Model
+                    {!token && <span className="text-xs text-muted-foreground ml-2">(default: GLM-4.7 Flash)</span>}
+                  </label>
                   <select
                     value={selectedModel}
-                    onChange={(e) => setSelectedModel(e.target.value)}
+                    onChange={(e) => {
+                      const model = availableModels.find(m => m.id === e.target.value)
+                      setSelectedModel(e.target.value)
+                      if (model) setSelectedProvider(model.provider)
+                    }}
                     className="w-full rounded-lg border border-border bg-background px-4 py-3 text-foreground focus:border-[#1abc9c] focus:ring-1 focus:ring-[#1abc9c] outline-none transition-colors"
                   >
-                    <option value="">Loading models...</option>
+                    {availableModels.length === 0 ? (
+                      <option value="glm-4.7-flash">GLM-4.7 Flash (default)</option>
+                    ) : (
+                      <>
+                        {availableModels
+                          .filter(m => token ? true : m.id === 'glm-4.7-flash')
+                          .map(model => (
+                            <option key={model.id} value={model.id}>
+                              {model.name} ({model.provider})
+                            </option>
+                          ))}
+                      </>
+                    )}
                   </select>
                 </div>
 
