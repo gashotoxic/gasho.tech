@@ -58,7 +58,7 @@ export default function StudioPage() {
   const [showSearchResults, setShowSearchResults] = useState(false)
 
   // Write state
-  const [writeTone, setWriteTone] = useState(toneOptions[0])
+  const [writeTone, setWriteTone] = useState('Professional but accessible')
   const [writeContent, setWriteContent] = useState('')
   const [wordCount, setWordCount] = useState(0)
   const [showMarkdownPreview, setShowMarkdownPreview] = useState(false)
