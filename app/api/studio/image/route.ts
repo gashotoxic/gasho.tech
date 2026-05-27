@@ -36,10 +36,15 @@ export interface ImageRequest {
 }
 
 export async function POST(request: Request) {
+  let title = ''
+  let category = ''
+
   try {
     const body: ImageRequest = await request.json()
+    title = body.title
+    category = body.category
 
-    if (!body.title || !body.category) {
+    if (!title || !category) {
       return NextResponse.json(
         { error: 'Missing required fields: title, category' },
         { status: 400 }
@@ -47,11 +52,11 @@ export async function POST(request: Request) {
     }
 
     // Get prompt templates for category
-    const categoryTemplates = PROMPT_TEMPLATES[body.category as keyof typeof PROMPT_TEMPLATES]
+    const categoryTemplates = PROMPT_TEMPLATES[category as keyof typeof PROMPT_TEMPLATES]
 
     if (!categoryTemplates) {
       // Fallback template
-      const fallbackPrompt = `Professional blog header image for "${body.title}". Dark background with turquoise #1abc9c accents. Technology theme. High quality, cinematic lighting.`
+      const fallbackPrompt = `Professional blog header image for "${title}". Dark background with turquoise #1abc9c accents. Technology theme. High quality, cinematic lighting.`
       const result = await generateImage(fallbackPrompt)
       return NextResponse.json(result)
     }
@@ -98,7 +103,7 @@ export async function POST(request: Request) {
       {
         error: 'Image generation failed',
         imageData: '',
-        fallbackPrompt: `Use this prompt on any AI image generator: "Professional blog header image for ${body.title}. Dark background with turquoise #1abc9c accents. ${body.category} theme. 1200x630 aspect ratio, high quality."`,
+        fallbackPrompt: `Use this prompt on any AI image generator: "Professional blog header image for ${title}. Dark background with turquoise #1abc9c accents. ${category} theme. 1200x630 aspect ratio, high quality."`,
       },
       { status: 500 }
     )
