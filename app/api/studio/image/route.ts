@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     // Get prompt templates for category
     const categoryTemplates = PROMPT_TEMPLATES[body.category as keyof typeof PROMPT_TEMPLATES]
 
-    if (!categoryTemplates || categoryTemplates.length === 0) {
+    if (!categoryTemplates) {
       // Fallback template
       const fallbackPrompt = `Professional blog header image for "${body.title}". Dark background with turquoise #1abc9c accents. Technology theme. High quality, cinematic lighting.`
       const result = await generateImage(fallbackPrompt)
