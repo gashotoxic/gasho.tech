@@ -1,8 +1,0 @@
-mcp_servers:
-  vercel:
-    url: "https://mcp.vercel.com"
-    auth: "oauth"
-    oauth:
-      redirect_port: 46365
-    timeout: 300
-    connect_timeout: 60
