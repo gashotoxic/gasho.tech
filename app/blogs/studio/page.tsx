@@ -101,33 +101,8 @@ export default function StudioPage() {
     }
   }
 
-  const handleLogin = async (password: string) => {
-    const res = await fetch('/api/blogs/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
-    })
 
-    if (!res.ok) {
-      setMessage({ text: 'Invalid password', type: 'error' })
-      return
-    }
 
-    const data = await res.json()
-    localStorage.setItem('gashotech_admin_token', data.token)
-    setToken(data.token)
-    setMessage({ text: 'Logged in successfully', type: 'success' })
-  }
-
-  const handleLogout = () => {
-    localStorage.removeItem('gashotech_admin_token')
-    setToken(null)
-    setQuery('')
-    setResearchResult(null)
-    setWriteContent('')
-    setImageResult(null)
-    setCurrentStep('research')
-  }
 
   const authHeaders = useCallback(() => ({
     'Content-Type': 'application/json',
@@ -340,93 +315,29 @@ export default function StudioPage() {
     setMessage(null)
   }
 
-  if (!token) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-grey pt-16">
-        <div className="bg-card rounded-2xl shadow-xl p-8 w-full max-w-md mx-4 border border-border">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-full bg-[#1abc9c] mx-auto mb-4 flex items-center justify-center">
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-            </div>
-            <h1 className="text-2xl font-bold">Blog Studio Admin</h1>
-            <p className="text-muted-foreground text-sm mt-1">Enter admin password to access content studio</p>
-          </div>
 
-          <form onSubmit={(e) => { e.preventDefault(); handleLogin((e.target as HTMLFormElement).querySelector('input')?.value || '') }} className="space-y-4">
-            <div>
-              <input
-                type="password"
-                placeholder="Admin password"
-                required
-                autoFocus
-                className="w-full rounded-lg border border-border bg-background px-4 py-3 text-foreground focus:border-[#1abc9c] focus:ring-1 focus:ring-[#1abc9c] outline-none transition-colors text-center text-lg"
-              />
-            </div>
-            {message?.type === 'error' && (
-              <p className="text-red-500 text-sm text-center">{message.text}</p>
-            )}
-            <button
-              type="submit"
-              className="w-full py-3 bg-[#1abc9c] text-white rounded-lg font-semibold hover:bg-[#16a085] transition-all duration-300"
-            >
-              Sign In
-            </button>
-          </form>
-
-          <p className="text-center text-xs text-muted-foreground mt-6">
-            Set BLOG_ADMIN_PASSWORD env var to configure
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  return (
     <div className="pt-20 pb-12">
       <div className="container mx-auto px-4 max-w-5xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold">Blog Content Studio</h1>
-              {token ? (
-                <span className="text-xs px-2.5 py-1 bg-[#1abc9c]/10 text-[#1abc9c] rounded-full border border-[#1abc9c]/30 flex items-center gap-1">
-                  <Lock className="w-3 h-3" />
-                  Admin Mode
-                </span>
-              ) : (
-                <span className="text-xs px-2.5 py-1 bg-blue-500/10 text-blue-400 rounded-full border border-blue-500/30 flex items-center gap-1">
-                  <Globe className="w-3 h-3" />
-                  Public Mode
-                </span>
-              )}
-            </div>
+            <h1 className="text-3xl font-bold">Blog Content Studio</h1>
             <p className="text-foreground/70 dark:text-[#cccccd] text-sm">
-              {token ? 'AI-powered blog content generation with publishing' : 'Generate, copy, and paste — no login required'}
+              Generate, research, and create blog content — no login required
             </p>
           </div>
           <div className="flex gap-3">
-            {token ? (
-              <button
-                onClick={handleLogout}
-                className="inline-flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg hover:bg-accent transition-all text-sm"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                Sign Out
-              </button>
-            ) : (
-              <Link
-                href="/blogs/admin"
-                className="inline-flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg hover:bg-accent transition-all text-sm"
-              >
-                <Lock className="w-4 h-4" />
-                Admin Login
-              </Link>
-            )}
+            <a
+              href="https://create.gashotech.com"
+              target="_blank"
+              rel="noopener"
+              className="inline-flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg hover:bg-accent transition-all text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+              </svg>
+              create.gashotech.com
+            </a>
           </div>
         </div>
 
