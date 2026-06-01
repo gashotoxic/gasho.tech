@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { renderMarkdown } from '@/lib/studio-api'
 import Link from 'next/link'
 import { 
   Search, 
@@ -39,6 +40,7 @@ export default function StudioPage() {
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
   const [result, setResult] = useState<GenerateAllResult | null>(null)
   const [showMarkdownPreview, setShowMarkdownPreview] = useState(false)
+  const [copiedField, setCopiedField] = useState<string | null>(null)
 
   // Admin-only state
   const [selectedModel, setSelectedModel] = useState('glm-4.7-flash')
@@ -68,11 +70,11 @@ export default function StudioPage() {
     Authorization: `Bearer ${token}`,
   }), [token])
 
-  const copyToClipboard = async (text: string) => {
+  const copyToClipboard = async (field: string, text: string) => {
     try {
       await navigator.clipboard.writeText(text)
-      setMessage({ text: 'Copied to clipboard!', type: 'success' })
-      setTimeout(() => setMessage(null), 3000)
+      setCopiedField(field)
+      setTimeout(() => setCopiedField(null), 2000)
     } catch {
       setMessage({ text: 'Failed to copy', type: 'error' })
       setTimeout(() => setMessage(null), 3000)
@@ -118,7 +120,7 @@ export default function StudioPage() {
         setResult(data)
         setMessage({ text: 'Blog post generated!', type: 'success' })
       } else {
-        setMessage({ text: data.error || 'Generation failed', type: 'error' })
+        setMessage({ text: data.error || 'Generation failed. Try a different model or topic.', type: 'error' })
       }
     } catch {
       setMessage({ text: 'Generation failed. Check your connection.', type: 'error' })
@@ -344,12 +346,15 @@ export default function StudioPage() {
                   <h2 className="text-2xl font-bold mt-1">{result.title}</h2>
                 </div>
                 <button
-                  onClick={() => copyToClipboard(result.title)}
+                  onClick={() => copyToClipboard('title', result.title)}
                   className="ml-4 px-3 py-1.5 border border-border rounded-lg hover:bg-accent transition-all text-sm flex items-center gap-1 shrink-0"
                   title="Copy title"
                 >
-                  <Copy className="w-3 h-3" />
-                  Copy
+                  {copiedField === 'title' ? (
+                    <><CheckCircle className="w-3 h-3 text-green-400" /> Copied!</>
+                  ) : (
+                    <><Copy className="w-3 h-3" /> Copy</>
+                  )}
                 </button>
               </div>
 
@@ -359,12 +364,15 @@ export default function StudioPage() {
                   <p className="text-muted-foreground mt-1">{result.excerpt}</p>
                 </div>
                 <button
-                  onClick={() => copyToClipboard(result.excerpt)}
+                  onClick={() => copyToClipboard('excerpt', result.excerpt)}
                   className="ml-4 px-3 py-1.5 border border-border rounded-lg hover:bg-accent transition-all text-sm flex items-center gap-1 shrink-0"
                   title="Copy excerpt"
                 >
-                  <Copy className="w-3 h-3" />
-                  Copy
+                  {copiedField === 'excerpt' ? (
+                    <><CheckCircle className="w-3 h-3 text-green-400" /> Copied!</>
+                  ) : (
+                    <><Copy className="w-3 h-3" /> Copy</>
+                  )}
                 </button>
               </div>
 
@@ -395,11 +403,14 @@ export default function StudioPage() {
                     {showMarkdownPreview ? 'Rendered View' : 'Markdown View'}
                   </button>
                   <button
-                    onClick={() => copyToClipboard(result.content)}
+                    onClick={() => copyToClipboard('content', result.content)}
                     className="text-sm px-3 py-1.5 border border-border rounded-lg hover:bg-accent transition-all flex items-center gap-1"
                   >
-                    <Copy className="w-3 h-3" />
-                    Copy Content
+                    {copiedField === 'content' ? (
+                      <><CheckCircle className="w-3 h-3 text-green-400" /> Copied!</>
+                    ) : (
+                      <><Copy className="w-3 h-3" /> Copy Content</>
+                    )}
                   </button>
                 </div>
               </div>
@@ -412,20 +423,7 @@ export default function StudioPage() {
                 <div
                   className="prose dark:prose-invert max-w-none bg-border rounded-lg p-4 overflow-x-auto max-h-96 overflow-y-auto"
                   dangerouslySetInnerHTML={{
-                    __html: result.content
-                      .replace(/^###### (.+)$/gm, '<h6>$1</h6>')
-                      .replace(/^##### (.+)$/gm, '<h5>$1</h5>')
-                      .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
-                      .replace(/^### (.+)$/gm, '<h3 class="text-lg font-bold mt-4 mb-2">$1</h3>')
-                      .replace(/^## (.+)$/gm, '<h2 class="text-xl font-bold mt-5 mb-3">$1</h2>')
-                      .replace(/^# (.+)$/gm, '<h1 class="text-2xl font-bold mt-6 mb-4">$1</h1>')
-                      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-                      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-                      .replace(/^- (.+)$/gm, '<li>$1</li>')
-                      .replace(/(<li>.*<\/li>\n?)+/g, '<ul class="list-disc pl-5 space-y-1 my-2">$&</ul>')
-                      .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
-                      .replace(/\n\n/g, '</p><p class="mb-3">')
-                      .replace(/```([\s\S]*?)```/g, '<pre class="bg-black/20 rounded p-3 my-2 overflow-x-auto"><code>$1</code></pre>')
+                    __html: renderMarkdown(result.content)
                   }}
                 />
               )}
@@ -439,11 +437,14 @@ export default function StudioPage() {
                   <p className="text-xs text-muted-foreground">Use this prompt on create.gashotech.com or any AI image generator</p>
                 </div>
                 <button
-                  onClick={() => copyToClipboard(result.imagePrompt)}
+                  onClick={() => copyToClipboard('imagePrompt', result.imagePrompt)}
                   className="px-3 py-1.5 border border-border rounded-lg hover:bg-accent transition-all text-sm flex items-center gap-1 shrink-0"
                 >
-                  <Copy className="w-3 h-3" />
-                  Copy Prompt
+                  {copiedField === 'imagePrompt' ? (
+                    <><CheckCircle className="w-3 h-3 text-green-400" /> Copied!</>
+                  ) : (
+                    <><Copy className="w-3 h-3" /> Copy Prompt</>
+                  )}
                 </button>
               </div>
               <div className="bg-accent rounded-lg p-3">
@@ -561,10 +562,26 @@ export default function StudioPage() {
                     <div className="border-t border-border pt-4 mt-4">
                       <p className="text-sm text-muted-foreground mb-2">Or copy individual pieces:</p>
                       <div className="flex flex-wrap gap-2">
-                        <button onClick={() => copyToClipboard(result.title)} className="text-xs px-3 py-1.5 border border-border rounded-lg hover:bg-accent transition-all">Copy Title</button>
-                        <button onClick={() => copyToClipboard(result.excerpt)} className="text-xs px-3 py-1.5 border border-border rounded-lg hover:bg-accent transition-all">Copy Excerpt</button>
-                        <button onClick={() => copyToClipboard(result.content)} className="text-xs px-3 py-1.5 border border-border rounded-lg hover:bg-accent transition-all">Copy Content</button>
-                        <button onClick={() => copyToClipboard(result.imagePrompt)} className="text-xs px-3 py-1.5 border border-border rounded-lg hover:bg-accent transition-all">Copy Image Prompt</button>
+                        {(copiedField === 'title') ? (
+                          <span className="text-xs px-3 py-1.5 bg-green-500/10 text-green-400 rounded-lg border border-green-500/30 inline-flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Title Copied!</span>
+                        ) : (
+                          <button onClick={() => copyToClipboard('title', result.title)} className="text-xs px-3 py-1.5 border border-border rounded-lg hover:bg-accent transition-all">Copy Title</button>
+                        )}
+                        {(copiedField === 'excerpt') ? (
+                          <span className="text-xs px-3 py-1.5 bg-green-500/10 text-green-400 rounded-lg border border-green-500/30 inline-flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Excerpt Copied!</span>
+                        ) : (
+                          <button onClick={() => copyToClipboard('excerpt', result.excerpt)} className="text-xs px-3 py-1.5 border border-border rounded-lg hover:bg-accent transition-all">Copy Excerpt</button>
+                        )}
+                        {(copiedField === 'content') ? (
+                          <span className="text-xs px-3 py-1.5 bg-green-500/10 text-green-400 rounded-lg border border-green-500/30 inline-flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Content Copied!</span>
+                        ) : (
+                          <button onClick={() => copyToClipboard('content', result.content)} className="text-xs px-3 py-1.5 border border-border rounded-lg hover:bg-accent transition-all">Copy Content</button>
+                        )}
+                        {(copiedField === 'imagePrompt') ? (
+                          <span className="text-xs px-3 py-1.5 bg-green-500/10 text-green-400 rounded-lg border border-green-500/30 inline-flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Prompt Copied!</span>
+                        ) : (
+                          <button onClick={() => copyToClipboard('imagePrompt', result.imagePrompt)} className="text-xs px-3 py-1.5 border border-border rounded-lg hover:bg-accent transition-all">Copy Image Prompt</button>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -2,7 +2,6 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import Image from "next/image"
 import { Calendar, Tag } from "lucide-react"
-import { blogPosts } from "@/lib/blogs"
 import type { BlogPost } from "@/lib/blogs"
 
 export const metadata: Metadata = {
@@ -20,8 +19,27 @@ export const metadata: Metadata = {
   },
 }
 
-export default function BlogsPage() {
-  const posts = blogPosts
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
+async function getPosts(): Promise<BlogPost[]> {
+  try {
+    const baseUrl = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+    const res = await fetch(`${baseUrl}/api/blogs`, { cache: "no-store" })
+    if (res.ok) {
+      const data = await res.json()
+      return Array.isArray(data) ? data : []
+    }
+  } catch (e) {
+    console.error("Failed to fetch blog posts:", e)
+  }
+  return []
+}
+
+export default async function BlogsPage() {
+  const posts = (await getPosts())
     .filter((p: BlogPost) => p.published)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 

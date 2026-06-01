@@ -101,8 +101,9 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error('Generate-all failed:', error)
+    const errorMsg = error instanceof Error ? error.message : 'unknown error'
     return NextResponse.json(
-      { error: 'Generation failed. Please try again.' },
+      { error: `Generation failed: ${errorMsg}. Try switching models or try again.` },
       { status: 500 }
     )
   }

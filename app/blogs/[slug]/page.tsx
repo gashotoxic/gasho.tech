@@ -2,17 +2,36 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { blogPosts } from "@/lib/blogs"
 import type { BlogPost } from "@/lib/blogs"
+import { renderMarkdown } from "@/lib/studio-api"
 import { Calendar, Tag, ArrowLeft } from "lucide-react"
 
 interface Props {
   params: Promise<{ slug: string }>
 }
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
+async function getPost(slug: string): Promise<BlogPost | null> {
+  try {
+    const baseUrl = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+    const res = await fetch(`${baseUrl}/api/blogs`, { cache: "no-store" })
+    if (res.ok) {
+      const posts: BlogPost[] = await res.json()
+      return posts.find((p) => p.slug === slug && p.published) || null
+    }
+  } catch (e) {
+    console.error("Failed to fetch blog post:", e)
+  }
+  return null
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
-  const post = blogPosts.find((p: BlogPost) => p.slug === slug)
+  const post = await getPost(slug)
   if (!post) return { title: "Post Not Found" }
   return {
     title: post.title,
@@ -37,30 +56,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-export async function generateStaticParams() {
-  return blogPosts.filter((p: BlogPost) => p.published).map((post: BlogPost) => ({ slug: post.slug }))
-}
-
 function formatContent(content: string): string {
-  return content
-    .split("\n")
-    .map((line) => {
-      if (line.startsWith("### ")) return `<h3 class="text-xl font-bold mt-6 mb-3 text-foreground">${line.slice(4)}</h3>`
-      if (line.startsWith("## ")) return `<h2 class="text-2xl font-bold mt-8 mb-4 text-foreground">${line.slice(3)}</h2>`
-      if (line.startsWith("#### ")) return `<h4 class="text-lg font-semibold mt-4 mb-2 text-foreground">${line.slice(5)}</h4>`
-      if (line.startsWith("- ")) return `<li class="ml-4 text-foreground/80 dark:text-[#cccccc]">${line.slice(2)}</li>`
-      if (line.startsWith("1. ")) return `<li class="ml-4 list-decimal text-foreground/80 dark:text-[#cccccc]">${line.slice(3)}</li>`
-      if (line.trim() === "") return "<br>"
-      return `<p class="text-foreground/80 dark:text-[#cccccc] leading-relaxed mb-2">${line}</p>`
-    })
-    .join("\n")
+  return renderMarkdown(content)
+    .replace(/<h1>/g, '<h1 class="text-3xl font-bold mt-8 mb-4">')
+    .replace(/<h2>/g, '<h2 class="text-2xl font-bold mt-8 mb-4">')
+    .replace(/<h3>/g, '<h3 class="text-xl font-bold mt-6 mb-3">')
+    .replace(/<p class=/g, '<p class="text-foreground/80 dark:text-[#cccccc] leading-relaxed mb-2" class=')
 }
 
 export default async function BlogPostPage({ params }: Props) {
   const { slug } = await params
-  const post = blogPosts.find((p: BlogPost) => p.slug === slug)
+  const post = await getPost(slug)
 
-  if (!post || !post.published) {
+  if (!post) {
     notFound()
   }
 

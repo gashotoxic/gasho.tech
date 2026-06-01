@@ -361,6 +361,21 @@ export function renderMarkdown(md: string): string {
   html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
   html = html.replace(/`(.+?)`/g, '<code>$1</code>')
 
+  // Tables
+  html = html.replace(/^\|(.+)\|$/gm, (match: string) => {
+    // Check if it's a header separator row (|---|)
+    if (/^\|[\s-:]+\|$/.test(match)) return match // skip separator rows, they'll be handled below
+    const cells = match.split('|').filter((_, i, arr) => i > 0 && i < arr.length - 1 || (arr.length > 2 && i === arr.length - 1))
+      .map(c => c.trim())
+    if (cells.length === 0) return match
+    return `<td>${cells.join('</td><td>')}</td>`
+  })
+  // Wrap consecutive <td> rows in <tr> and then <table>
+  html = html.replace(/((?:<td>.*?<\/td>\n?)+)/g, '<tr>$1</tr>')
+  html = html.replace(/((?:<tr>.*?<\/tr>\n?)+)/g, '<table class="w-full border-collapse border border-border my-4">$1</table>')
+  // Style table cells
+  html = html.replace(/<td>/g, '<td class="border border-border px-3 py-2 text-sm">')
+
   // Lists
   html = html.replace(/^- (.+)$/gm, '<li>$1</li>')
   html = html.replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
