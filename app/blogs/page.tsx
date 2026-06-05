@@ -24,9 +24,7 @@ export const revalidate = 0
 
 async function getPosts(): Promise<BlogPost[]> {
   try {
-    const baseUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://gashotech.com"
     const res = await fetch(`${baseUrl}/api/blogs`, { cache: "no-store" })
     if (res.ok) {
       const data = await res.json()
