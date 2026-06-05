@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   keywords: ["AI Solutions", "AI Automation", "Cybersecurity", "ICT Services", "GashoTech", "Nairobi", "Kenya", "Tech Startup", "Artificial Intelligence", "East Africa", "Machine Learning", "RPA"],
   metadataBase: new URL("https://gashotech.com"),
   alternates: {
-    canonical: "/",
+    canonical: "https://gashotech.com",
   },
   icons: {
     icon: [
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     title: "GashoTech: Innovating AI and Cybersecurity Solutions",
     description:
       "Empowering the Future with AI and Innovation. We offer AI solutions, AI automation, cybersecurity, and ICT services.",
-    url: "https://gashotech.com",
+    url: "/",
     siteName: "GashoTech",
     locale: "en_KE",
     type: "website",
@@ -80,7 +80,6 @@ export default function RootLayout({
         <link rel="preconnect" href="https://www.google-analytics.com" />
         <link rel="dns-prefetch" href="https://connect.facebook.net" />
         <link rel="preconnect" href="https://connect.facebook.net" />
-        <link rel="canonical" href="https://gashotech.com" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -145,6 +144,18 @@ export default function RootLayout({
                   position: 1,
                   name: "Home",
                   item: "https://www.gashotech.com",
+                },
+                {
+                  "@type": "ListItem",
+                  position: 2,
+                  name: "Services",
+                  item: "https://www.gashotech.com/services",
+                },
+                {
+                  "@type": "ListItem",
+                  position: 3,
+                  name: "Blog",
+                  item: "https://www.gashotech.com/blogs",
                 },
               ],
             }),

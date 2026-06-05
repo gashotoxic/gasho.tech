@@ -165,6 +165,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     alternates: {
       canonical: `https://gashotech.com/services/${slug}`,
     },
+    openGraph: {
+      title: service.title,
+      description: service.description,
+      url: `https://gashotech.com/services/${slug}`,
+      siteName: "GashoTech",
+      locale: "en_KE",
+      type: "website",
+      images: [{ url: "https://gashotech.com/images/gashotech_logo.webp", width: 1200, height: 630 }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: service.title,
+      description: service.description,
+      images: [{ url: "https://gashotech.com/images/gashotech_logo.webp" }],
+    },
   }
 }
 
