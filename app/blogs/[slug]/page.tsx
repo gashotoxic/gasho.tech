@@ -118,6 +118,7 @@ export default async function BlogPostPage({ params }: Props) {
             src={post.image || "/images/AI.webp"}
             alt={post.title}
             fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 100vw, 1200px"
             className="object-cover"
             priority
           />
