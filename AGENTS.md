@@ -1,7 +1,7 @@
 # DOX framework — gasho.tech
 
 **GashoTech company website — main public-facing site at gashotech.com**
-**Stack:** HTML/CSS/JS
+**Stack:** Next.js 16, TypeScript, Tailwind CSS, shadcn/base-nova, Clerk (auth), Vercel (deploy)
 
 - DOX is highly performant AGENTS.md hierarchy installed here
 - Agent must follow DOX instructions across any edits
@@ -79,8 +79,20 @@ Default section order:
 
 ## User Preferences
 
-When the user requests a durable behavior change, record it here or in the relevant child AGENTS.md
+- Git author MUST be `gashotoxic <denismugo101@gmail.com>` for Vercel deploys. Mismatched email blocks deployments.
+- Correct domain is `gashotech.com` (NOT `gasho.tech`).
+- Branch strategy: feature branches off main, PR back to main. Never push directly to main without approval.
+- Conventional commits: `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`.
+- Always include the gasho.tech logo on blog images and social cards via ImageMagick overlay (never embed in AI generation).
+- Blog images: 1200x630 WebP for OG cards; 800x600 for inline posts.
+- VICTOR owns social media posting (auto-post cron at 10:00 EAT daily). SCOUT feeds topics to VICTOR (08:30).
 
 ## Child DOX Index
 
-This project is not yet indexed. Before continuing you must scan the project, build the DOX tree and replace this message with the actual index. Go deep and scan files recursively to properly evaluate complexity and create nested DOX files where needed.
+- [app/](./app/AGENTS.md) — Next.js App Router (routes, layouts, server components)
+- [components/](./components/AGENTS.md) — Shared React components
+- [data/](./data/AGENTS.md) — Static content data (blogs, services, testimonials)
+- [lib/](./lib/AGENTS.md) — Shared library code (auth, API clients, utils)
+- [images/](./images/AGENTS.md) — Static site images
+- [public/](./public/AGENTS.md) — Public static assets
+- [MyProfile/](./MyProfile/AGENTS.md) — Founder profile page (legacy HTML+CSS+JS)
