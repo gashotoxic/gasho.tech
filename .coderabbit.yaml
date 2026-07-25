@@ -1,0 +1,46 @@
+# CodeRabbit configuration — GashoTech
+# Schema: https://docs.coderabbit.ai/reference/configuration
+# Review behavior: balanced profile, security-focused path instructions.
+
+language: en-US
+early_access: false
+enable_free_tier: true
+tone_instructions: "Be direct and technical. Prioritize security vulnerabilities, logic errors, and secrets over style nits."
+
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  review_status: true
+  collapse_walkthrough: false
+  path_filters:
+    # Exclude generated/lock/vendor files from reviews (saves review quota)
+    - "!**/node_modules/**"
+    - "!**/dist/**"
+    - "!**/build/**"
+    - "!**/.next/**"
+    - "!**/package-lock.json"
+    - "!**/yarn.lock"
+    - "!**/pnpm-lock.yaml"
+    - "!**/*.min.js"
+    - "!**/*.min.css"
+  path_instructions:
+    - path: "**/*.{ts,tsx,js,jsx,py}"
+      instructions: "Watch for hardcoded secrets/API keys, unsanitized user input (XSS/SQLi), missing error handling on async calls, and unvalidated env vars."
+    - path: "**/api/**"
+      instructions: "Verify auth checks on every endpoint, rate limiting, input validation, and no secret leakage in responses."
+    - path: "**/*.{env,yaml,yml,json}"
+      instructions: "Flag any committed credentials, tokens, or connection strings."
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - develop
+      - main
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
