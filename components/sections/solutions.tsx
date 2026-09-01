@@ -14,13 +14,15 @@ export default function Solutions() {
           <h2 className="mb-2 text-center text-3xl font-bold tracking-wider md:text-4xl">
             SOLUTIONS
           </h2>
-          <h4 className="mb-12 text-center text-lg md:text-xl text-foreground/70 dark:text-[#cccccc]">
+          <h3 className="mb-12 text-center text-lg md:text-xl text-foreground/70 dark:text-[#cccccc]">
             Innovative Solutions for Modern Challenges
-          </h4>
+          </h3>
         </FadeIn>
 
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-          {solutions.map((solution, index) => (
+          {solutions
+            .filter((solution) => solution.slug !== "computer")
+            .map((solution, index) => (
             <FadeIn key={solution.id} delay={index * 0.1}>
               <Card className="group overflow-hidden hover-glow h-full">
                 <div className="relative h-[250px] overflow-hidden rounded-t-lg shrink-0">

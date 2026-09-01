@@ -1,4 +1,4 @@
-import { Cog, RefreshCw, Lock, Cloud, PenTool, Headphones } from "lucide-react"
+import { Cog, RefreshCw, Lock, Cloud, Headphones } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
 export interface Service {
@@ -12,49 +12,41 @@ export interface Service {
 export const services: Service[] = [
   {
     id: "ai-solutions",
-    title: "AI Solutions",
+    title: "AI Solutions in Kenya for Business",
     description:
-      "Custom AI solutions in Kenya — NLP, machine learning, predictive analytics, computer vision, and generative AI tailored to automate complex processes and enhance decision-making for businesses across East Africa.",
+      "Custom AI solutions in Kenya — NLP, machine learning, computer vision, and generative AI for East African businesses. Nairobi-based team serving the region.",
     icon: Cog,
     slug: "ai",
   },
   {
     id: "ai-automation",
-    title: "AI Automation",
+    title: "AI Automation Services in Kenya",
     description:
-      "AI automation services in Kenya — RPA, business process automation, workflow orchestration, and cloud-based automation to streamline repetitive tasks, reduce costs, and boost productivity.",
+      "AI automation in Kenya — RPA, workflow orchestration, and cloud-based automation that cuts costs and boosts productivity for East African businesses.",
     icon: RefreshCw,
     slug: "automation",
   },
   {
     id: "cybersecurity",
-    title: "Cybersecurity",
+    title: "Cybersecurity Services in Kenya",
     description:
-      "Cybersecurity services in Kenya — AI-driven threat detection, vulnerability management, incident response, data encryption, IAM, and 24/7 monitoring to protect your business from cyber threats.",
+      "Cybersecurity services in Kenya — AI-driven threat detection, vulnerability management, IAM, and 24/7 monitoring to protect Nairobi businesses.",
     icon: Lock,
     slug: "cybersecurity",
   },
   {
     id: "ict-services",
-    title: "ICT Services",
+    title: "ICT Services in Nairobi, Kenya",
     description:
-      "ICT services in Kenya — infrastructure management, cloud solutions, custom software development, IT consulting, system integration, and technical support for businesses of all sizes.",
+      "ICT services in Nairobi — cloud solutions, infrastructure management, custom software, IT consulting, and technical support for Kenyan businesses.",
     icon: Cloud,
     slug: "ict",
   },
   {
-    id: "blog-content-studio",
-    title: "Blog Content Studio",
-    description:
-      "AI-powered blog content creation — research, write, and generate images for SEO-optimized blog posts. Web research, topic generation, and smart image prompts at your fingertips.",
-    icon: PenTool,
-    slug: "blog-studio",
-  },
-  {
     id: "computer-services",
-    title: "Computer Services",
+    title: "Computer Services in Nairobi",
     description:
-      "Computer services in Kenya — hardware maintenance, software solutions, network setup, help desk support, and affordable IT support for small businesses and home offices.",
+      "Computer services in Nairobi — hardware maintenance, software, network setup, and help desk support for small businesses and home offices.",
     icon: Headphones,
     slug: "computer",
   },

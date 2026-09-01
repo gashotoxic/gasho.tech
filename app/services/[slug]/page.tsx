@@ -371,6 +371,30 @@ export default async function ServicePage({ params }: Props) {
             </div>
           </section>
 
+          {/* Related Services — cross-linking for internal SEO */}
+          <section className="mb-12">
+            <h2 className="text-2xl font-bold mb-4">Related Services</h2>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {services
+                .filter((s) => s.slug !== slug && s.slug !== "computer")
+                .slice(0, 3)
+                .map((related) => (
+                  <Link
+                    key={related.id}
+                    href={`/services/${related.slug}`}
+                    className="group block bg-card rounded-lg p-5 shadow-sm border border-transparent transition-all duration-300 hover:border-[#1abc9c] hover:shadow-md"
+                  >
+                    <h3 className="font-semibold text-foreground group-hover:text-[#1abc9c] transition-colors mb-1">
+                      {related.title}
+                    </h3>
+                    <p className="text-sm text-muted-foreground line-clamp-2">
+                      {related.description}
+                    </p>
+                  </Link>
+                ))}
+            </div>
+          </section>
+
           {/* Contact CTA */}
           <section className="text-center py-8">
             <h2 className="text-2xl font-bold mb-4">Contact Us</h2>

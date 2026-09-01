@@ -36,3 +36,6 @@ next-env.d.ts
 /CHANGELOG.md
 /FIX_PLAN.md
 /TASK.md
+# Backup files
+# Backup files
+**/*.bak-*

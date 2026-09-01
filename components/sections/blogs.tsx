@@ -18,9 +18,9 @@ export default function Blogs() {
       <div className="container mx-auto px-4">
         <FadeIn>
           <h2 className="text-center text-3xl font-bold mb-4">Our Blog</h2>
-          <h4 className="text-center text-lg text-foreground/70 dark:text-[#cccccc] mb-12 max-w-2xl mx-auto">
+          <h3 className="text-center text-lg text-foreground/70 dark:text-[#cccccc] mb-12 max-w-2xl mx-auto">
             Insights, news, and updates on AI, automation, cybersecurity, and technology
-          </h4>
+          </h3>
         </FadeIn>
 
         {posts.length === 0 ? (

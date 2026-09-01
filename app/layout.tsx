@@ -91,8 +91,11 @@ export default function RootLayout({
               logo: "https://www.gashotech.com/images/gashotech_logo.webp",
               sameAs: [
                 "https://www.facebook.com/gashotech",
-                "https://twitter.com/gashotech",
+                "https://x.com/gashotech",
                 "https://www.linkedin.com/company/gashotech",
+                "https://www.instagram.com/gashotech",
+                "https://www.threads.net/@gashotech",
+                "https://www.tiktok.com/@gashotech",
               ],
               contactPoint: [
                 {

@@ -13,9 +13,9 @@ export default function About() {
             {/* Left column — 8/12 */}
             <div className="md:col-span-8">
               <h2 className="text-3xl font-bold mb-4">About Us</h2>
-              <h4 className="text-xl font-semibold mb-4 text-foreground">
+              <h3 className="text-xl font-semibold mb-4 text-foreground">
                 Empowering the Future with AI and Innovation
-              </h4>
+              </h3>
               <p className="mb-6 text-foreground leading-relaxed">
                 At GashoTech, we are a cutting-edge AI startup in Kenya dedicated to transforming
                 industries through the power of artificial intelligence, automation, and advanced
@@ -24,7 +24,7 @@ export default function About() {
                 digital world.
               </p>
 
-              <h4 className="text-lg font-semibold mb-3 text-foreground">Why Choose Us?</h4>
+              <h3 className="text-lg font-semibold mb-3 text-foreground">Why Choose Us?</h3>
               <ul className="space-y-2 mb-6 text-foreground">
                 <li>
                   <strong>Expertise & Innovation:</strong> Our team consists of industry experts with
