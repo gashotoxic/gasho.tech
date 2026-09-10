@@ -5,10 +5,6 @@ import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { services } from "@/data/services"
 
-// Hide consumer-tier "Computer Services" from the enterprise homepage positioning.
-// The /services/computer route stays live (served via generateStaticParams in [slug]/page.tsx).
-const enterpriseServices = services.filter((s) => s.slug !== "computer")
-
 export default function Services() {
   return (
     <section id="services" className="bg-grey section-padding scroll-mt-14">
@@ -23,7 +19,7 @@ export default function Services() {
         </FadeIn>
 
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-          {enterpriseServices.map((service, index) => (
+          {services.map((service, index) => (
             <FadeIn key={service.id} delay={index * 0.1}>
               <Card className="group overflow-hidden hover-glow h-full">
                 <CardContent className="flex flex-col items-center p-8 text-center flex-1">

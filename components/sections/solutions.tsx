@@ -20,9 +20,7 @@ export default function Solutions() {
         </FadeIn>
 
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-          {solutions
-            .filter((solution) => solution.slug !== "computer")
-            .map((solution, index) => (
+          {solutions.map((solution, index) => (
             <FadeIn key={solution.id} delay={index * 0.1}>
               <Card className="group overflow-hidden hover-glow h-full">
                 <div className="relative h-[250px] overflow-hidden rounded-t-lg shrink-0">

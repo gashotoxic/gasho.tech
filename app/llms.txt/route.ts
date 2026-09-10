@@ -70,6 +70,9 @@ Infrastructure management, cloud solutions (migration and management), custom so
 ### Network & Data
 Database design and programming, network architecture and optimization, data analytics, business intelligence, data security, and seamless connectivity solutions.
 
+### Blog Content Studio
+AI-powered blog content creation — research topics, draft SEO-optimized articles, and generate images. Free to try at create.gashotech.com.
+
 ### Computer Services
 Hardware maintenance and repair, software solutions, network setup, technical support, and help desk services for small businesses and home offices.
 
@@ -82,6 +85,7 @@ Hardware maintenance and repair, software solutions, network setup, technical su
 - AI Automation: https://gashotech.com/services/automation
 - Cybersecurity: https://gashotech.com/services/cybersecurity
 - ICT Services: https://gashotech.com/services/ict
+- Blog Content Studio: https://gashotech.com/services/blog-studio
 - Computer Services: https://gashotech.com/services/computer
 - Blog: https://gashotech.com/blogs/
 - Company Profile: https://gashotech.com/profile/

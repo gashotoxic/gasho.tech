@@ -1,4 +1,4 @@
-import { Cog, RefreshCw, Lock, Cloud, Headphones } from "lucide-react"
+import { Cog, RefreshCw, Lock, Cloud, PenTool, Headphones } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
 export interface Service {
@@ -41,6 +41,14 @@ export const services: Service[] = [
       "ICT services in Nairobi — cloud solutions, infrastructure management, custom software, IT consulting, and technical support for Kenyan businesses.",
     icon: Cloud,
     slug: "ict",
+  },
+  {
+    id: "blog-content-studio",
+    title: "Blog Content Studio",
+    description:
+      "AI-powered blog content creation — research topics, draft SEO-optimized articles, and generate images in minutes. Try it for free at create.gashotech.com.",
+    icon: PenTool,
+    slug: "blog-studio",
   },
   {
     id: "computer-services",
