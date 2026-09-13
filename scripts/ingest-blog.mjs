@@ -98,15 +98,33 @@ async function main() {
     published: post.published !== undefined ? post.published : true,
   }
 
-  // 5. Read existing data and append
+  // 5. Read existing data — upsert by slug so re-ingesting the same post
+  //    (same title) REPLACES it instead of appending a duplicate URL.
   const data = readBlogs()
-  data.posts.push(entry)
+  const existingIndex = data.posts.findIndex((p) => p.slug === entry.slug)
+  let action
+  if (existingIndex !== -1) {
+    data.posts[existingIndex] = entry
+    action = "updated"
+  } else {
+    data.posts.push(entry)
+    action = "added"
+  }
 
   // 6. Write back
   writeBlogs(data)
 
-  console.log(`Blog post "${entry.title}" ingested successfully (slug: ${entry.slug}).`)
+  console.log(`Blog post "${entry.title}" ${action} successfully (slug: ${entry.slug}).`)
   console.log(`Total posts: ${data.posts.length}`)
+
+  // 7. Guard: no duplicate slugs may ever reach the data file (a duplicate
+  //    slug doubles the sitemap entry and is a duplicate-content signal).
+  const slugs = data.posts.map((p) => p.slug)
+  const dupes = slugs.filter((s, i) => slugs.indexOf(s) !== i)
+  if (dupes.length) {
+    console.error(`Error: duplicate slug(s) in data/blogs.json: ${[...new Set(dupes)].join(", ")}`)
+    process.exit(1)
+  }
 }
 
 main().catch((err) => {
