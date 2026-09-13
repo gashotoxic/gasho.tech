@@ -7,6 +7,11 @@ export interface Service {
   description: string
   icon: LucideIcon
   slug: string
+  /**
+   * Internal / app-tier service: still served at /services/<slug> and listed in
+   * the sitemap, but hidden from the public homepage service cards.
+   */
+  internal?: boolean
 }
 
 export const services: Service[] = [
@@ -49,6 +54,7 @@ export const services: Service[] = [
       "AI-powered blog content creation — research topics, draft SEO-optimized articles, and generate images in minutes. Try it for free at create.gashotech.com.",
     icon: PenTool,
     slug: "blog-studio",
+    internal: true,
   },
   {
     id: "computer-services",

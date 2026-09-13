@@ -21,3 +21,4 @@ Reusable React components used across routes. Organised by domain (analytics, la
 - Path alias: `@/components/*` resolves to this directory
 - Use Tailwind CSS classes via `clsx` + `tailwind-merge` (`cn` util in `lib/utils.ts`)
 - Icons via `lucide-react`
+- `sections/services.tsx` renders only public services — it filters out entries with `internal: true` from `data/services.ts` (app-tier offerings stay reachable via `/services/*`).

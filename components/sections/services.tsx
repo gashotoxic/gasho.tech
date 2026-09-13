@@ -19,7 +19,9 @@ export default function Services() {
         </FadeIn>
 
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-          {services.map((service, index) => (
+          {services
+            .filter((service) => !service.internal)
+            .map((service, index) => (
             <FadeIn key={service.id} delay={index * 0.1}>
               <Card className="group overflow-hidden hover-glow h-full">
                 <CardContent className="flex flex-col items-center p-8 text-center flex-1">
