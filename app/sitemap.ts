@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next"
 import blogs from "@/data/blogs.json"
+import { liveProjects } from "@/data/projects"
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = "https://gashotech.com"
@@ -17,7 +18,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${baseUrl}/privacy`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
     { url: `${baseUrl}/profile`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
     { url: `${baseUrl}/blogs`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.6 },
+    { url: `${baseUrl}/projects`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.7 },
   ]
+
+  // Only projects that clear the Tier 1 gate (status "live" + every tier1 check true).
+  const projectEntries: MetadataRoute.Sitemap = liveProjects().map((project) => ({
+    url: `${baseUrl}/projects/${project.slug}`,
+    lastModified: project.publishedAt ? new Date(project.publishedAt) : new Date(),
+    changeFrequency: "monthly" as const,
+    priority: 0.6,
+  }))
 
   const blogPostEntries: MetadataRoute.Sitemap = (blogs as { posts: Array<{ slug: string; published: boolean; date: string }> }).posts
     .filter((post) => post.published)
@@ -28,5 +38,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.6,
     }))
 
-  return [...staticEntries, ...blogPostEntries]
+  return [...staticEntries, ...projectEntries, ...blogPostEntries]
 }

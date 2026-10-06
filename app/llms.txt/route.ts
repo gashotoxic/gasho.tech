@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import blogsData from "../../data/blogs.json";
+import { effectiveStatus, publicProjects } from "../../data/projects";
 
 type BlogPost = {
   slug: string;
@@ -39,8 +40,24 @@ function buildBlogList(): string {
     .join("\n");
 }
 
+function buildProjectList(): string {
+  const items = publicProjects();
+  if (items.length === 0) {
+    return "- (No projects published yet — first flagship is in development.)";
+  }
+  return items
+    .map((p) => {
+      const status = effectiveStatus(p);
+      const label = status === "live" ? "live" : "in development";
+      const demo = status === "live" && p.liveUrl ? ` — demo: ${p.liveUrl}` : "";
+      return `- [${p.title}](https://gashotech.com/projects/${p.slug}) (${label})${demo}: ${truncate(p.tagline, 140)}`;
+    })
+    .join("\n");
+}
+
 export async function GET() {
   const blogList = buildBlogList();
+  const projectList = buildProjectList();
   const content = `# GashoTech — AI Innovation for East African Business
 
 > **GashoTech** is a cutting-edge AI startup based in **Nairobi, Kenya**. We specialize in AI solutions, intelligent automation systems, advanced cybersecurity, ICT services, and digital transformation for businesses across East Africa. Our mission is to drive innovation and efficiency through intelligent automation and AI-powered solutions.
@@ -78,9 +95,18 @@ Hardware maintenance and repair, software solutions, network setup, technical su
 
 ---
 
+## Projects
+
+GashoTech builds small, focused AI agent projects — each one fixes a painful, boring Kenyan business workflow. Every live project ships with a working demo, public code, a five-minute architecture README, and a 60-second demo video, and must clear all 12 Tier 1 engineering checks.
+
+${projectList}
+
+---
+
 ## Key Pages
 
 - Homepage: https://gashotech.com/
+- Projects: https://gashotech.com/projects
 - AI Solutions: https://gashotech.com/services/ai
 - AI Automation: https://gashotech.com/services/automation
 - Cybersecurity: https://gashotech.com/services/cybersecurity

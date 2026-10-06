@@ -13,14 +13,7 @@ import {
 } from "@/components/ui/navigation-menu"
 import { cn } from "@/lib/utils"
 import { ThemeToggle } from "@/components/theme-toggle"
-
-const navLinks = [
-  { label: "ABOUT", href: "/#about" },
-  { label: "SERVICES", href: "/#services" },
-  { label: "SOLUTIONS", href: "/#solutions" },
-  { label: "BLOGS", href: "/blogs" },
-  { label: "CONTACT", href: "/#contact" },
-]
+import { navItems as navLinks } from "@/data/navigation"
 
 export function Navbar() {
   const [isScrolled, setIsScrolled] = React.useState(false)
