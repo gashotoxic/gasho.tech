@@ -2,19 +2,19 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowUpRight, Globe, Server } from "lucide-react"
 import { GithubIcon } from "@/components/social-icons"
-import { effectiveStatus, publicProjects } from "@/data/projects"
+import { TIER1_CHECKS, effectiveStatus, publicProjects } from "@/data/projects"
 
 export const metadata: Metadata = {
   title: "Projects",
   description:
-    "Live AI agent projects built by GashoTech — each one fixes a painful, boring Kenyan business workflow. Working demos, public code, and architecture you can read in five minutes.",
+    "AI agent projects built by GashoTech — each one takes on a painful, boring Kenyan business workflow and is built to a published 12-point engineering bar before it is presented as live.",
   alternates: {
     canonical: "https://gashotech.com/projects",
   },
   openGraph: {
     title: "Projects | GashoTech",
     description:
-      "Live AI agent projects built by GashoTech — each one fixes a painful, boring Kenyan business workflow.",
+      "AI agent projects built by GashoTech — each one takes on a painful, boring Kenyan business workflow.",
     url: "https://gashotech.com/projects",
     siteName: "GashoTech",
     locale: "en_KE",
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Projects | GashoTech",
     description:
-      "Live AI agent projects built by GashoTech — each one fixes a painful, boring Kenyan business workflow.",
+      "AI agent projects built by GashoTech — each one takes on a painful, boring Kenyan business workflow.",
     images: [{ url: "https://gashotech.com/images/gashotech_logo.webp" }],
   },
 }
@@ -40,9 +40,10 @@ export default function ProjectsPage() {
         <div className="text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-bold mb-6">Projects</h1>
           <p className="text-lg text-foreground/70 dark:text-[#cccccc] max-w-3xl mx-auto">
-            Working AI agent projects built by GashoTech. Each one fixes a painful, boring
-            Kenyan business workflow — with a live demo you can try, public code, and an
-            architecture you can read in five minutes.
+            AI agent projects built by GashoTech. Each one takes on a painful, boring Kenyan
+            business workflow. A project is only presented as live once it clears all{" "}
+            {TIER1_CHECKS.length} Tier 1 engineering checks — working demo, public code, demo
+            video and the rest. Until then it stays clearly marked as a preview.
           </p>
         </div>
 
