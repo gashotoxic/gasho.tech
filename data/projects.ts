@@ -119,11 +119,11 @@ export const projects: Project[] = [
    * Ships as `"preview"` on purpose. Six of the twelve Tier 1 checks are still outstanding,
    * so the gate keeps it out of the sitemap and off the "Live" badge until they clear.
    *
-   * ⚠ `secretsStripped` is FALSE on verified evidence, not caution: the live bundle at
-   * create.gashotech.com carries a `cpk_` Chutes API key because `services/chutes.ts` reads
-   * `import.meta.env.VITE_CHUTES_API_KEY` and Vite inlines every `VITE_*` var into client JS.
-   * Spec §7 maps this check to "✓"; that mapping is wrong. Fix = rotate the key and proxy
-   * Chutes calls server-side, then re-scan the bundle. See ~/.hermes/TODO.md 2026-10-06.
+   * ⚠ `secretsStripped` is FALSE on verified evidence, not caution: the public build currently
+   * exposes a client-side secret. Spec §7 maps this check to "✓"; that mapping is wrong.
+   * Remediation (secret rotation + removing the secret from the client path) is tracked in
+   * ~/.hermes/TODO.md 2026-10-06. Keep published copy at category level — never name the
+   * exact wiring or the exposure mechanism.
    */
   {
     slug: "gt-assist-v2",
@@ -136,7 +136,7 @@ export const projects: Project[] = [
       "and most tools cannot even be trialled without a foreign card. GT-ASSIST-V2 puts the whole set " +
       "behind a single account with one credit balance and local payment rails.",
     workflow:
-      "1. The user signs in and receives a daily free credit allowance; top-ups go through a Paystack checkout they confirm themselves.\n" +
+      "1. The user signs in and receives a daily free credit allowance; top-ups go through a Paystack- or Stripe-style checkout they confirm themselves.\n" +
       "2. They send a chat message; the app routes the request to a model suited to the job.\n" +
       "3. The reply streams back token by token, with tool calls (web search, knowledge base) surfaced inline.\n" +
       "4. Media requests branch off the same credit balance: images, image edits, video animation, speech-to-text and text-to-speech.\n" +
@@ -144,20 +144,23 @@ export const projects: Project[] = [
       "6. Rate-limited provider calls retry with exponential backoff and jitter rather than failing the user's request.",
     agentArchitecture: {
       models: [
-        "DeepSeek V3.2 / V4-Flash (fast everyday chat, 1 credit)",
-        "Kimi K2.6 / K3 (long-context work)",
-        "GLM-5.1 / GLM-5.2 and Qwen3 235B-Thinking (hard reasoning lane)",
-        "Qwen-Image-2512 + FLUX.1 schnell (images), LTX 2.5 (i2v/t2v video), Whisper (STT), Kokoro TTS",
+        "Modes: chat, image generation and editing, video animation, speech-to-text, text-to-speech — all from one credit balance.",
+        "Everyday chat — DeepSeek V3.2 / V4-Flash (fast lane, 1 credit)",
+        "Long-context work — Kimi K2.6 / K3",
+        "Hard reasoning — GLM-5.1 / GLM-5.2 and Qwen3 235B-Thinking",
+        "Images — Qwen-Image-2512 + FLUX.1 schnell; video — LTX 2.5 (i2v/t2v)",
+        "Audio — Whisper (speech-to-text) and Kokoro TTS (text-to-speech)",
       ],
       tools: [
-        "Chutes API (chat, image, video, audio)",
-        "Clerk (identity) and Supabase (cloud sync, edge functions)",
-        "Paystack (KES payments, webhook confirmation)",
-        "Web search + knowledge-base grounding (searchAgent / knowledgeBase)",
-        "retryFetch (429/503 retry with exponential backoff + jitter)",
+        "Model & media gateways — e.g. Chutes or OpenRouter style providers, one place to reach open chat, image, video and audio models",
+        "Payment processors — e.g. Paystack or Stripe style, so top-ups happen in KES and every one is confirmed by the customer",
+        "Identity — a hosted sign-in provider keeps one account across devices",
+        "Cloud data — a managed Postgres-style sync backend keeps state consistent everywhere",
+        "Grounding — web search and a knowledge base, so answers can be checked against sources",
+        "Resilience — standard retry-with-backoff on transient provider errors, so hiccups stay invisible to the user",
       ],
       memory:
-        "Supabase persists conversations, generated media and the per-user credit ledger across devices; the conversation branch/edit history is part of that state.",
+        "A managed cloud database keeps conversations, generated media and the per-user credit ledger in sync across devices — including the conversation branch/edit history — so any device resumes exactly where the last one left off.",
       routing:
         "The user picks a model per task, and the platform groups them by cost and depth: 1-credit lanes (DeepSeek V4-Flash, Qwen3.6-27B) for everyday chat, reasoning lanes (Kimi K3, GLM-5.2, Qwen3-235B-Thinking) for hard work, with media models routed by task type.",
     },
@@ -165,7 +168,7 @@ export const projects: Project[] = [
     hosting: {
       provider: "Vercel",
       plan: "Hobby",
-      region: "iad1",
+      region: "US East (edge)",
       url: "https://create.gashotech.com",
     },
     // Left empty on purpose — the repo is PRIVATE until the user calls it (spec §7) and a
@@ -181,10 +184,10 @@ export const projects: Project[] = [
       promptsVersioned: true, // model/prompt configs versioned in repo
       modelCallsLogged: false, // not demonstrated
       toolOutputsValidated: false, // not demonstrated
-      retriesWithBackoff: true, // services/retryFetch.ts — 429/503, 2s/4s/8s ±25% jitter
-      secretsStripped: false, // VERIFIED FAIL — Chutes key inlined into the public bundle
-      humanApprovalOnMoneyEmailDelete: true, // Paystack checkout confirmation
-      streamingResponses: true, // streamChat over SSE
+      retriesWithBackoff: true, // standard retry with backoff on transient provider errors
+      secretsStripped: false, // VERIFIED FAIL — a secret is exposed in the public client bundle
+      humanApprovalOnMoneyEmailDelete: true, // payment checkout confirmed by the customer
+      streamingResponses: true, // replies stream back token by token
       repeatQueriesCached: false, // not demonstrated
       budgetCap: true, // unified credit system, free daily allowance + paid packs
     },
@@ -195,7 +198,7 @@ export const projects: Project[] = [
       modelCallsLogged: "Unverified — no per-call log surfaced yet.",
       toolOutputsValidated: "Unverified — tool output schemas not demonstrated.",
       secretsStripped:
-        "FAILING — the live bundle ships a Chutes API key inlined by Vite. Fix: rotate the key and proxy Chutes calls server-side.",
+        "FAILING — the public build exposes a client-side secret. Remediation is underway; this check must pass before the project can be presented as live.",
       repeatQueriesCached: "Unverified — no repeat-query cache demonstrated.",
     },
     publishedAt: "2026-10-06",
