@@ -7,7 +7,15 @@
  * Hard rules encoded here (not by convention):
  * - `projects` is typed as `Project[]`, so a missing required field fails `npm run build`.
  * - A project renders as **live** only when `status === "live"` AND every `tier1` value is
- *   `true`. Enforced by `isLiveProject()` — see the code gate below.
+ *   `true`. Two enforcement arms, both required:
+ *   1. TYPE LEVEL — `Project` is a discriminated union: `status: "live"` is only typable
+ *      when `tier1` is `Record<Tier1Check, true>`. A live entry with any false flag is a
+ *      compile error (`tsc` / `npm run build` fail) and cannot be written at all.
+ *   2. BUILD TIME — `validateProjects()` runs at module load and throws on any violation,
+ *      so entries that reached the data through casts or non-TS tooling still fail
+ *      `npm run build` instead of shipping.
+ *   The render helpers (`isLiveProject()` / `effectiveStatus()`) apply the gate at runtime
+ *   as a third, defence-in-depth layer. Failing-case guard: `scripts/check-tier1-gate.mjs`.
  * - Entries with `status: "draft"` are hidden from the grid, the sitemap and the detail
  *   route (`isPublicProject()` / `liveProjects()`).
  *
@@ -51,10 +59,11 @@ export const TIER1_LABELS: Record<Tier1Check, string> = {
   budgetCap: "Token / time / cost budget cap",
 };
 
-export interface Project {
+/** Fields shared by every entry, regardless of gate state. */
+interface ProjectBase {
   slug: string; // url-safe, immutable once published
   title: string;
-  tagline: string; // ≤ 120 chars
+  tagline: string; // ≤ 120 chars (enforced by validateProjects())
   problem: string; // the painful/boring workflow, 2-4 sentences
   workflow: string; // what the agent does, newline-separated step flow
   agentArchitecture: {
@@ -68,8 +77,6 @@ export interface Project {
   githubUrl: string; // public repo
   readmeUrl: string; // 5-minute architecture README
   demoVideoUrl: string; // 60-second demo recording
-  status: "draft" | "preview" | "live";
-  tier1: Record<Tier1Check, boolean>; // gate: all true required to render "live"
   /**
    * Optional per-check note. Only set for checks that are `false`, and only to say WHY —
    * "missing" (does not exist yet) vs "unverified" (exists but not demonstrated). Never
@@ -79,6 +86,28 @@ export interface Project {
   publishedAt?: string; // ISO date
   metrics?: { costPerTask?: string; uptime?: string };
 }
+
+/**
+ * Gate arm 1 (type level). `status: "live"` is only typable when every `tier1` check is the
+ * literal `true` — writing a live entry with any false flag is a compile error, before the
+ * code is ever built or run. (Entries that bypass the type system via casts are caught at
+ * build time by `validateProjects()`.)
+ */
+export interface LiveProject extends ProjectBase {
+  status: "live";
+  tier1: Record<Tier1Check, true>;
+}
+
+/**
+ * A draft/preview entry carries an honest gate map — any mix of true and false — and is
+ * never presented as live while it does.
+ */
+export interface PendingProject extends ProjectBase {
+  status: "draft" | "preview";
+  tier1: Record<Tier1Check, boolean>;
+}
+
+export type Project = LiveProject | PendingProject;
 
 // ---------------------------------------------------------------------------
 // Code gate — spec §3.2 / §6
@@ -107,6 +136,48 @@ export function effectiveStatus(project: Project): "draft" | "preview" | "live" 
 /** Visible in the public grid / detail route. Drafts are hidden everywhere. */
 export function isPublicProject(project: Project): boolean {
   return project.status !== "draft";
+}
+
+/**
+ * Gate arm 2 (build time). Called at module load — `next build` evaluates this module, so a
+ * violating entry fails the build even when it bypassed the type system (casts, non-TS
+ * tooling). Also enforces the structural rules the type system cannot express: the tier1 map
+ * must be complete, slugs must be url-safe and unique, and taglines stay ≤ 120 chars
+ * (spec §3.2).
+ */
+export function validateProjects(entries: readonly Project[]): void {
+  const seen = new Set<string>();
+  for (const entry of entries) {
+    if (!entry || typeof entry !== "object") {
+      throw new Error(`projects.ts: entry is not an object: ${JSON.stringify(entry)}`);
+    }
+    const label = entry.slug || "(missing slug)";
+    if (!["draft", "preview", "live"].includes(entry.status)) {
+      throw new Error(`projects.ts: "${label}" has invalid status "${String(entry.status)}"`);
+    }
+    for (const check of TIER1_CHECKS) {
+      if (typeof entry.tier1?.[check] !== "boolean") {
+        throw new Error(`projects.ts: "${label}" — tier1.${check} must be a boolean`);
+      }
+    }
+    if (entry.status === "live" && !allTier1Pass(entry)) {
+      const failing = TIER1_CHECKS.filter((check) => entry.tier1[check] !== true);
+      throw new Error(
+        `projects.ts: "${label}" declares status "live" but these Tier 1 checks are false: ` +
+          `${failing.join(", ")}. A project is live only when ALL ${TIER1_CHECKS.length} checks are true.`,
+      );
+    }
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(entry.slug)) {
+      throw new Error(`projects.ts: "${label}" — slug must be url-safe, lowercase and hyphenated`);
+    }
+    if (seen.has(entry.slug)) {
+      throw new Error(`projects.ts: duplicate slug "${label}" — a duplicate doubles the sitemap entry`);
+    }
+    seen.add(entry.slug);
+    if (entry.tagline.length > 120) {
+      throw new Error(`projects.ts: "${label}" — tagline is ${entry.tagline.length} chars (max 120)`);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -255,6 +326,11 @@ export const projects: Project[] = [
     },
   },
 ];
+
+// Gate arm 2 fires at module load: `next build` (and any import of this module) throws on a
+// violating entry instead of shipping it. Runs after the entries, so real data is checked
+// the moment the module is evaluated.
+validateProjects(projects);
 
 export function getProject(slug: string): Project | undefined {
   return projects.find((project) => project.slug === slug);

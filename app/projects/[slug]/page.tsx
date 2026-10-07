@@ -9,7 +9,8 @@ import {
   allTier1Pass,
   effectiveStatus,
   getProject,
-  projects,
+  isPublicProject,
+  publicProjects,
 } from "@/data/projects"
 
 interface Props {
@@ -29,15 +30,14 @@ function formatPublished(iso: string): string {
 }
 
 export async function generateStaticParams() {
-  return projects
-    .filter((project) => project.status !== "draft")
-    .map((project) => ({ slug: project.slug }))
+  // Visibility is decided in the data layer: only public (non-draft) entries get a route.
+  return publicProjects().map((project) => ({ slug: project.slug }))
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
   const project = getProject(slug)
-  if (!project || project.status === "draft") return { title: "Project Not Found" }
+  if (!project || !isPublicProject(project)) return { title: "Project Not Found" }
   return {
     title: project.title,
     description: project.tagline,
@@ -67,7 +67,7 @@ export default async function ProjectPage({ params }: Props) {
   const project = getProject(slug)
 
   // Drafts are never reachable, and unknown slugs 404.
-  if (!project || project.status === "draft") {
+  if (!project || !isPublicProject(project)) {
     notFound()
   }
 
