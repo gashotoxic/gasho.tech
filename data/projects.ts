@@ -198,7 +198,8 @@ export const projects: Project[] = [
     tier1Notes: {
       publicGithub:
         "Missing — repo is private. The switch needs a git-history secret scrub and a user go-ahead.",
-      modelCallsLogged: "Unverified — no per-call log surfaced yet.",
+      modelCallsLogged:
+        "Partial — the credit ledger logs every billed action, but no per-model-call log (prompt, model, latency) is surfaced.",
       toolOutputsValidated: "Unverified — tool output schemas not demonstrated.",
       repeatQueriesCached: "Unverified — no repeat-query cache demonstrated.",
     },
