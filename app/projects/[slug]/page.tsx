@@ -16,6 +16,18 @@ interface Props {
   params: Promise<{ slug: string }>
 }
 
+/** ISO date → "6 October 2026", timezone-independent (the date part is the claim). */
+function formatPublished(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return iso
+  return date.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  })
+}
+
 export async function generateStaticParams() {
   return projects
     .filter((project) => project.status !== "draft")
@@ -148,6 +160,11 @@ export default async function ProjectPage({ params }: Props) {
         </div>
         <h1 className="text-4xl md:text-5xl font-bold mb-6">{project.title}</h1>
         <p className="text-lg text-white/90 max-w-3xl mx-auto">{project.tagline}</p>
+        {project.publishedAt && (
+          <p className="mt-3 text-sm text-white/70">
+            <time dateTime={project.publishedAt}>Published {formatPublished(project.publishedAt)}</time>
+          </p>
+        )}
 
         {/* Links */}
         <div className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-3 text-sm font-medium">
@@ -304,6 +321,27 @@ export default async function ProjectPage({ params }: Props) {
               )}
             </div>
           </section>
+
+          {/* Metrics — rendered only from data the entry actually carries; never invented. */}
+          {(project.metrics?.costPerTask || project.metrics?.uptime) && (
+            <section className="mb-12">
+              <h2 className="text-2xl font-bold mb-4">Metrics</h2>
+              <div className="bg-card rounded-lg p-6 shadow-sm text-sm text-muted-foreground">
+                {project.metrics?.costPerTask && (
+                  <p>
+                    <span className="font-semibold text-foreground">Cost per task:</span>{" "}
+                    {project.metrics.costPerTask}
+                  </p>
+                )}
+                {project.metrics?.uptime && (
+                  <p>
+                    <span className="font-semibold text-foreground">Uptime:</span>{" "}
+                    {project.metrics.uptime}
+                  </p>
+                )}
+              </div>
+            </section>
+          )}
 
           {/* Tier 1 checklist */}
           <section className="mb-12">
