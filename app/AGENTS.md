@@ -14,6 +14,7 @@ Root of the Next.js App Router. Contains route segments, server components, layo
 - `llms.txt/` — `/llms.txt` route (LLM discovery file)
 - `privacy/` — Privacy policy page
 - `profile/` — Founder profile page
+- `projects/` — Projects showcase pages (grid + detail, from `data/projects.ts`)
 - `services/` — Services showcase pages
 - `terms/` — Terms of service page
 
@@ -29,3 +30,4 @@ Root of the Next.js App Router. Contains route segments, server components, layo
 
 - [blogs/](./blogs/AGENTS.md) — Blog post dynamic routing
 - [feed.xml/](./feed.xml/AGENTS.md) — RSS feed
+- [projects/](./projects/AGENTS.md) — Projects showcase (grid + detail, Tier 1 gate)
