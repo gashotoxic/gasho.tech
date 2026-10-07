@@ -7,7 +7,15 @@
  * Hard rules encoded here (not by convention):
  * - `projects` is typed as `Project[]`, so a missing required field fails `npm run build`.
  * - A project renders as **live** only when `status === "live"` AND every `tier1` value is
- *   `true`. Enforced by `isLiveProject()` — see the code gate below.
+ *   `true`. Two enforcement arms, both required:
+ *   1. TYPE LEVEL — `Project` is a discriminated union: `status: "live"` is only typable
+ *      when `tier1` is `Record<Tier1Check, true>`. A live entry with any false flag is a
+ *      compile error (`tsc` / `npm run build` fail) and cannot be written at all.
+ *   2. BUILD TIME — `validateProjects()` runs at module load and throws on any violation,
+ *      so entries that reached the data through casts or non-TS tooling still fail
+ *      `npm run build` instead of shipping.
+ *   The render helpers (`isLiveProject()` / `effectiveStatus()`) apply the gate at runtime
+ *   as a third, defence-in-depth layer. Failing-case guard: `scripts/check-tier1-gate.mjs`.
  * - Entries with `status: "draft"` are hidden from the grid, the sitemap and the detail
  *   route (`isPublicProject()` / `liveProjects()`).
  *
@@ -51,10 +59,11 @@ export const TIER1_LABELS: Record<Tier1Check, string> = {
   budgetCap: "Token / time / cost budget cap",
 };
 
-export interface Project {
+/** Fields shared by every entry, regardless of gate state. */
+interface ProjectBase {
   slug: string; // url-safe, immutable once published
   title: string;
-  tagline: string; // ≤ 120 chars
+  tagline: string; // ≤ 120 chars (enforced by validateProjects())
   problem: string; // the painful/boring workflow, 2-4 sentences
   workflow: string; // what the agent does, newline-separated step flow
   agentArchitecture: {
@@ -68,8 +77,6 @@ export interface Project {
   githubUrl: string; // public repo
   readmeUrl: string; // 5-minute architecture README
   demoVideoUrl: string; // 60-second demo recording
-  status: "draft" | "preview" | "live";
-  tier1: Record<Tier1Check, boolean>; // gate: all true required to render "live"
   /**
    * Optional per-check note. Only set for checks that are `false`, and only to say WHY —
    * "missing" (does not exist yet) vs "unverified" (exists but not demonstrated). Never
@@ -79,6 +86,28 @@ export interface Project {
   publishedAt?: string; // ISO date
   metrics?: { costPerTask?: string; uptime?: string };
 }
+
+/**
+ * Gate arm 1 (type level). `status: "live"` is only typable when every `tier1` check is the
+ * literal `true` — writing a live entry with any false flag is a compile error, before the
+ * code is ever built or run. (Entries that bypass the type system via casts are caught at
+ * build time by `validateProjects()`.)
+ */
+export interface LiveProject extends ProjectBase {
+  status: "live";
+  tier1: Record<Tier1Check, true>;
+}
+
+/**
+ * A draft/preview entry carries an honest gate map — any mix of true and false — and is
+ * never presented as live while it does.
+ */
+export interface PendingProject extends ProjectBase {
+  status: "draft" | "preview";
+  tier1: Record<Tier1Check, boolean>;
+}
+
+export type Project = LiveProject | PendingProject;
 
 // ---------------------------------------------------------------------------
 // Code gate — spec §3.2 / §6
@@ -109,6 +138,57 @@ export function isPublicProject(project: Project): boolean {
   return project.status !== "draft";
 }
 
+/**
+ * The entry's own claim, before the gate is applied — for copy that explains WHY an entry is
+ * held back ("declares itself live but..."). Never use this to decide visibility or badges:
+ * that is `isLiveProject()` / `effectiveStatus()` only.
+ */
+export function declaresLive(project: Project): boolean {
+  return project.status === "live";
+}
+
+/**
+ * Gate arm 2 (build time). Called at module load — `next build` evaluates this module, so a
+ * violating entry fails the build even when it bypassed the type system (casts, non-TS
+ * tooling). Also enforces the structural rules the type system cannot express: the tier1 map
+ * must be complete, slugs must be url-safe and unique, and taglines stay ≤ 120 chars
+ * (spec §3.2).
+ */
+export function validateProjects(entries: readonly Project[]): void {
+  const seen = new Set<string>();
+  for (const entry of entries) {
+    if (!entry || typeof entry !== "object") {
+      throw new Error(`projects.ts: entry is not an object: ${JSON.stringify(entry)}`);
+    }
+    const label = entry.slug || "(missing slug)";
+    if (!["draft", "preview", "live"].includes(entry.status)) {
+      throw new Error(`projects.ts: "${label}" has invalid status "${String(entry.status)}"`);
+    }
+    for (const check of TIER1_CHECKS) {
+      if (typeof entry.tier1?.[check] !== "boolean") {
+        throw new Error(`projects.ts: "${label}" — tier1.${check} must be a boolean`);
+      }
+    }
+    if (entry.status === "live" && !allTier1Pass(entry)) {
+      const failing = TIER1_CHECKS.filter((check) => entry.tier1[check] !== true);
+      throw new Error(
+        `projects.ts: "${label}" declares status "live" but these Tier 1 checks are false: ` +
+          `${failing.join(", ")}. A project is live only when ALL ${TIER1_CHECKS.length} checks are true.`,
+      );
+    }
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(entry.slug)) {
+      throw new Error(`projects.ts: "${label}" — slug must be url-safe, lowercase and hyphenated`);
+    }
+    if (seen.has(entry.slug)) {
+      throw new Error(`projects.ts: duplicate slug "${label}" — a duplicate doubles the sitemap entry`);
+    }
+    seen.add(entry.slug);
+    if (entry.tagline.length > 120) {
+      throw new Error(`projects.ts: "${label}" — tagline is ${entry.tagline.length} chars (max 120)`);
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Entries
 // ---------------------------------------------------------------------------
@@ -116,14 +196,14 @@ export function isPublicProject(project: Project): boolean {
 export const projects: Project[] = [
   /**
    * Flagship — decided by @user 2026-10-06 (spec §7): the GT-ASSIST-V2 platform itself.
-   * Ships as `"preview"` on purpose. Six of the twelve Tier 1 checks are still outstanding,
-   * so the gate keeps it out of the sitemap and off the "Live" badge until they clear.
+   * Ships as `"preview"` on purpose. Four of the twelve Tier 1 checks are still outstanding
+   * (publicGithub, modelCallsLogged, toolOutputsValidated, repeatQueriesCached), so the gate
+   * keeps it out of the sitemap and off the "Live" badge until they clear.
    *
-   * ⚠ `secretsStripped` is FALSE on verified evidence, not caution: the public build currently
-   * exposes a client-side secret. Spec §7 maps this check to "✓"; that mapping is wrong.
-   * Remediation (secret rotation + removing the secret from the client path) is tracked in
-   * ~/.hermes/TODO.md 2026-10-06. Keep published copy at category level — never name the
-   * exact wiring or the exposure mechanism.
+   * `secretsStripped` passes on verified evidence (2026-10-07): a scan of every live JS/CSS
+   * asset found zero key material after the client-secret remediation and key rotation, and
+   * the app's build now fails on any key shape reaching its output. Keep published copy at
+   * category level — never name the exact wiring or the exposure mechanism.
    */
   {
     slug: "gt-assist-v2",
@@ -174,31 +254,33 @@ export const projects: Project[] = [
     // Left empty on purpose — the repo is PRIVATE until the user calls it (spec §7) and a
     // private URL would 404 for every visitor. Filled in when `publicGithub` flips true.
     githubUrl: "",
-    readmeUrl: "",
-    demoVideoUrl: "",
+    // Mirrored copy of the README's architecture section (5-min read), served here so the
+    // link works for every visitor while the repo is private. When `publicGithub` flips
+    // true, switch this to the repo README URL and drop the public/docs/ mirror.
+    readmeUrl: "https://gashotech.com/docs/gt-assist-v2-architecture.md",
+    // 60s product walkthrough, recorded 2026-10-07 (60.000s, verified frame-by-frame).
+    demoVideoUrl: "https://gashotech.com/videos/gt-assist-v2-demo.mp4",
     status: "preview",
     tier1: {
-      readme5min: false, // README exists but has no architecture section yet, and it is not public
-      demoVideo60s: false, // not recorded
-      publicGithub: false, // repo private pending user call + secret sweep
+      readme5min: true, // README architecture section (5-min read) in the repo + mirrored here
+      demoVideo60s: true, // 60.000s walkthrough recorded and linked (verified frame-by-frame)
+      publicGithub: false, // repo private; switch blocked on a git-history secret scrub (user call)
       promptsVersioned: true, // model/prompt configs versioned in repo
       modelCallsLogged: false, // not demonstrated
       toolOutputsValidated: false, // not demonstrated
       retriesWithBackoff: true, // standard retry with backoff on transient provider errors
-      secretsStripped: false, // VERIFIED FAIL — a secret is exposed in the public client bundle
+      secretsStripped: true, // verified 2026-10-07: every live asset scanned clean + key rotated
       humanApprovalOnMoneyEmailDelete: true, // payment checkout confirmed by the customer
       streamingResponses: true, // replies stream back token by token
       repeatQueriesCached: false, // not demonstrated
       budgetCap: true, // unified credit system, free daily allowance + paid packs
     },
     tier1Notes: {
-      readme5min: "Missing — README has no architecture section yet.",
-      demoVideo60s: "Missing — 60-second walkthrough not recorded.",
-      publicGithub: "Missing — repo is private pending a user call and a secret sweep.",
-      modelCallsLogged: "Unverified — no per-call log surfaced yet.",
+      publicGithub:
+        "Missing — repo is private. The switch needs a git-history secret scrub and a user go-ahead.",
+      modelCallsLogged:
+        "Partial — the credit ledger logs every billed action, but no per-model-call log (prompt, model, latency) is surfaced.",
       toolOutputsValidated: "Unverified — tool output schemas not demonstrated.",
-      secretsStripped:
-        "FAILING — the public build exposes a client-side secret. Remediation is underway; this check must pass before the project can be presented as live.",
       repeatQueriesCached: "Unverified — no repeat-query cache demonstrated.",
     },
     publishedAt: "2026-10-06",
@@ -253,6 +335,11 @@ export const projects: Project[] = [
     },
   },
 ];
+
+// Gate arm 2 fires at module load: `next build` (and any import of this module) throws on a
+// violating entry instead of shipping it. Runs after the entries, so real data is checked
+// the moment the module is evaluated.
+validateProjects(projects);
 
 export function getProject(slug: string): Project | undefined {
   return projects.find((project) => project.slug === slug);

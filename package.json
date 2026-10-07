@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "check:tier1-gate": "node scripts/check-tier1-gate.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
