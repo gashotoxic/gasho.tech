@@ -142,6 +142,9 @@ export default async function ProjectPage({ params }: Props) {
           >
             {isLive ? "Live" : "Preview"}
           </span>
+          <span className="rounded-full bg-white/20 text-white px-3 py-1 text-xs font-semibold uppercase tracking-wide">
+            Demo build
+          </span>
         </div>
         <h1 className="text-4xl md:text-5xl font-bold mb-6">{project.title}</h1>
         <p className="text-lg text-white/90 max-w-3xl mx-auto">{project.tagline}</p>
@@ -197,6 +200,19 @@ export default async function ProjectPage({ params }: Props) {
 
       <div className="bg-grey py-12">
         <div className="container mx-auto px-4 max-w-4xl">
+          {/* Demo notice */}
+          <section className="mb-12">
+            <div className="bg-[#1abc9c]/10 border border-[#1abc9c]/30 rounded-xl p-6">
+              <h2 className="text-xl font-bold mb-2">This is a demo</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {project.title} is a demonstration project — a working demo build published to
+                show the shape of the work, not a production service. The architecture below is
+                described at a high level on purpose: vivid enough to show how the agent is put
+                together, without publishing the internal blueprint or the wiring that runs it.
+              </p>
+            </div>
+          </section>
+
           {/* Problem */}
           <section className="mb-12">
             <h2 className="text-2xl font-bold mb-4">The problem</h2>
@@ -221,6 +237,11 @@ export default async function ProjectPage({ params }: Props) {
           {/* Agent architecture */}
           <section className="mb-12">
             <h2 className="text-2xl font-bold mb-4">Agent architecture</h2>
+            <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+              The big picture of how the agent is put together — the open-source models behind
+              each mode, the kinds of services it talks to, and how work and memory flow. The
+              specific tool wiring and internal API structure stay internal by design.
+            </p>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="bg-card rounded-lg p-6 shadow-sm">
                 <h3 className="font-semibold text-[#1abc9c] mb-3">Models</h3>
