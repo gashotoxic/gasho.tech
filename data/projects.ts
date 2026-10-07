@@ -139,6 +139,15 @@ export function isPublicProject(project: Project): boolean {
 }
 
 /**
+ * The entry's own claim, before the gate is applied — for copy that explains WHY an entry is
+ * held back ("declares itself live but..."). Never use this to decide visibility or badges:
+ * that is `isLiveProject()` / `effectiveStatus()` only.
+ */
+export function declaresLive(project: Project): boolean {
+  return project.status === "live";
+}
+
+/**
  * Gate arm 2 (build time). Called at module load — `next build` evaluates this module, so a
  * violating entry fails the build even when it bypassed the type system (casts, non-TS
  * tooling). Also enforces the structural rules the type system cannot express: the tier1 map

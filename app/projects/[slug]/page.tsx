@@ -7,6 +7,7 @@ import {
   TIER1_CHECKS,
   TIER1_LABELS,
   allTier1Pass,
+  declaresLive,
   effectiveStatus,
   getProject,
   isPublicProject,
@@ -388,7 +389,7 @@ export default async function ProjectPage({ params }: Props) {
             </ul>
             {!isLive && (
               <p className="mt-4 text-sm text-amber-600 dark:text-amber-400">
-                {project.status === "live"
+                {declaresLive(project)
                   ? `This entry declares itself live but is held back by ${
                       TIER1_CHECKS.length - passed
                     } outstanding Tier 1 check${TIER1_CHECKS.length - passed === 1 ? "" : "s"}.`

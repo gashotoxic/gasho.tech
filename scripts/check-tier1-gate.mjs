@@ -187,15 +187,22 @@ try {
   }
 
   console.log("── 4. WIRING: every public-visibility surface routes through the gate ──");
-  const wiring = [
-    ["app/projects/page.tsx (grid)", ["publicProjects", "effectiveStatus"]],
-    ["app/projects/[slug]/page.tsx (detail + static params)", ["publicProjects", "isPublicProject", "effectiveStatus"]],
-    ["app/sitemap.ts (sitemap)", ["liveProjects"]],
-    ["app/llms.txt/route.ts (llms.txt)", ["publicProjects", "effectiveStatus"]],
+  const consumers = [
+    ["app/projects/page.tsx (grid)", "app/projects/page.tsx", ["publicProjects", "effectiveStatus"]],
+    ["app/projects/[slug]/page.tsx (detail + static params)", "app/projects/[slug]/page.tsx", ["publicProjects", "isPublicProject", "effectiveStatus"]],
+    ["app/sitemap.ts (sitemap)", "app/sitemap.ts", ["liveProjects"]],
+    ["app/llms.txt/route.ts (llms.txt)", "app/llms.txt/route.ts", ["publicProjects", "effectiveStatus"]],
   ];
-  for (const [file, helpers] of wiring) {
-    const src = readFileSync(path.join(repoRoot, file.split(" ")[0]), "utf8");
-    check(helpers.every((h) => src.includes(h)), `${file} uses gate helper(s): ${helpers.join(", ")}`);
+  for (const [label, file, helpers] of consumers) {
+    let src = null;
+    try {
+      src = readFileSync(path.join(repoRoot, file), "utf8");
+    } catch {
+      check(false, `${label} — file missing or unreadable: ${file}`);
+      continue;
+    }
+    check(helpers.every((h) => src.includes(h)), `${label} uses gate helper(s): ${helpers.join(", ")}`);
+    check(!/\.status\s*(?:===?|!==?)/.test(src), `${label} makes no raw .status comparison (status decisions go through gate helpers only)`);
   }
 
   console.log("── 1. TYPE LEVEL: tsc rejects a live entry with a false tier1 flag ──");
