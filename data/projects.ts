@@ -196,13 +196,14 @@ export function validateProjects(entries: readonly Project[]): void {
 export const projects: Project[] = [
   /**
    * Flagship — decided by @user 2026-10-06 (spec §7): the GT-ASSIST-V2 platform itself.
-   * Ships as `"preview"` on purpose. Four of the twelve Tier 1 checks are still outstanding
-   * (publicGithub, modelCallsLogged, toolOutputsValidated, repeatQueriesCached), so the gate
-   * keeps it out of the sitemap and off the "Live" badge until they clear.
+   * Ships as `"preview"` on purpose. Five of the twelve Tier 1 checks are still outstanding
+   * (readme5min, publicGithub, modelCallsLogged, toolOutputsValidated, repeatQueriesCached),
+   * so the gate keeps it out of the sitemap and off the "Live" badge until they clear.
    *
-   * `secretsStripped` passes on verified evidence (2026-10-07): a scan of every live JS/CSS
-   * asset found zero key material after the client-secret remediation and key rotation, and
-   * the app's build now fails on any key shape reaching its output. Keep published copy at
+   * `secretsStripped` passes on verified evidence (re-scanned 2026-10-08): a scan of every
+   * live JS/CSS asset found zero key material after the client-secret remediation and key
+   * rotation, and the app's build fails on any key shape reaching its output
+   * (`scripts/scan-dist-secrets.mjs`, on main). Keep published copy at
    * category level — never name the exact wiring or the exposure mechanism.
    */
   {
@@ -262,20 +263,22 @@ export const projects: Project[] = [
     demoVideoUrl: "https://gashotech.com/videos/gt-assist-v2-demo.mp4",
     status: "preview",
     tier1: {
-      readme5min: true, // README architecture section (5-min read) in the repo + mirrored here
+      readme5min: false, // 2026-10-08: the repo README carries no architecture section (its PR closed unmerged) — only the showcase mirror serves the 5-min write-up
       demoVideo60s: true, // 60.000s walkthrough recorded and linked (verified frame-by-frame)
       publicGithub: false, // repo private; switch blocked on a git-history secret scrub (user call)
       promptsVersioned: true, // model/prompt configs versioned in repo
       modelCallsLogged: false, // not demonstrated
       toolOutputsValidated: false, // not demonstrated
       retriesWithBackoff: true, // standard retry with backoff on transient provider errors
-      secretsStripped: true, // verified 2026-10-07: every live asset scanned clean + key rotated
+      secretsStripped: true, // re-verified 2026-10-08: every live asset scanned clean + key rotated
       humanApprovalOnMoneyEmailDelete: true, // payment checkout confirmed by the customer
       streamingResponses: true, // replies stream back token by token
       repeatQueriesCached: false, // not demonstrated
       budgetCap: true, // unified credit system, free daily allowance + paid packs
     },
     tier1Notes: {
+      readme5min:
+        "Partial — a 5-minute architecture write-up exists and is served from this showcase (the README link), but the project's own README carries no architecture section yet. Flips true when the README carries it.",
       publicGithub:
         "Missing — repo is private. The switch needs a git-history secret scrub and a user go-ahead.",
       modelCallsLogged:

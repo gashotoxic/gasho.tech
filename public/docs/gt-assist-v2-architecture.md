@@ -1,8 +1,8 @@
 # GT-ASSIST-V2 — Architecture (5-minute read)
 
-> This is the architecture section of the GT-ASSIST-V2 README, mirrored here for the
-> showcase page while the repository is private. Canonical copy:
-> `github.com/gashotoxic/GT-ASSIST-V2` → `README.md` → "Architecture (5-minute read)".
+> This is the 5-minute architecture reference for GT-ASSIST-V2, served from the showcase
+> while the project repository is private. It moves into the repository README when the
+> repository goes public.
 
 One credit balance powers every mode — chat, image generation and editing, video animation,
 speech-to-text, and text-to-speech. This is how the whole thing fits together.
