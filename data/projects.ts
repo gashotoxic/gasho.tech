@@ -6,6 +6,10 @@
  *
  * Hard rules encoded here (not by convention):
  * - `projects` is typed as `Project[]`, so a missing required field fails `npm run build`.
+ * - Release Format v1.1 (spec: ~/.hermes/SHARED/gashotech-projects-release-format.md §2;
+ *   R1 = public teaser, ruled by @user 2026-10-10): every project is `draft`, `internal`,
+ *   `preview` or `live`. Public copy is **complete or absent** — no checklists, no "X of 12",
+ *   no status notes are ever rendered (the checklist lives here as the gate, not as copy).
  * - A project renders as **live** only when `status === "live"` AND every `tier1` value is
  *   `true`. Two enforcement arms, both required:
  *   1. TYPE LEVEL — `Project` is a discriminated union: `status: "live"` is only typable
@@ -13,17 +17,25 @@
  *      compile error (`tsc` / `npm run build` fail) and cannot be written at all.
  *   2. BUILD TIME — `validateProjects()` runs at module load and throws on any violation,
  *      so entries that reached the data through casts or non-TS tooling still fail
- *      `npm run build` instead of shipping.
+ *      `npm run build` instead of shipping. Live entries also require non-empty
+ *      `liveUrl` / `githubUrl` / `readmeUrl` / `demoVideoUrl` (verifier MINOR-1).
  *   The render helpers (`isLiveProject()` / `effectiveStatus()`) apply the gate at runtime
  *   as a third, defence-in-depth layer. Failing-case guard: `scripts/check-tier1-gate.mjs`.
- * - Entries with `status: "draft"` are hidden from the grid, the sitemap and the detail
- *   route (`isPublicProject()` / `liveProjects()`).
+ * - Visibility per state (§2): `draft` entries are hidden from every surface and their
+ *   detail route 404s unconditionally (a build starts here, hidden). `internal` entries are
+ *   absent from the grid, the sitemap and llms.txt, and their detail route 404s (fail closed)
+ *   unless the request carries `?k=<key>` matching the SHA-256 hash in the entry
+ *   (`isShareGated()` / `verifyShareKey()`). `preview` entries keep a clean public teaser +
+ *   detail page but stay out of the sitemap and llms.txt until they go `live`.
  *
  * Tier 1 flags are set from VERIFIED evidence, never from intent. If a check cannot be
  * demonstrated, it is `false` even when the platform "probably" does it — the gate exists
  * to keep unverified claims out of the showcase. `tier1Notes` records which checks are
- * failed vs merely unverified, so the detail page can say so instead of showing a bare X.
+ * failed vs merely unverified as **internal truth only** — it is never rendered publicly
+ * (§2 rule 3).
  */
+
+import { createHash, timingSafeEqual } from "node:crypto";
 
 /** The 12 mandatory Tier 1 checks (spec §6). Every live project must clear all of them. */
 export const TIER1_CHECKS = [
@@ -42,22 +54,6 @@ export const TIER1_CHECKS = [
 ] as const;
 
 export type Tier1Check = (typeof TIER1_CHECKS)[number];
-
-/** Human-readable label for each Tier 1 check, used on the detail page checklist. */
-export const TIER1_LABELS: Record<Tier1Check, string> = {
-  readme5min: "README explains the architecture in ≤ 5 minutes",
-  demoVideo60s: "60-second demo video recorded",
-  publicGithub: "Public GitHub repository",
-  promptsVersioned: "Prompts versioned",
-  modelCallsLogged: "Every model call logged",
-  toolOutputsValidated: "Tool outputs schema-validated",
-  retriesWithBackoff: "Retries with backoff",
-  secretsStripped: "Secrets / PII stripped before the model",
-  humanApprovalOnMoneyEmailDelete: "Human approval on money, email and delete actions",
-  streamingResponses: "Streaming responses",
-  repeatQueriesCached: "Repeat queries cached",
-  budgetCap: "Token / time / cost budget cap",
-};
 
 /** Fields shared by every entry, regardless of gate state. */
 interface ProjectBase {
@@ -81,8 +77,17 @@ interface ProjectBase {
    * Optional per-check note. Only set for checks that are `false`, and only to say WHY —
    * "missing" (does not exist yet) vs "unverified" (exists but not demonstrated). Never
    * set a note for a check marked `true`: a passing check needs evidence, not prose.
+   * Internal truth (Release Format v1.1 §2 rule 4) — never rendered on any public surface.
    */
   tier1Notes?: Partial<Record<Tier1Check, string>>;
+  /**
+   * SHA-256 hex digest of the share key for `?k=` links (Release Format v1.1 §2 rule 1).
+   * The plaintext key is NEVER stored here — only its hash. An entry carrying one is
+   * reachable on the detail route only with a key that hashes to it (fail closed), and an
+   * `internal` entry without one is permanently unreachable. Format enforced by
+   * `validateProjects()`.
+   */
+  shareKeyHash?: string;
   publishedAt?: string; // ISO date
   metrics?: { costPerTask?: string; uptime?: string };
 }
@@ -99,18 +104,21 @@ export interface LiveProject extends ProjectBase {
 }
 
 /**
- * A draft/preview entry carries an honest gate map — any mix of true and false — and is
- * never presented as live while it does.
+ * A draft/internal/preview entry carries an honest gate map — any mix of true and false —
+ * and is never presented as live while it does.
  */
 export interface PendingProject extends ProjectBase {
-  status: "draft" | "preview";
+  status: "draft" | "internal" | "preview";
   tier1: Record<Tier1Check, boolean>;
 }
 
 export type Project = LiveProject | PendingProject;
 
+/** The four states of Release Format v1.1. */
+export type ProjectStatus = "draft" | "internal" | "preview" | "live";
+
 // ---------------------------------------------------------------------------
-// Code gate — spec §3.2 / §6
+// Code gate — spec §3.2 / §6 / Release Format v1.1 §2
 // ---------------------------------------------------------------------------
 
 /** True only when every Tier 1 check passes. */
@@ -128,23 +136,41 @@ export function isLiveProject(project: Project): boolean {
 }
 
 /** The status a project is allowed to present as, after the Tier 1 gate is applied. */
-export function effectiveStatus(project: Project): "draft" | "preview" | "live" {
-  if (project.status === "draft") return "draft";
+export function effectiveStatus(project: Project): ProjectStatus {
+  if (project.status === "draft" || project.status === "internal") return project.status;
   return isLiveProject(project) ? "live" : "preview";
 }
 
-/** Visible in the public grid / detail route. Drafts are hidden everywhere. */
+/**
+ * Visible in the public grid and reachable on the detail route without a share link:
+ * `preview` and `live` only. Draft entries are hidden from every surface; internal entries
+ * are absent from the grid, the sitemap and llms.txt and reachable only via share link (§2).
+ */
 export function isPublicProject(project: Project): boolean {
-  return project.status !== "draft";
+  return project.status === "preview" || project.status === "live";
 }
 
 /**
- * The entry's own claim, before the gate is applied — for copy that explains WHY an entry is
- * held back ("declares itself live but..."). Never use this to decide visibility or badges:
- * that is `isLiveProject()` / `effectiveStatus()` only.
+ * True when the detail route is reachable only through a share link (`?k=<key>`): the
+ * `internal` state (§2 rule 1). Fail closed — `validateProjects()` guarantees an internal
+ * entry carries a `shareKeyHash`, and `verifyShareKey()` rejects a missing one. Defence in
+ * depth: an entry that somehow carries a `shareKeyHash` while declaring another state is
+ * still treated as share-gated, so the gate cannot be bypassed by flipping `status`.
  */
-export function declaresLive(project: Project): boolean {
-  return project.status === "live";
+export function isShareGated(project: Project): boolean {
+  return project.status === "internal" || project.shareKeyHash !== undefined;
+}
+
+/**
+ * Share-link check (§2 rule 1), server-side only. Compares the SHA-256 of the provided key
+ * against the stored hash in constant time. Fail closed: a missing key, a missing hash or a
+ * malformed hash never validates. The plaintext key is never stored or compared directly.
+ */
+export function verifyShareKey(shareKeyHash: string | undefined, providedKey: string | undefined): boolean {
+  if (!shareKeyHash || !providedKey) return false;
+  const expected = Buffer.from(shareKeyHash, "hex");
+  const actual = createHash("sha256").update(providedKey, "utf8").digest();
+  return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
 /**
@@ -161,7 +187,7 @@ export function validateProjects(entries: readonly Project[]): void {
       throw new Error(`projects.ts: entry is not an object: ${JSON.stringify(entry)}`);
     }
     const label = entry.slug || "(missing slug)";
-    if (!["draft", "preview", "live"].includes(entry.status)) {
+    if (!["draft", "internal", "preview", "live"].includes(entry.status)) {
       throw new Error(`projects.ts: "${label}" has invalid status "${String(entry.status)}"`);
     }
     for (const check of TIER1_CHECKS) {
@@ -175,6 +201,36 @@ export function validateProjects(entries: readonly Project[]): void {
         `projects.ts: "${label}" declares status "live" but these Tier 1 checks are false: ` +
           `${failing.join(", ")}. A project is live only when ALL ${TIER1_CHECKS.length} checks are true.`,
       );
+    }
+    if (entry.status === "live") {
+      // MINOR-1: a live entry must link everything the card contract shows (§2 rule 2).
+      for (const field of ["liveUrl", "githubUrl", "readmeUrl", "demoVideoUrl"] as const) {
+        if (!entry[field]) {
+          throw new Error(
+            `projects.ts: "${label}" declares status "live" but has an empty ${field} — ` +
+              `a live entry must link its demo, repo, README and demo video.`,
+          );
+        }
+      }
+    }
+    // Share links exist only for the `internal` state (§2 rule 1): an internal entry must
+    // carry its SHA-256 share-key hash (otherwise it would silently behave like a draft),
+    // and no other state may carry one.
+    if (entry.status === "internal" && entry.shareKeyHash === undefined) {
+      throw new Error(
+        `projects.ts: "${label}" is "internal" but has no shareKeyHash — an internal entry ` +
+          `is only reachable through its share link, so the key hash must be stored (use ` +
+          `status "draft" for an entry with no share link).`,
+      );
+    }
+    if (entry.status !== "internal" && entry.shareKeyHash !== undefined) {
+      throw new Error(
+        `projects.ts: "${label}" carries a shareKeyHash but is "${entry.status}" — share ` +
+          `links exist only for the "internal" state.`,
+      );
+    }
+    if (entry.shareKeyHash !== undefined && !/^[0-9a-f]{64}$/.test(entry.shareKeyHash)) {
+      throw new Error(`projects.ts: "${label}" — shareKeyHash must be a SHA-256 hex digest (64 lowercase hex chars)`);
     }
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(entry.slug)) {
       throw new Error(`projects.ts: "${label}" — slug must be url-safe, lowercase and hyphenated`);
@@ -196,15 +252,17 @@ export function validateProjects(entries: readonly Project[]): void {
 export const projects: Project[] = [
   /**
    * Flagship — decided by @user 2026-10-06 (spec §7): the GT-ASSIST-V2 platform itself.
-   * Ships as `"preview"` on purpose. Five of the twelve Tier 1 checks are still outstanding
-   * (readme5min, publicGithub, modelCallsLogged, toolOutputsValidated, repeatQueriesCached),
-   * so the gate keeps it out of the sitemap and off the "Live" badge until they clear.
+   * Ships as `"preview"` on purpose (R1 = public teaser, ruled by @user 2026-10-10): a clean
+   * teaser card and a clean detail page — complete copy only, no checklist or gap notes.
+   * Four of the twelve Tier 1 checks are still outstanding (publicGithub, modelCallsLogged,
+   * toolOutputsValidated, repeatQueriesCached), so the gate keeps it out of the sitemap and
+   * llms.txt until they clear.
    *
    * `secretsStripped` passes on verified evidence (re-scanned 2026-10-08): a scan of every
-   * live JS/CSS asset found zero key material after the client-secret remediation and key
-   * rotation, and the app's build fails on any key shape reaching its output
-   * (`scripts/scan-dist-secrets.mjs`, on main). Keep published copy at
-   * category level — never name the exact wiring or the exposure mechanism.
+   * live JS/CSS asset found zero secret key material — publishable (pk_) keys are public by design.
+   * The client-secret remediation and key rotation hold, and the app's build fails on any
+   * key shape reaching its output (`scripts/scan-dist-secrets.mjs`, on main). Keep published
+   * copy at category level — never name the exact wiring or the exposure mechanism.
    */
   {
     slug: "gt-assist-v2",
@@ -263,7 +321,7 @@ export const projects: Project[] = [
     demoVideoUrl: "https://gashotech.com/videos/gt-assist-v2-demo.mp4",
     status: "preview",
     tier1: {
-      readme5min: false, // 2026-10-08: the repo README carries no architecture section (its PR closed unmerged) — only the showcase mirror serves the 5-min write-up
+      readme5min: true, // 2026-10-10 (ruling R3): the "## Architecture (5-minute read)" section (585 words, ~3 min) landed in the GT-ASSIST-V2 repo README.md — origin/main @ 5bce31c (PR #39)
       demoVideo60s: true, // 60.000s walkthrough recorded and linked (verified frame-by-frame)
       publicGithub: false, // repo private; switch blocked on a git-history secret scrub (user call)
       promptsVersioned: true, // model/prompt configs versioned in repo
@@ -277,8 +335,6 @@ export const projects: Project[] = [
       budgetCap: true, // unified credit system, free daily allowance + paid packs
     },
     tier1Notes: {
-      readme5min:
-        "Partial — a 5-minute architecture write-up exists and is served from this showcase (the README link), but the project's own README carries no architecture section yet. Flips true when the README carries it.",
       publicGithub:
         "Missing — repo is private. The switch needs a git-history secret scrub and a user go-ahead.",
       modelCallsLogged:
@@ -292,12 +348,13 @@ export const projects: Project[] = [
   /**
    * Queued project #2 (spec §7): Tender / RFQ Finder + Bid Drafter.
    *
-   * Placeholder only, and deliberately `status: "draft"`:
+   * Placeholder only, and deliberately `status: "draft"` (Release Format v1.1 §4):
    * - it is NOT queued for a build here — it enters through the Phase 2 researcher backlog and
    *   gets rubric-scored like every other idea, so this entry gets replaced by the researcher's
    *   output when that lands;
-   * - keeping one real draft entry means the draft-hiding rule (hidden from the grid, the
-   *   sitemap and the detail route) is demonstrable against production data, not just asserted.
+   * - keeping one real draft entry means the draft-hiding rule (absent from the grid, the
+   *   sitemap and llms.txt; the detail route 404s unconditionally) is demonstrable against
+   *   production data, not just asserted.
    */
   {
     slug: "tender-rfq-finder",
@@ -348,7 +405,7 @@ export function getProject(slug: string): Project | undefined {
   return projects.find((project) => project.slug === slug);
 }
 
-/** Non-draft projects, newest first — what the grid renders. */
+/** Public projects (preview teasers + live cards), newest first — what the grid renders. */
 export function publicProjects(): Project[] {
   return projects
     .filter(isPublicProject)

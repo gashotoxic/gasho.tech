@@ -1,25 +1,31 @@
 #!/usr/bin/env node
 /**
- * Failing-case guard for the Tier 1 code gate (spec §6 — data/projects.ts).
+ * Failing-case guard for the Tier 1 code gate (spec §6 — data/projects.ts) and the
+ * Release Format v1.1 share-link gate (§2 rule 1).
  *
  * Proves, against the REAL data module, that a project with any false tier1 flag can never
- * be presented as live. Three enforcement arms are exercised:
+ * be presented as live, and that `internal` share-gated entries and hidden `draft` entries
+ * fail closed. Three enforcement arms are exercised:
  *
  *   1. TYPE LEVEL   — a `status: "live"` entry with a false flag fails `tsc` (negative
- *                     fixture), while a valid live entry and a mixed-flag preview entry
- *                     compile clean. The checker is validated BOTH ways before it is
- *                     trusted: known-good must pass AND known-broken must fail.
+ *                     fixture), while a valid live entry, a mixed-flag preview entry and an
+ *                     internal entry compile clean. The checker is validated BOTH ways
+ *                     before it is trusted: known-good must pass AND known-broken must fail.
  *   2. BUILD TIME   — `validateProjects()` (what `next build` runs at module load) throws
- *                     on violating entries: live-with-false-flag, incomplete tier1 map,
- *                     wrong flag type, invalid status, bad/duplicate slug, over-long
- *                     tagline, null entry.
+ *                     on violating entries: live-with-false-flag, live with an empty
+ *                     liveUrl/githubUrl/readmeUrl/demoVideoUrl (MINOR-1), incomplete tier1
+ *                     map, wrong flag type, invalid status, bad/duplicate slug, over-long
+ *                     tagline, internal without a shareKeyHash, a shareKeyHash outside the
+ *                     internal state, malformed shareKeyHash, null entry.
  *   3. RENDER LEVEL — `isLiveProject()` / `effectiveStatus()` / `liveProjects()` deny a
  *                     violating entry even when it is force-injected into the data (the
- *                     cast/mutation path), and the draft-hiding rule still holds.
+ *                     cast/mutation path); the draft-hiding rule holds; and
+ *                     `isShareGated()` / `verifyShareKey()` fail closed (wrong key, missing
+ *                     key, missing hash, malformed hash → denied).
  *
- * Also asserts the wiring: every public-visibility surface (grid, detail route, static
- * params, sitemap, llms.txt) routes its status decision through the gate helpers, so no
- * consumer can re-introduce a raw `status` check that bypasses the gate.
+ * Also asserts the wiring: every public-visibility surface (grid, detail route, sitemap,
+ * llms.txt) routes its status decision through the gate helpers, so no consumer can
+ * re-introduce a raw `status` check that bypasses the gate.
  *
  * Run: node scripts/check-tier1-gate.mjs   (or: npm run check:tier1-gate)
  * Exit 0 = gate holds. Exit 1 = gate broken (each FAIL line names the regression).
@@ -29,6 +35,7 @@
  */
 
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
@@ -122,7 +129,7 @@ try {
   }
   const require = createRequire(import.meta.url);
   const gate = require(path.join(workDir, "emit", "projects.js"));
-  const { projects, validateProjects, isLiveProject, isPublicProject, effectiveStatus, allTier1Pass, liveProjects, publicProjects, getProject } = gate;
+  const { projects, validateProjects, isLiveProject, isPublicProject, isShareGated, verifyShareKey, effectiveStatus, allTier1Pass, liveProjects, publicProjects, getProject } = gate;
 
   console.log("── 2. BUILD TIME: validateProjects() rejects violating entries ──");
   validateProjects(projects); // real data must pass
@@ -153,28 +160,72 @@ try {
     expectThrow(() => validateProjects([allFalseLive]), /live/, 'status "live" with ALL flags false throws');
   }
 
+  // MINOR-1: a live entry must carry non-empty links for the whole card contract.
+  expectThrow(() => validateProjects([makeEntry({ liveUrl: "" })]), /liveUrl/, 'status "live" with empty liveUrl throws');
+  expectThrow(() => validateProjects([makeEntry({ githubUrl: "" })]), /githubUrl/, 'status "live" with empty githubUrl throws');
+  expectThrow(() => validateProjects([makeEntry({ readmeUrl: "" })]), /readmeUrl/, 'status "live" with empty readmeUrl throws');
+  expectThrow(() => validateProjects([makeEntry({ demoVideoUrl: "" })]), /demoVideoUrl/, 'status "live" with empty demoVideoUrl throws');
+
+  // ...while preview/draft entries may carry empty links (the teaser shows links as available).
+  validateProjects([makeEntry({ slug: "ok-preview-empty-links", status: "preview", liveUrl: "", githubUrl: "", readmeUrl: "", demoVideoUrl: "" })]);
+  check(true, "preview entry with empty links validates (links render only where set)");
+  validateProjects([makeEntry({ slug: "ok-draft", status: "draft" })]);
+  check(true, 'status "draft" is a valid Release Format v1.1 state (hidden everywhere)');
+
+  // Share links exist only for `internal`, which must store its key hash (§2 rule 1) —
+  // the plaintext key is never stored.
+  validateProjects([makeEntry({ slug: "ok-hash", status: "internal", shareKeyHash: "ab".repeat(32) })]);
+  check(true, "internal entry with a SHA-256 hex shareKeyHash validates");
+  expectThrow(() => validateProjects([makeEntry({ slug: "internal-no-hash", status: "internal" })]), /shareKeyHash/, 'status "internal" without a shareKeyHash throws');
+  expectThrow(() => validateProjects([makeEntry({ slug: "live-with-hash", shareKeyHash: "ab".repeat(32) })]), /share links exist only/, "a shareKeyHash outside the internal state throws (live)");
+  expectThrow(() => validateProjects([makeEntry({ slug: "draft-with-hash", status: "draft", shareKeyHash: "ab".repeat(32) })]), /share links exist only/, "a shareKeyHash outside the internal state throws (draft)");
+  expectThrow(() => validateProjects([makeEntry({ slug: "bad-hash", status: "internal", shareKeyHash: "not-hex" })]), /shareKeyHash/, "malformed shareKeyHash throws");
+
   console.log("── 3. RENDER LEVEL: gate helpers deny violating entries ──");
   const liveLie = makeEntry({ slug: "live-lie", tier1: { publicGithub: false } });
   check(isLiveProject(liveLie) === false, "isLiveProject() denies live-with-false-flag");
   check(effectiveStatus(liveLie) === "preview", 'effectiveStatus() downgrades live-with-false-flag to "preview"');
   const honestLive = makeEntry({ slug: "honest-live" });
   check(isLiveProject(honestLive) === true && effectiveStatus(honestLive) === "live", "known-good live entry still passes the gate (checker sanity)");
-  const draftWithTrueFlags = makeEntry({ slug: "draft-true-flags", status: "draft" });
-  check(isPublicProject(draftWithTrueFlags) === false && effectiveStatus(draftWithTrueFlags) === "draft", "draft entry is not public and never presents live, even with all flags true");
+  const internalWithTrueFlags = makeEntry({ slug: "internal-true-flags", status: "internal", shareKeyHash: "ab".repeat(32) });
+  check(isPublicProject(internalWithTrueFlags) === false && effectiveStatus(internalWithTrueFlags) === "internal", "internal entry is not public and never presents live, even with all flags true");
   const mixedPreview = makeEntry({ slug: "mixed-preview", status: "preview", tier1: { budgetCap: false } });
   check(isLiveProject(mixedPreview) === false && effectiveStatus(mixedPreview) === "preview", "preview entry with a false flag never presents live");
 
+  // Release Format v1.1: internal entries are hidden everywhere and fail closed on the
+  // detail route; the share gate denies every key unless it hashes to the stored value.
+  const fixtureKey = "fixture-share-key-2026-10-10";
+  const fixtureHash = createHash("sha256").update(fixtureKey, "utf8").digest("hex");
+  const internalEntry = makeEntry({ slug: "internal-entry", status: "internal", shareKeyHash: fixtureHash });
+  check(effectiveStatus(internalEntry) === "internal", 'effectiveStatus() reports "internal" for an internal entry');
+  check(isPublicProject(internalEntry) === false, "internal entry is not public (grid/sitemap/llms hide it)");
+  check(isLiveProject(internalEntry) === false, "internal entry never presents live, even with all flags true");
+  check(isShareGated(internalEntry) === true, "internal entry is share-gated");
+  const draftEntry = makeEntry({ slug: "draft-entry", status: "draft" });
+  check(isPublicProject(draftEntry) === false && effectiveStatus(draftEntry) === "draft", "draft entry is not public and presents as draft");
+  check(isShareGated(draftEntry) === false, "draft entry is not share-gated (share links exist only for internal)");
+  check(isShareGated(makeEntry({ slug: "preview-no-hash", status: "preview" })) === false, "preview entry is not share-gated");
+  check(verifyShareKey(fixtureHash, fixtureKey) === true, "verifyShareKey() accepts the correct key");
+  check(verifyShareKey(fixtureHash, "wrong-key") === false, "verifyShareKey() rejects a wrong key (fail closed)");
+  check(verifyShareKey(fixtureHash, undefined) === false, "verifyShareKey() rejects a missing key (fail closed)");
+  check(verifyShareKey(undefined, fixtureKey) === false, "verifyShareKey() rejects when no hash is stored (fail closed)");
+  check(verifyShareKey("not-hex", fixtureKey) === false, "verifyShareKey() rejects a malformed hash (fail closed)");
+
   // Mutation path: force violating entries into the live data array (what a cast or a
   // non-TS tool could do) and prove every read path still denies "live".
-  projects.push(liveLie, draftWithTrueFlags);
+  projects.push(liveLie, internalWithTrueFlags, draftEntry);
   try {
-    check(!liveProjects().some((p) => p.slug === "live-lie"), "liveProjects() (sitemap) excludes the injected live-lie");
-    check(liveProjects().every((p) => allTier1Pass(p) && p.status === "live"), "liveProjects() (sitemap) contains only fully-passing live entries");
-    check(!publicProjects().some((p) => p.slug === "draft-true-flags"), "publicProjects() (grid/detail/static params) hides the injected draft");
+    check(!liveProjects().some((p) => p.slug === "live-lie"), "liveProjects() (sitemap/llms) excludes the injected live-lie");
+    check(liveProjects().every((p) => allTier1Pass(p) && p.status === "live"), "liveProjects() (sitemap/llms) contains only fully-passing live entries");
+    check(!publicProjects().some((p) => p.slug === "internal-true-flags"), "publicProjects() (grid) hides the injected internal entry");
+    check(!publicProjects().some((p) => p.slug === "draft-entry"), "publicProjects() (grid) hides the injected draft entry");
+    check(!liveProjects().some((p) => p.slug === "draft-entry"), "liveProjects() (sitemap/llms) excludes the injected draft entry");
+    check(getProject("internal-true-flags") !== undefined && isShareGated(getProject("internal-true-flags")), "detail route lookup keeps the injected internal entry share-gated");
     const injected = publicProjects().find((p) => p.slug === "live-lie");
     check(Boolean(injected) && effectiveStatus(injected) === "preview", "grid/detail data shows the injected live-lie only as preview");
     check(getProject("live-lie") !== undefined && effectiveStatus(getProject("live-lie")) === "preview", "detail route lookup resolves the live-lie as preview only");
   } finally {
+    projects.pop();
     projects.pop();
     projects.pop();
   }
@@ -188,10 +239,10 @@ try {
 
   console.log("── 4. WIRING: every public-visibility surface routes through the gate ──");
   const consumers = [
-    ["app/projects/page.tsx (grid)", "app/projects/page.tsx", ["publicProjects", "effectiveStatus"]],
-    ["app/projects/[slug]/page.tsx (detail + static params)", "app/projects/[slug]/page.tsx", ["publicProjects", "isPublicProject", "effectiveStatus"]],
+    ["app/projects/page.tsx (grid)", "app/projects/page.tsx", ["publicProjects", "isLiveProject"]],
+    ["app/projects/[slug]/page.tsx (detail route)", "app/projects/[slug]/page.tsx", ["getProject", "isPublicProject", "isShareGated", "verifyShareKey", "isLiveProject"]],
     ["app/sitemap.ts (sitemap)", "app/sitemap.ts", ["liveProjects"]],
-    ["app/llms.txt/route.ts (llms.txt)", "app/llms.txt/route.ts", ["publicProjects", "effectiveStatus"]],
+    ["app/llms.txt/route.ts (llms.txt)", "app/llms.txt/route.ts", ["liveProjects"]],
   ];
   for (const [label, file, helpers] of consumers) {
     let src = null;
@@ -211,6 +262,8 @@ try {
     `import type { Project } from "${relImport.startsWith(".") ? relImport : "./" + relImport}";`,
     `export const goodLive: Project = ${JSON.stringify(makeEntry({ slug: "good-live" }), null, 2)};`,
     `export const goodPreview: Project = ${JSON.stringify(makeEntry({ slug: "good-preview", status: "preview", tier1: { budgetCap: false } }), null, 2)};`,
+    `export const goodInternal: Project = ${JSON.stringify(makeEntry({ slug: "good-internal", status: "internal", shareKeyHash: "ab".repeat(32) }), null, 2)};`,
+    `export const goodDraft: Project = ${JSON.stringify(makeEntry({ slug: "good-draft", status: "draft", tier1: { budgetCap: false } }), null, 2)};`,
   ].join("\n");
   const badLiveSrc = [
     `import type { Project } from "${relImport.startsWith(".") ? relImport : "./" + relImport}";`,
