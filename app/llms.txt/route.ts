@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import blogsData from "../../data/blogs.json";
-import { effectiveStatus, publicProjects } from "../../data/projects";
+import { liveProjects } from "../../data/projects";
 
 type BlogPost = {
   slug: string;
@@ -41,16 +41,16 @@ function buildBlogList(): string {
 }
 
 function buildProjectList(): string {
-  const items = publicProjects();
+  // Release Format v1.1 (§2): only live entries are listed — preview and internal entries
+  // stay out of llms.txt until they clear the gate. No status notes in the listing.
+  const items = liveProjects();
   if (items.length === 0) {
-    return "- (No projects published yet — first flagship is in development.)";
+    return "- (No projects published yet — new projects appear here when they go live.)";
   }
   return items
     .map((p) => {
-      const status = effectiveStatus(p);
-      const label = status === "live" ? "live" : "in development";
-      const demo = status === "live" && p.liveUrl ? ` — demo: ${p.liveUrl}` : "";
-      return `- [${p.title}](https://gashotech.com/projects/${p.slug}) (${label})${demo}: ${truncate(p.tagline, 140)}`;
+      const demo = p.liveUrl ? ` — demo: ${p.liveUrl}` : "";
+      return `- [${p.title}](https://gashotech.com/projects/${p.slug})${demo}: ${truncate(p.tagline, 140)}`;
     })
     .join("\n");
 }

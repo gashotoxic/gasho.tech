@@ -1,21 +1,17 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { CircleCheck, CircleX, FileText, Globe, Video } from "lucide-react"
+import { FileText, Globe, Server, Video } from "lucide-react"
 import { GithubIcon } from "@/components/social-icons"
-import {
-  TIER1_CHECKS,
-  TIER1_LABELS,
-  allTier1Pass,
-  declaresLive,
-  effectiveStatus,
-  getProject,
-  isPublicProject,
-  publicProjects,
-} from "@/data/projects"
+import { getProject, isLiveProject, isPublicProject, isShareGated, verifyShareKey, type Project } from "@/data/projects"
+
+// The share-link gate reads `?k=` at request time (Release Format v1.1 §2 rule 1), so this
+// route renders per request instead of via generateStaticParams.
+export const dynamic = "force-dynamic"
 
 interface Props {
   params: Promise<{ slug: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
 /** ISO date → "6 October 2026", timezone-independent (the date part is the claim). */
@@ -30,25 +26,43 @@ function formatPublished(iso: string): string {
   })
 }
 
-export async function generateStaticParams() {
-  // Visibility is decided in the data layer: only public (non-draft) entries get a route.
-  return publicProjects().map((project) => ({ slug: project.slug }))
+/**
+ * Access decision (Release Format v1.1 §2 rule 1), applied identically by the page and its
+ * metadata so a gated entry leaks nothing. Fail closed: draft entries, unknown slugs and
+ * share-gated entries without a valid `?k=<key>` resolve to null and render as 404.
+ */
+async function resolveProject(props: Props): Promise<Project | null> {
+  const { slug } = await props.params
+  const project = getProject(slug)
+  if (!project) return null
+  if (isShareGated(project)) {
+    const raw = (await props.searchParams).k
+    const key = typeof raw === "string" ? raw : undefined
+    if (!verifyShareKey(project.shareKeyHash, key)) return null
+  } else if (!isPublicProject(project)) {
+    return null
+  }
+  return project
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params
-  const project = getProject(slug)
-  if (!project || !isPublicProject(project)) return { title: "Project Not Found" }
+export async function generateMetadata(props: Props): Promise<Metadata> {
+  const project = await resolveProject(props)
+  if (!project) {
+    return { title: "Project Not Found", robots: { index: false, follow: false } }
+  }
+  // Share-linked pages stay out of search indexes even when opened with a valid key (§2).
+  const robots = isShareGated(project) ? { index: false, follow: false } : undefined
   return {
     title: project.title,
     description: project.tagline,
+    ...(robots ? { robots } : {}),
     alternates: {
-      canonical: `https://gashotech.com/projects/${slug}`,
+      canonical: `https://gashotech.com/projects/${project.slug}`,
     },
     openGraph: {
       title: `${project.title} | GashoTech`,
       description: project.tagline,
-      url: `https://gashotech.com/projects/${slug}`,
+      url: `https://gashotech.com/projects/${project.slug}`,
       siteName: "GashoTech",
       locale: "en_KE",
       type: "website",
@@ -63,18 +77,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-export default async function ProjectPage({ params }: Props) {
-  const { slug } = await params
-  const project = getProject(slug)
+/**
+ * Public copy is complete or absent (Release Format v1.1 §2 rule 3): the page shows only the
+ * problem, the workflow, the agent architecture summary and the links. No checklists, no gap
+ * notes, no status badges — never, for any state.
+ */
+export default async function ProjectPage(props: Props) {
+  const project = await resolveProject(props)
 
-  // Drafts are never reachable, and unknown slugs 404.
-  if (!project || !isPublicProject(project)) {
+  // Unknown slugs and share-gated entries without a valid key are never reachable.
+  if (!project) {
     notFound()
   }
 
-  const status = effectiveStatus(project)
-  const isLive = status === "live"
-  const passed = TIER1_CHECKS.filter((check) => project.tier1[check] === true).length
+  const isLive = isLiveProject(project)
   const workflowSteps = project.workflow
     .split("\n")
     .map((step) => step.replace(/^\s*\d+\.\s*/, "").trim())
@@ -145,20 +161,6 @@ export default async function ProjectPage({ params }: Props) {
 
       {/* Hero */}
       <div className="jumbotron text-center">
-        <div className="flex items-center justify-center gap-3 mb-4">
-          <span
-            className={
-              isLive
-                ? "rounded-full bg-white/20 text-white px-3 py-1 text-xs font-semibold uppercase tracking-wide"
-                : "rounded-full bg-black/20 text-white px-3 py-1 text-xs font-semibold uppercase tracking-wide"
-            }
-          >
-            {isLive ? "Live" : "Preview"}
-          </span>
-          <span className="rounded-full bg-white/20 text-white px-3 py-1 text-xs font-semibold uppercase tracking-wide">
-            Demo build
-          </span>
-        </div>
         <h1 className="text-4xl md:text-5xl font-bold mb-6">{project.title}</h1>
         <p className="text-lg text-white/90 max-w-3xl mx-auto">{project.tagline}</p>
         {project.publishedAt && (
@@ -178,6 +180,17 @@ export default async function ProjectPage({ params }: Props) {
             >
               <Globe className="w-4 h-4" />
               Live demo
+            </a>
+          )}
+          {project.hosting.url && (
+            <a
+              href={project.hosting.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-white hover:text-[#094d3e] transition-colors"
+            >
+              <Server className="w-4 h-4" />
+              Hosting
             </a>
           )}
           {project.githubUrl && (
@@ -218,19 +231,6 @@ export default async function ProjectPage({ params }: Props) {
 
       <div className="bg-grey py-12">
         <div className="container mx-auto px-4 max-w-4xl">
-          {/* Demo notice */}
-          <section className="mb-12">
-            <div className="bg-[#1abc9c]/10 border border-[#1abc9c]/30 rounded-xl p-6">
-              <h2 className="text-xl font-bold mb-2">This is a demo</h2>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {project.title} is a demonstration project — a working demo build published to
-                show the shape of the work, not a production service. The architecture below is
-                described at a high level on purpose: vivid enough to show how the agent is put
-                together, without publishing the internal blueprint or the wiring that runs it.
-              </p>
-            </div>
-          </section>
-
           {/* Problem */}
           <section className="mb-12">
             <h2 className="text-2xl font-bold mb-4">The problem</h2>
@@ -290,114 +290,6 @@ export default async function ProjectPage({ params }: Props) {
                 </p>
               </div>
             </div>
-          </section>
-
-          {/* Hosting */}
-          <section className="mb-12">
-            <h2 className="text-2xl font-bold mb-4">Hosting</h2>
-            <div className="bg-card rounded-lg p-6 shadow-sm text-sm text-muted-foreground">
-              <p>
-                <span className="font-semibold text-foreground">Provider:</span>{" "}
-                {project.hosting.provider}
-              </p>
-              <p>
-                <span className="font-semibold text-foreground">Plan:</span> {project.hosting.plan}
-              </p>
-              <p>
-                <span className="font-semibold text-foreground">Region:</span>{" "}
-                {project.hosting.region}
-              </p>
-              {project.hosting.url && (
-                <p>
-                  <span className="font-semibold text-foreground">URL:</span>{" "}
-                  <a
-                    href={project.hosting.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[#1abc9c] hover:text-[#16a085]"
-                  >
-                    {project.hosting.url}
-                  </a>
-                </p>
-              )}
-            </div>
-          </section>
-
-          {/* Metrics — rendered only from data the entry actually carries; never invented. */}
-          {(project.metrics?.costPerTask || project.metrics?.uptime) && (
-            <section className="mb-12">
-              <h2 className="text-2xl font-bold mb-4">Metrics</h2>
-              <div className="bg-card rounded-lg p-6 shadow-sm text-sm text-muted-foreground">
-                {project.metrics?.costPerTask && (
-                  <p>
-                    <span className="font-semibold text-foreground">Cost per task:</span>{" "}
-                    {project.metrics.costPerTask}
-                  </p>
-                )}
-                {project.metrics?.uptime && (
-                  <p>
-                    <span className="font-semibold text-foreground">Uptime:</span>{" "}
-                    {project.metrics.uptime}
-                  </p>
-                )}
-              </div>
-            </section>
-          )}
-
-          {/* Tier 1 checklist */}
-          <section className="mb-12">
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-              <h2 className="text-2xl font-bold">Tier 1 checklist</h2>
-              <span
-                className={
-                  allTier1Pass(project)
-                    ? "rounded-full bg-[#1abc9c]/15 text-[#1abc9c] px-3 py-1 text-xs font-semibold"
-                    : "rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 px-3 py-1 text-xs font-semibold"
-                }
-              >
-                {passed} of {TIER1_CHECKS.length} passing
-              </span>
-            </div>
-            <p className="text-sm text-muted-foreground mb-4">
-              Every project must clear all {TIER1_CHECKS.length} Tier 1 checks before it is
-              presented as live. This is enforced in code, not by convention.
-            </p>
-            <ul className="grid gap-2 md:grid-cols-2">
-              {TIER1_CHECKS.map((check) => {
-                const done = project.tier1[check] === true
-                return (
-                  <li
-                    key={check}
-                    className="flex items-start gap-3 bg-card rounded-lg p-4 shadow-sm text-sm"
-                  >
-                    {done ? (
-                      <CircleCheck className="w-5 h-5 shrink-0 text-[#1abc9c]" />
-                    ) : (
-                      <CircleX className="w-5 h-5 shrink-0 text-muted-foreground/60" />
-                    )}
-                    <span className={done ? "text-foreground" : "text-muted-foreground"}>
-                      {TIER1_LABELS[check]}
-                      {!done && project.tier1Notes?.[check] && (
-                        <span className="block mt-1 text-xs text-muted-foreground/80">
-                          {project.tier1Notes[check]}
-                        </span>
-                      )}
-                    </span>
-                  </li>
-                )
-              })}
-            </ul>
-            {!isLive && (
-              <p className="mt-4 text-sm text-amber-600 dark:text-amber-400">
-                {declaresLive(project)
-                  ? `This entry declares itself live but is held back by ${
-                      TIER1_CHECKS.length - passed
-                    } outstanding Tier 1 check${TIER1_CHECKS.length - passed === 1 ? "" : "s"}.`
-                  : `Not presented as live yet — ${
-                      TIER1_CHECKS.length - passed
-                    } of ${TIER1_CHECKS.length} Tier 1 checks outstanding.`}
-              </p>
-            )}
           </section>
 
           {/* Back links */}

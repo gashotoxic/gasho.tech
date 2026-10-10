@@ -1,8 +1,8 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { ArrowUpRight, Globe, Server } from "lucide-react"
+import { Globe, Server } from "lucide-react"
 import { GithubIcon } from "@/components/social-icons"
-import { TIER1_CHECKS, effectiveStatus, publicProjects } from "@/data/projects"
+import { TIER1_CHECKS, isLiveProject, publicProjects } from "@/data/projects"
 
 export const metadata: Metadata = {
   title: "Projects",
@@ -47,13 +47,16 @@ export default function ProjectsPage() {
           </p>
         </div>
 
-        {/* Project cards */}
+        {/* Project cards — live entries get the answer-key contract (title, one-liner, Live
+            demo + Hosting + GitHub links), preview entries a clean teaser with a Preview
+            badge. Internal entries never get a card. Public copy is complete or absent:
+            no checklists, no gap notes, no status notes (Release Format v1.1 §2 rule 3). */}
         {projects.length === 0 ? (
           <div className="text-center bg-card border border-border/50 rounded-xl p-12">
-            <h2 className="text-xl font-semibold mb-3">First project landing soon</h2>
+            <h2 className="text-xl font-semibold mb-3">In the workshop</h2>
             <p className="text-muted-foreground max-w-xl mx-auto">
-              The flagship project is in development. Check back shortly — or read how we
-              build them on the services page.
+              New projects are being built here. Each one appears on this page when it is
+              finished.
             </p>
             <Link
               href="/#services"
@@ -65,8 +68,7 @@ export default function ProjectsPage() {
         ) : (
           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
             {projects.map((project) => {
-              const status = effectiveStatus(project)
-              const isLive = status === "live"
+              const isLive = isLiveProject(project)
               return (
                 <article
                   key={project.slug}
@@ -76,24 +78,19 @@ export default function ProjectsPage() {
                     <h2 className="text-xl font-semibold group-hover:text-[#1abc9c] transition-colors">
                       <Link href={`/projects/${project.slug}`}>{project.title}</Link>
                     </h2>
-                    <span
-                      className={
-                        isLive
-                          ? "shrink-0 rounded-full bg-[#1abc9c]/15 text-[#1abc9c] px-3 py-1 text-xs font-semibold uppercase tracking-wide"
-                          : "shrink-0 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 px-3 py-1 text-xs font-semibold uppercase tracking-wide"
-                      }
-                    >
-                      {status === "live" ? "Live" : "Preview"}
-                    </span>
+                    {!isLive && (
+                      <span className="shrink-0 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 px-3 py-1 text-xs font-semibold uppercase tracking-wide">
+                        Preview
+                      </span>
+                    )}
                   </div>
 
                   <p className="text-sm text-muted-foreground leading-relaxed flex-1">
                     {project.tagline}
                   </p>
 
-                  {/* Demo link shows for anything publicly usable; hosting + GitHub only once
-                      the entry clears the gate and is presented as live. */}
-                  {(isLive || project.liveUrl) && (
+                  {/* Links render only where the URL exists — never a dead link. */}
+                  {(project.liveUrl || project.hosting.url || project.githubUrl) && (
                     <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm">
                       {project.liveUrl && (
                         <a
@@ -106,7 +103,7 @@ export default function ProjectsPage() {
                           Live demo
                         </a>
                       )}
-                      {isLive && project.hosting.url && (
+                      {project.hosting.url && (
                         <a
                           href={project.hosting.url}
                           target="_blank"
@@ -117,7 +114,7 @@ export default function ProjectsPage() {
                           Hosting
                         </a>
                       )}
-                      {isLive && project.githubUrl && (
+                      {project.githubUrl && (
                         <a
                           href={project.githubUrl}
                           target="_blank"
@@ -130,14 +127,6 @@ export default function ProjectsPage() {
                       )}
                     </div>
                   )}
-
-                  <Link
-                    href={`/projects/${project.slug}`}
-                    className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-foreground hover:text-[#1abc9c] transition-colors"
-                  >
-                    Project details
-                    <ArrowUpRight className="w-4 h-4" />
-                  </Link>
                 </article>
               )
             })}
