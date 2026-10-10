@@ -203,12 +203,23 @@ export function validateProjects(entries: readonly Project[]): void {
       );
     }
     if (entry.status === "live") {
-      // MINOR-1: a live entry must link everything the card contract shows (§2 rule 2).
-      for (const field of ["liveUrl", "githubUrl", "readmeUrl", "demoVideoUrl"] as const) {
-        if (!entry[field]) {
+      // MINOR-1 (hardened after the wave-1 audit 2026-10-10 — whitespace-only, "n/a" and
+      // bare "https://" all beat a plain truthiness check): every link a live card shows
+      // must be a real trimmed http(s) URL, including the hosting link.
+      const links: ReadonlyArray<readonly [string, string | undefined]> = [
+        ["liveUrl", entry.liveUrl],
+        ["githubUrl", entry.githubUrl],
+        ["readmeUrl", entry.readmeUrl],
+        ["demoVideoUrl", entry.demoVideoUrl],
+        ["hosting.url", entry.hosting?.url],
+      ];
+      for (const [field, raw] of links) {
+        const v = (raw ?? "").trim();
+        if (!/^https?:\/\/\S+\.\S+/.test(v)) {
           throw new Error(
-            `projects.ts: "${label}" declares status "live" but has an empty ${field} — ` +
-              `a live entry must link its demo, repo, README and demo video.`,
+            `projects.ts: "${label}" declares status "live" but ${field} is not a real http(s) url ` +
+              `(${JSON.stringify(raw ?? "")}) — a live entry must link its demo, repo, README, ` +
+              `demo video and hosting with real URLs.`,
           );
         }
       }

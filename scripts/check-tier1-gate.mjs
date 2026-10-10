@@ -165,6 +165,13 @@ try {
   expectThrow(() => validateProjects([makeEntry({ githubUrl: "" })]), /githubUrl/, 'status "live" with empty githubUrl throws');
   expectThrow(() => validateProjects([makeEntry({ readmeUrl: "" })]), /readmeUrl/, 'status "live" with empty readmeUrl throws');
   expectThrow(() => validateProjects([makeEntry({ demoVideoUrl: "" })]), /demoVideoUrl/, 'status "live" with empty demoVideoUrl throws');
+  // Wave-1 audit regressions (2026-10-10): whitespace/garbage/malformed links must throw too.
+  expectThrow(() => validateProjects([makeEntry({ liveUrl: " " })]), /liveUrl/, 'status "live" with whitespace-only liveUrl throws');
+  expectThrow(() => validateProjects([makeEntry({ githubUrl: "\t" })]), /githubUrl/, 'status "live" with tab-only githubUrl throws');
+  expectThrow(() => validateProjects([makeEntry({ readmeUrl: "n/a" })]), /readmeUrl/, 'status "live" with "n/a" readmeUrl throws');
+  expectThrow(() => validateProjects([makeEntry({ demoVideoUrl: "https://" })]), /demoVideoUrl/, 'status "live" with bare "https://" demoVideoUrl throws');
+  expectThrow(() => validateProjects([makeEntry({ hosting: { provider: "Vercel", plan: "Hobby", region: "iad1", url: "" } })]), /hosting\.url/, 'status "live" with empty hosting.url throws');
+  expectThrow(() => validateProjects([makeEntry({ hosting: { provider: "Vercel", plan: "Hobby", region: "iad1", url: "  " } })]), /hosting\.url/, 'status "live" with whitespace hosting.url throws');
 
   // ...while preview/draft entries may carry empty links (the teaser shows links as available).
   validateProjects([makeEntry({ slug: "ok-preview-empty-links", status: "preview", liveUrl: "", githubUrl: "", readmeUrl: "", demoVideoUrl: "" })]);
