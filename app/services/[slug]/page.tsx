@@ -6,9 +6,9 @@ import { notFound } from "next/navigation"
 
 const serviceContent: Record<string, { title: string; overview: string; benefits: string[]; features: { title: string; desc: string }[]; useCases: { title: string; desc: string }[] }> = {
   ai: {
-    title: "AI Solutions",
+    title: "AI Consulting Company in Kenya",
     overview:
-      "Our AI solutions are designed to automate complex processes, enhance decision-making, and optimize workflows. We leverage advanced technologies such as natural language processing, machine learning, and predictive analytics to deliver tailored solutions that meet your business needs.",
+      "GashoTech is an AI consulting company delivering custom AI agents, machine learning, NLP, computer vision, and generative AI for businesses across East Africa. From strategy to deployment, we build tailored AI solutions — including custom AI agents for WhatsApp, M-Pesa, and internal workflows — that automate complex processes, sharpen decision-making, and optimize how your business runs.",
     benefits: [
       "Increased efficiency and productivity",
       "Improved accuracy and decision-making",
@@ -31,9 +31,9 @@ const serviceContent: Record<string, { title: string; overview: string; benefits
     ],
   },
   automation: {
-    title: "AI Automation",
+    title: "AI Automation Agency in Kenya",
     overview:
-      "Our AI automation solutions streamline repetitive tasks, reduce human error, and boost productivity. By automating manual processes, we enable organizations to focus on innovation and growth.",
+      "GashoTech is a full-service AI automation agency. We replace manual work with reliable automation — RPA, business process automation, workflow orchestration, and cloud-based automation — for businesses across East Africa. Our automation practice includes M-Pesa payment workflows, WhatsApp automation, and integrations between the systems you already use, cutting operational cost while reducing human error.",
     benefits: [
       "Reduced operational costs",
       "Enhanced accuracy and reliability",
@@ -56,9 +56,9 @@ const serviceContent: Record<string, { title: string; overview: string; benefits
     ],
   },
   cybersecurity: {
-    title: "Cybersecurity",
+    title: "Cybersecurity Services in Nairobi: SOC, EDR & MDR",
     overview:
-      "Our advanced cybersecurity solutions protect your business from cyber threats, ensuring your data and systems are secure. We offer AI-driven threat detection and comprehensive risk management strategies to safeguard your business.",
+      "GashoTech delivers managed detection and response — SOC monitoring, EDR deployment, and MDR backed by AI-driven threat detection, vulnerability management, IAM, and 24/7 monitoring. Our security team protects businesses across East Africa from ransomware, phishing, and insider threats, with incident response playbooks and compliance support built in.",
     benefits: [
       "Comprehensive threat detection and prevention",
       "Enhanced data security and privacy",
@@ -101,25 +101,29 @@ const serviceContent: Record<string, { title: string; overview: string; benefits
       { title: "Cloud Migration", desc: "Smooth transition to cloud-based infrastructure." },
     ],
   },
-  computer: {
-    title: "Computer Services",
+  agents: {
+    title: "AI Agent Setup for Business",
     overview:
-      "From hardware maintenance to software solutions, our computer services keep your systems running smoothly. Expert support for all your computing needs.",
+      "GashoTech sets up AI agent harnesses for businesses and wires them into the work you already do. We deploy agents built on Hermes, Claude, Codex, and DeepSeek, connect them to your tools and data, and configure them around your processes rather than generic demo prompts. You get a working agent your team can run every day, with support from our Nairobi team after launch.",
     benefits: [
-      "Reliable hardware maintenance",
-      "Expert troubleshooting",
-      "Cost-effective solutions",
-      "Minimal downtime",
+      "Repetitive work moves to agents instead of staff overtime",
+      "Faster turnaround on routine tasks and recurring reports",
+      "Your team runs the agents without engineering help",
+      "Fixed scope and price agreed before the build starts",
     ],
     features: [
-      { title: "Hardware Maintenance", desc: "Repair, upgrade, and maintain your computer hardware." },
-      { title: "Software Solutions", desc: "Installation, configuration, and troubleshooting of software." },
-      { title: "Network Setup", desc: "Configure and manage local area networks." },
-      { title: "Technical Support", desc: "Help desk and on-site support for all your IT issues." },
+      { title: "Agent Harness Setup & Hosting", desc: "We install and configure Hermes, Claude Code, Codex, or DeepSeek-based agent harnesses, hosted on your infrastructure or ours." },
+      { title: "Workflow Automation", desc: "Agents mapped to specific business workflows: document handling, data entry, reporting, customer follow-ups, and other recurring tasks." },
+      { title: "Tool & API Integrations", desc: "Connections to the systems your work runs on: email, WhatsApp, CRMs, spreadsheets, payment platforms, and internal APIs." },
+      { title: "Guardrails & Human Review", desc: "Access controls, action limits, and human approval on sensitive steps like payments or customer-facing messages, with a full log of what each agent did." },
+      { title: "Team Training", desc: "Hands-on sessions so your staff can prompt, supervise, and adjust the agents instead of calling an engineer for every change." },
+      { title: "Monitoring & Maintenance", desc: "We watch agent performance, apply model and tool updates, and fix things when a connected system changes." },
     ],
     useCases: [
-      { title: "Small Business IT", desc: "Affordable IT support for growing businesses." },
-      { title: "Home Office Setup", desc: "Professional setup for remote work environments." },
+      { title: "Customer Support", desc: "Agents handle first-response queries on WhatsApp and email, then escalate to staff when a conversation needs a human." },
+      { title: "Finance & Admin", desc: "Invoice processing, reconciliation prep, and recurring report generation, with human sign-off before anything leaves the business." },
+      { title: "Sales & Marketing", desc: "Lead follow-up, CRM updates, and draft content produced on schedule while your team controls what gets sent." },
+      { title: "Operations", desc: "Data entry, inventory checks, and internal reporting run by agents on the systems you already use." },
     ],
   },
   "blog-studio": {
@@ -140,7 +144,7 @@ const serviceContent: Record<string, { title: string; overview: string; benefits
       { title: "AI Image Generation", desc: "Generate custom 1200x630 blog header images matching your category — AI, Cybersecurity, Technology, and more. Dark theme, turquoise #1abc9c accents, professional GashoTech brand aesthetic." },
       { title: "Image Prompt Copy", desc: "If the built-in image generator doesn't match your vision, copy the exact prompt and use it on Midjourney, DALL-E, or any AI image platform." },
       { title: "Web Search Integration", desc: "Real DuckDuckGo web search feeds into topic generation, ensuring your blog posts are grounded in current information and trending discussions." },
-      { title: "Multi-Provider LLM Support", desc: "Choose from models across Chutes.ai and CrofAI — including DeepSeek, Kimi, GLM, and more — to match your preferred writing style and quality level." },
+      { title: "Multi-Provider LLM Support", desc: "Choose from models across Chutes.ai — including DeepSeek, Kimi, GLM, and more — to match your preferred writing style and quality level." },
     ],
     useCases: [
       { title: "Content Marketers", desc: "Produce weekly blog content at scale. Research, draft, and publish without juggling multiple tools. Generate 4 posts per hour that used to take all day." },
@@ -160,13 +164,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const service = services.find((s) => s.slug === slug)
   if (!service) return { title: "Service Not Found" }
   return {
-    title: service.title,
+    title: service.seoTitle,
     description: service.description,
+    keywords: service.seoKeywords,
     alternates: {
       canonical: `https://gashotech.com/services/${slug}`,
     },
     openGraph: {
-      title: service.title,
+      title: service.seoTitle,
       description: service.description,
       url: `https://gashotech.com/services/${slug}`,
       siteName: "GashoTech",
@@ -176,7 +181,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     },
     twitter: {
       card: "summary_large_image",
-      title: service.title,
+      title: service.seoTitle,
       description: service.description,
       images: [{ url: "https://gashotech.com/images/gashotech_logo.webp" }],
     },
@@ -219,32 +224,14 @@ export default async function ServicePage({ params }: Props) {
   const faqSchema = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    mainEntity: [
-      {
-        "@type": "Question",
-        name: `What is included in GashoTech's ${content.title}?`,
-        acceptedAnswer: {
-          "@type": "Answer",
-          text: `GashoTech's ${content.title} includes ${content.features.map(f => f.title.toLowerCase()).join(", ")}. Our solutions are tailored to meet the specific needs of your business.`,
-        },
+    mainEntity: service.faq.map((item) => ({
+      "@type": "Question",
+      name: item.q,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.a,
       },
-      {
-        "@type": "Question",
-        name: `How does ${content.title} benefit my business?`,
-        acceptedAnswer: {
-          "@type": "Answer",
-          text: `${content.benefits.join(". ")}. Our team works closely with you to ensure maximum value from the engagement.`,
-        },
-      },
-      {
-        "@type": "Question",
-        name: "Is GashoTech based in Kenya?",
-        acceptedAnswer: {
-          "@type": "Answer",
-          text: "Yes, GashoTech is headquartered in Nairobi, Kenya, and we serve businesses across East Africa with AI, automation, cybersecurity, and ICT solutions.",
-        },
-      },
-    ],
+    })),
   }
 
   return (
@@ -281,7 +268,7 @@ export default async function ServicePage({ params }: Props) {
         {service.slug && (
           <div className="relative w-full max-w-3xl h-[300px] mx-auto rounded-xl overflow-hidden shadow-lg">
             <Image
-              src={`/images/${service.slug === "ai" ? "AI" : service.slug === "automation" ? "automation" : service.slug === "cybersecurity" ? "cybersec" : service.slug === "ict" ? "Network_data" : service.slug === "computer" ? "compsev" : "software"}.webp`}
+              src={`/images/${service.slug === "ai" ? "AI" : service.slug === "automation" ? "automation" : service.slug === "cybersecurity" ? "cybersec" : service.slug === "ict" ? "Network_data" : service.slug === "agents" ? "agent-setup-hero-v3" : "software"}.webp`}
               alt={content.title}
               fill
               sizes="(max-width: 768px) 100vw, 800px"
@@ -346,28 +333,16 @@ export default async function ServicePage({ params }: Props) {
             </div>
           </section>
 
-          {/* FAQ Section */}
+          {/* FAQ Section — mirrors FAQPage schema entry-for-entry */}
           <section className="mb-12">
             <h2 className="text-2xl font-bold mb-4">Frequently Asked Questions</h2>
             <div className="space-y-4">
-              <div className="bg-card rounded-lg p-6 shadow-sm">
-                <h3 className="font-semibold text-[#1abc9c] mb-2">What is included in GashoTech's {content.title}?</h3>
-                <p className="text-muted-foreground text-sm">
-                  GashoTech's {content.title} includes {content.features.map(f => f.title.toLowerCase()).join(", ")}. Our solutions are tailored to meet the specific needs of your business.
-                </p>
-              </div>
-              <div className="bg-card rounded-lg p-6 shadow-sm">
-                <h3 className="font-semibold text-[#1abc9c] mb-2">How does {content.title} benefit my business?</h3>
-                <p className="text-muted-foreground text-sm">
-                  {content.benefits.join(". ")}. Our team works closely with you to ensure maximum value from the engagement.
-                </p>
-              </div>
-              <div className="bg-card rounded-lg p-6 shadow-sm">
-                <h3 className="font-semibold text-[#1abc9c] mb-2">Is GashoTech based in Kenya?</h3>
-                <p className="text-muted-foreground text-sm">
-                  Yes, GashoTech is headquartered in Nairobi, Kenya, and we serve businesses across East Africa with AI, automation, cybersecurity, and ICT solutions.
-                </p>
-              </div>
+              {service.faq.map((item) => (
+                <div key={item.q} className="bg-card rounded-lg p-6 shadow-sm">
+                  <h3 className="font-semibold text-[#1abc9c] mb-2">{item.q}</h3>
+                  <p className="text-muted-foreground text-sm">{item.a}</p>
+                </div>
+              ))}
             </div>
           </section>
 
@@ -376,7 +351,7 @@ export default async function ServicePage({ params }: Props) {
             <h2 className="text-2xl font-bold mb-4">Related Services</h2>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               {services
-                .filter((s) => s.slug !== slug && s.slug !== "computer")
+                .filter((s) => s.slug !== slug)
                 .slice(0, 3)
                 .map((related) => (
                   <Link

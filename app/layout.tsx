@@ -23,8 +23,8 @@ export const metadata: Metadata = {
     template: "%s | GashoTech",
   },
   description:
-    "GashoTech is a Nairobi-based AI startup offering custom AI solutions, intelligent automation, cybersecurity services, and ICT consulting for businesses across East Africa.",
-  keywords: ["AI Solutions", "AI Automation", "Cybersecurity", "ICT Services", "GashoTech", "Nairobi", "Kenya", "Tech Startup", "Artificial Intelligence", "East Africa", "Machine Learning", "RPA"],
+    "GashoTech is an AI automation agency and AI consulting company in Nairobi, Kenya — custom AI agents, machine learning, SOC/EDR/MDR cybersecurity, and ICT services for businesses across East Africa.",
+  keywords: ["AI Solutions", "AI Automation", "AI Automation Agency Kenya", "AI Consulting Kenya", "AI Agents", "Cybersecurity", "SOC EDR MDR", "ICT Services", "GashoTech", "Nairobi", "Kenya", "Tech Startup", "Artificial Intelligence", "East Africa", "Machine Learning", "RPA", "WhatsApp automation", "M-Pesa automation", "business automation Kenya"],
   metadataBase: new URL("https://gashotech.com"),
   alternates: {
     canonical: "https://gashotech.com",
@@ -53,7 +53,7 @@ export const metadata: Metadata = {
     title: "GashoTech",
     description:
       "Empowering the Future with AI and Innovation. AI solutions, automation, cybersecurity & ICT services.",
-    images: [{url: 'https://gashotech.com/images/gashotech_logo.webp', width: 1200, height: 1200}],
+    images: [{url: 'https://gashotech.com/images/gashotech_logo.webp', width: 1200, height: 630}],
   },
   robots: {
     index: true,

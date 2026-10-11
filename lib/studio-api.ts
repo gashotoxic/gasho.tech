@@ -1,12 +1,10 @@
 // Shared API helpers for Blog Content Studio
-// Handles Chutes, CrofAI, and DuckDuckGo web search
+// Handles Chutes and DuckDuckGo web search
 
 // --- Configuration ---
 
 const CHUTES_API_KEY = process.env.CHUTES_API_KEY || ''
-const CROFAI_API_KEY = process.env.CROFAI_API_KEY || ''
 const CHUTES_BASE_URL = 'https://llm.chutes.ai/v1'
-const CROFAI_BASE_URL = 'https://crof.ai/v1'
 const CHUTES_IMAGE_URL = 'https://chutes-z-image-turbo.chutes.ai/generate'
 const CHUTES_IMAGE_FALLBACK_URL = 'https://chutes-z-image-pro.chutes.ai/generate'
 
@@ -82,68 +80,21 @@ export async function callChutesLLM(
   }
 }
 
-// --- CrofAI LLM ---
-
-export async function callCrofAILLM(
-  model: string,
-  messages: Array<{ role: string; content: string }>,
-  maxTokens = 4096,
-  temperature = 0.7
-): Promise<LLMResult> {
-  if (!CROFAI_API_KEY) {
-    throw new Error('CROFAI_API_KEY not configured')
-  }
-
-  try {
-    const response = await fetch(`${CROFAI_BASE_URL}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${CROFAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        max_tokens: maxTokens,
-        temperature,
-      }),
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`CrofAI API error ${response.status}: ${errorText}`)
-    }
-
-    const data = await response.json()
-    const content = data?.choices?.[0]?.message?.content || ''
-
-    return {
-      content,
-      usage: data?.usage
-        ? {
-            promptTokens: data.usage.prompt_tokens || 0,
-            completionTokens: data.usage.completion_tokens || 0,
-          }
-        : undefined,
-    }
-  } catch (error) {
-    throw new Error(`CrofAI LLM call failed: ${error instanceof Error ? error.message : 'unknown error'}`)
-  }
-}
-
 // --- Unified LLM Call ---
 
+export type LLMProvider = 'chutes'
+
 export async function callLLM(
-  provider: 'chutes' | 'crofai',
+  provider: LLMProvider,
   model: string,
   messages: Array<{ role: string; content: string }>,
   maxTokens = 4096,
   temperature = 0.7
 ): Promise<LLMResult> {
-  if (provider === 'chutes') {
-    return callChutesLLM(model, messages, maxTokens, temperature)
+  if (provider !== 'chutes') {
+    throw new Error(`Unsupported provider: ${provider}`)
   }
-  return callCrofAILLM(model, messages, maxTokens, temperature)
+  return callChutesLLM(model, messages, maxTokens, temperature)
 }
 
 // --- DuckDuckGo Web Search ---
@@ -278,62 +229,17 @@ export async function generateImage(
 export async function getProviderModels(): Promise<Array<{
   id: string
   name: string
-  provider: 'chutes' | 'crofai'
+  provider: LLMProvider
   description?: string
 }>> {
-  const models: Array<{ id: string; name: string; provider: 'chutes' | 'crofai'; description?: string }> = []
-
-  // Fetch Chutes models
-  try {
-    if (CHUTES_API_KEY) {
-      const response = await fetch(`${CHUTES_BASE_URL}/models`, {
-        headers: {
-          'Authorization': `Bearer ${CHUTES_API_KEY}`,
-        },
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        const items = data?.data || []
-        for (const model of items) {
-          models.push({
-            id: model.id,
-            name: model.id,
-            provider: 'chutes',
-            description: model.description,
-          })
-        }
-      }
-    }
-  } catch (error) {
-    console.warn('Chutes model listing failed:', error)
-  }
-
-  // Fetch CrofAI models
-  try {
-    if (CROFAI_API_KEY) {
-      const response = await fetch(`${CROFAI_BASE_URL}/models`, {
-        headers: {
-          'Authorization': `Bearer ${CROFAI_API_KEY}`,
-        },
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        const items = data?.data || []
-        for (const model of items) {
-          models.push({
-            id: model.id,
-            name: model.id,
-            provider: 'crofai',
-            description: model.description,
-          })
-        }
-      }
-    }
-  } catch (error) {
-    console.warn('CrofAI model listing failed:', error)
-  }
+  // Curated model list — display names are human-friendly; `id` (full API model id)
+  // is what goes into every API call. Verified live on Chutes 2026-10-11.
+  const models: Array<{ id: string; name: string; provider: LLMProvider; description?: string }> = [
+    { id: 'google/gemma-4-31B-turbo-TEE', name: 'Gemma4', provider: 'chutes', description: 'Balanced writer — default for blog generation' },
+    { id: 'GLM-4.7-Flash-NVFP4-TEE', name: 'GLM-4.7', provider: 'chutes', description: 'Fast, light tasks' },
+    { id: 'Nemotron-3-Nano-Omni-30B-TEE', name: 'Nemotron 3 Omni', provider: 'chutes', description: 'Multimodal omni model' },
+    { id: 'meta/Muse-Glimmer-30B-NVFP4-TEE', name: 'Muse Glimmer', provider: 'chutes', description: 'Creative / image-adjacent work' },
+  ]
 
   return models
 }

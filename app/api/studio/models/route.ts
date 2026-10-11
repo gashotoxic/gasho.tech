@@ -5,13 +5,8 @@ export async function GET() {
   try {
     const models = await getProviderModels()
 
-    // Sort by provider then name
-    models.sort((a, b) => {
-      if (a.provider === b.provider) {
-        return a.name.localeCompare(b.name)
-      }
-      return a.provider.localeCompare(b.provider)
-    })
+    // Sort by name (single provider)
+    models.sort((a, b) => a.name.localeCompare(b.name))
 
     return NextResponse.json({ models })
   } catch (error) {

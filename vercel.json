@@ -8,8 +8,8 @@
     { "source": "/solutions_automation.html", "destination": "/services/automation", "permanent": true },
     { "source": "/solutions_cybersecurity.html", "destination": "/services/cybersecurity", "permanent": true },
     { "source": "/solutions_ict.html", "destination": "/services/ict", "permanent": true },
-    { "source": "/solutions_computer.html", "destination": "/services/computer", "permanent": true },
-    { "source": "/solutions_network_data.html", "destination": "/services/network-data", "permanent": true },
+    { "source": "/solutions_computer.html", "destination": "/services/agents", "permanent": true },
+    { "source": "/solutions_network_data.html", "destination": "/services/ict", "permanent": true },
     { "source": "/terms_of_service.html", "destination": "/terms", "permanent": true },
     { "source": "/privacy_policy.html", "destination": "/privacy", "permanent": true },
     { "source": "/MyProfile/profile.html", "destination": "/profile", "permanent": true }

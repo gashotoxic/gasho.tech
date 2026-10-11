@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { webSearch, callLLM } from '@/lib/studio-api'
 
-const PUBLIC_MODEL = 'glm-4.7-flash'
-const PUBLIC_PROVIDER = 'crofai'
+const PUBLIC_MODEL = 'google/gemma-4-31B-turbo-TEE'
+const PUBLIC_PROVIDER = 'chutes'
 
 const SYSTEM_PROMPT = `You are a professional blog writer for GashoTech — an AI, Automation, and Cybersecurity company based in Nairobi, Kenya.
 
@@ -21,7 +21,7 @@ Return ONLY valid JSON with this exact structure:
 export interface GenerateAllRequest {
   query: string
   model?: string
-  provider?: 'chutes' | 'crofai'
+  provider?: 'chutes'
 }
 
 export async function POST(request: Request) {

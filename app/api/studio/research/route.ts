@@ -16,7 +16,7 @@ Return ONLY valid JSON:
 export interface ResearchRequest {
   query: string
   model: string
-  provider: 'chutes' | 'crofai'
+  provider: 'chutes'
 }
 
 export async function POST(request: Request) {

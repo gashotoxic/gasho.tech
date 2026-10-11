@@ -32,7 +32,7 @@ export interface WriteRequest {
   topics: string[]
   category: string
   model: string
-  provider: 'chutes' | 'crofai'
+  provider: 'chutes'
   tone?: string
 }
 

@@ -43,8 +43,8 @@ export default function StudioPage() {
   const [copiedField, setCopiedField] = useState<string | null>(null)
 
   // Admin-only state
-  const [selectedModel, setSelectedModel] = useState('glm-4.7-flash')
-  const [selectedProvider, setSelectedProvider] = useState('crofai')
+  const [selectedModel, setSelectedModel] = useState('google/gemma-4-31B-turbo-TEE')
+  const [selectedProvider, setSelectedProvider] = useState('chutes')
   const [imageData, setImageData] = useState('')
   const [isGeneratingImage, setIsGeneratingImage] = useState(false)
   const [publishAuthor, setPublishAuthor] = useState('GashoTech Team')
@@ -298,7 +298,7 @@ export default function StudioPage() {
               >
                 {availableModels.map(model => (
                   <option key={model.id} value={model.id}>
-                    {model.name} ({model.provider})
+                    {model.name}
                   </option>
                 ))}
               </select>

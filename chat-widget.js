@@ -272,8 +272,7 @@ class ChatWidget {
                 ⚡ <strong>AI Automation</strong> - Streamline tasks and boost productivity<br>
                 🔒 <strong>Cybersecurity</strong> - AI-driven threat detection and protection<br>
                 ☁️ <strong>ICT Services</strong> - Infrastructure, cloud, and IT consulting<br>
-                💻 <strong>Computer Services</strong> - Hardware and software support<br>
-                🌐 <strong>Network & Data</strong> - Database design and network solutions<br><br>
+                🤖 <strong>AI Agent Setup</strong> - Deploy working AI agents on Hermes, Claude, Codex & DeepSeek<br><br>
                 Which service interests you?
             `;
         }

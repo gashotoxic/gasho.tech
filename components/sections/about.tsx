@@ -17,7 +17,7 @@ export default function About() {
                 Empowering the Future with AI and Innovation
               </h3>
               <p className="mb-6 text-foreground leading-relaxed">
-                At GashoTech, we are a cutting-edge AI startup in Kenya dedicated to transforming
+                At GashoTech, we are a cutting-edge AI startup dedicated to transforming
                 industries through the power of artificial intelligence, automation, and advanced
                 cybersecurity solutions. We harness the latest in AI technology to deliver smarter,
                 faster, and more secure solutions, enabling businesses to thrive in an increasingly

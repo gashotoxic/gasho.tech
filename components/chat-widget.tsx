@@ -14,7 +14,7 @@ const SITE_INFO: Record<string, string> = {
   about:
     "GashoTech is a cutting-edge AI startup based in Nairobi, Kenya. We specialize in AI solutions, automation systems, advanced cybersecurity, and ICT services.",
   services:
-    "Our services include: AI Solutions - Custom AI systems for automation and decision-making\nAI Automation - Streamline tasks and boost productivity\nCybersecurity - AI-driven threat detection\nICT Services - Infrastructure, cloud, and IT consulting\nComputer Services - Hardware and software support\nNetwork & Data - Database design and network solutions",
+    "Our services include: AI Solutions - Custom AI systems for automation and decision-making\nAI Automation - Streamline tasks and boost productivity\nCybersecurity - AI-driven threat detection\nICT Services - Infrastructure, cloud, and IT consulting\nAI Agent Setup - Deploy working AI agents on Hermes, Claude, Codex and DeepSeek",
   contact:
     "Nairobi, Kenya\n+254 792329179 / +254 788467652\ngashotechnologies@gmail.com",
   pricing: "Our pricing is customized based on your needs. Contact us for a free consultation and personalized quote!",

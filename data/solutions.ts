@@ -40,19 +40,11 @@ export const solutions: Solution[] = [
     slug: "ict",
   },
   {
-    id: "computer-services",
-    title: "Computer Services",
+    id: "ai-agent-setup",
+    title: "AI Agent Setup",
     description:
-      "From hardware maintenance to software solutions, our computer services keep your systems running smoothly. Expert support for all your computing needs.",
-    image: "/images/compsev.webp",
-    slug: "computer",
-  },
-  {
-    id: "network-data",
-    title: "Network & Data",
-    description:
-      "We offer expert network and data management solutions to ensure seamless connectivity and efficient data handling. Our services include network design, data storage solutions, and more.",
-    image: "/images/software.webp",
-    slug: "network-data",
+      "We deploy working AI agents on Hermes, Claude, Codex, and DeepSeek harnesses, wire them into your real workflows, and train your team to run them.",
+    image: "/images/agent-setup-hero-v3.webp",
+    slug: "agents",
   },
 ]
