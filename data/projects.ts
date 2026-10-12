@@ -254,9 +254,9 @@ export const projects: Project[] = [
    * Flagship — decided by @user 2026-10-06 (spec §7): the GT-ASSIST-V2 platform itself.
    * Ships as `"preview"` on purpose (R1 = public teaser, ruled by @user 2026-10-10): a clean
    * teaser card and a clean detail page — complete copy only, no checklist or gap notes.
-   * Four of the twelve Tier 1 checks are still outstanding (publicGithub, modelCallsLogged,
-   * toolOutputsValidated, repeatQueriesCached), so the gate keeps it out of the sitemap and
-   * llms.txt until they clear.
+   * One of the twelve Tier 1 checks is still outstanding (modelCallsLogged),
+   * so the gate keeps it out of the sitemap and
+   * llms.txt until it clears.
    *
    * `secretsStripped` passes on verified evidence (re-scanned 2026-10-08): a scan of every
    * live JS/CSS asset found zero secret key material — publishable (pk_) keys are public by design.
@@ -310,9 +310,9 @@ export const projects: Project[] = [
       region: "US East (edge)",
       url: "https://create.gashotech.com",
     },
-    // Left empty on purpose — the repo is PRIVATE until the user calls it (spec §7) and a
-    // private URL would 404 for every visitor. Filled in when `publicGithub` flips true.
-    githubUrl: "",
+    // Public as of 2026-10-08 (repo made public after the history scrub), so this can finally
+    // point at the real repo instead of being left empty.
+    githubUrl: "https://github.com/gashotoxic/GT-ASSIST-V2",
     // Mirrored copy of the README's architecture section (5-min read), served here so the
     // link works for every visitor while the repo is private. When `publicGithub` flips
     // true, switch this to the repo README URL and drop the public/docs/ mirror.
@@ -323,25 +323,20 @@ export const projects: Project[] = [
     tier1: {
       readme5min: true, // 2026-10-10 (ruling R3): the "## Architecture (5-minute read)" section (585 words, ~3 min) landed in the GT-ASSIST-V2 repo README.md — origin/main @ 5bce31c (PR #39)
       demoVideo60s: true, // 60.000s walkthrough recorded and linked (verified frame-by-frame)
-      publicGithub: false, // repo private; switch blocked on a git-history secret scrub (user call)
+      publicGithub: true, // 2026-10-08: repo made PUBLIC (user call) after the BFG history scrub removed the committed .env — leaked blob 292ff63 verified GONE by fresh clone; pre-flight scan of ALL history found 0 real secrets (6 hits were doc placeholders: `sk_test_...` in docs/SETUP.md + a key-format description in docs/PAYSTACK_SETUP_GUIDE.md). Verified logged-out HTTP 200 on the repo page and the unauthenticated API.
       promptsVersioned: true, // model/prompt configs versioned in repo
-      modelCallsLogged: false, // not demonstrated
-      toolOutputsValidated: false, // not demonstrated
+      modelCallsLogged: false, // 2026-10-11: partial — per-call log (prompt/model/latency) landed and tested, but embedding calls still bypass the logger
+      toolOutputsValidated: true, // 2026-10-11: services/toolOutputValidation.ts fail-closed guards wired into search, knowledge base and brand-studio tools; scripts/tool_validation_smoke.mjs green
       retriesWithBackoff: true, // standard retry with backoff on transient provider errors
       secretsStripped: true, // re-verified 2026-10-08: every live asset scanned clean + key rotated
       humanApprovalOnMoneyEmailDelete: true, // payment checkout confirmed by the customer
       streamingResponses: true, // replies stream back token by token
-      repeatQueriesCached: false, // not demonstrated
+      repeatQueriesCached: true, // 2026-10-11: services/queryCache.ts + query_cache migration (per-user sha256 keys, per-kind TTLs); chat/search/knowledge lanes wired; scripts/query_cache_smoke.mjs green
       budgetCap: true, // unified credit system, free daily allowance + paid packs
     },
-    tier1Notes: {
-      publicGithub:
-        "Missing — repo is private. The switch needs a git-history secret scrub and a user go-ahead.",
-      modelCallsLogged:
-        "Partial — the credit ledger logs every billed action, but no per-model-call log (prompt, model, latency) is surfaced.",
-      toolOutputsValidated: "Unverified — tool output schemas not demonstrated.",
-      repeatQueriesCached: "Unverified — no repeat-query cache demonstrated.",
-    },
+    // `tier1Notes` deliberately omitted: gasho.tech is a PUBLIC repo and internal gap status
+    // must not be readable on GitHub (Release Format v1.1 §2 rule 4 — internal truth lives in
+    // kanban/verifier reports and the GIMA handoff doc, never a repo). 2026-10-08.
     publishedAt: "2026-10-06",
   },
 
