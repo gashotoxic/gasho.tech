@@ -203,12 +203,25 @@ export function validateProjects(entries: readonly Project[]): void {
       );
     }
     if (entry.status === "live") {
-      // MINOR-1: a live entry must link everything the card contract shows (§2 rule 2).
-      for (const field of ["liveUrl", "githubUrl", "readmeUrl", "demoVideoUrl"] as const) {
-        if (!entry[field]) {
+      // MINOR-1 (hardened — re-landed 2026-10-12; the original hardening commit 0dae7e2 was
+      // never merged: PR #23 was cut from the branch tip before the fixup, and PR #24
+      // carrying it was wrongly closed as superseded). Whitespace-only, "n/a" and bare
+      // "https://" all beat a plain truthiness check: every link a live card shows must be
+      // a real trimmed http(s) URL, including the hosting link.
+      const links: ReadonlyArray<readonly [string, string | undefined]> = [
+        ["liveUrl", entry.liveUrl],
+        ["githubUrl", entry.githubUrl],
+        ["readmeUrl", entry.readmeUrl],
+        ["demoVideoUrl", entry.demoVideoUrl],
+        ["hosting.url", entry.hosting?.url],
+      ];
+      for (const [field, raw] of links) {
+        const v = (raw ?? "").trim();
+        if (!/^https?:\/\/\S+\.\S+/.test(v)) {
           throw new Error(
-            `projects.ts: "${label}" declares status "live" but has an empty ${field} — ` +
-              `a live entry must link its demo, repo, README and demo video.`,
+            `projects.ts: "${label}" declares status "live" but ${field} is not a real http(s) url ` +
+              `(${JSON.stringify(raw ?? "")}) — a live entry must link its demo, repo, README, ` +
+              `demo video and hosting with real URLs.`,
           );
         }
       }
@@ -313,19 +326,20 @@ export const projects: Project[] = [
     // Public as of 2026-10-08 (repo made public after the history scrub), so this can finally
     // point at the real repo instead of being left empty.
     githubUrl: "https://github.com/gashotoxic/GT-ASSIST-V2",
-    // Mirrored copy of the README's architecture section (5-min read), served here so the
-    // link works for every visitor while the repo is private. When `publicGithub` flips
-    // true, switch this to the repo README URL and drop the public/docs/ mirror.
-    readmeUrl: "https://gashotech.com/docs/gt-assist-v2-architecture.md",
+    // Public repo (2026-10-08), so this points at the real README — the architecture
+    // section ("## Architecture (5-minute read)") lives in the repo README.md itself
+    // since PR #39. The public/docs/ mirror is a legacy fallback from the private era;
+    // dropping it is queued as a follow-up once inbound links are checked.
+    readmeUrl: "https://github.com/gashotoxic/GT-ASSIST-V2/blob/main/README.md",
     // 60s product walkthrough, recorded 2026-10-07 (60.000s, verified frame-by-frame).
     demoVideoUrl: "https://gashotech.com/videos/gt-assist-v2-demo.mp4",
-    status: "preview",
+    status: "live",
     tier1: {
       readme5min: true, // 2026-10-10 (ruling R3): the "## Architecture (5-minute read)" section (585 words, ~3 min) landed in the GT-ASSIST-V2 repo README.md — origin/main @ 5bce31c (PR #39)
       demoVideo60s: true, // 60.000s walkthrough recorded and linked (verified frame-by-frame)
       publicGithub: true, // 2026-10-08: repo made PUBLIC (user call) after the BFG history scrub removed the committed .env — leaked blob 292ff63 verified GONE by fresh clone; pre-flight scan of ALL history found 0 real secrets (6 hits were doc placeholders: `sk_test_...` in docs/SETUP.md + a key-format description in docs/PAYSTACK_SETUP_GUIDE.md). Verified logged-out HTTP 200 on the repo page and the unauthenticated API.
       promptsVersioned: true, // model/prompt configs versioned in repo
-      modelCallsLogged: false, // 2026-10-11: partial — per-call log (prompt/model/latency) landed and tested, but embedding calls still bypass the logger
+      modelCallsLogged: true, // 2026-10-12: per-call log (prompt/model/latency/status) on every provider lane — knowledge-base embedding calls routed through the logger by PR #46 (e3abf3f) closing the last bypass; prompts secret-scrubbed + truncated; scripts/model_call_log_smoke.mjs all green (run 2026-10-12)
       toolOutputsValidated: true, // 2026-10-11: services/toolOutputValidation.ts fail-closed guards wired into search, knowledge base and brand-studio tools; scripts/tool_validation_smoke.mjs green
       retriesWithBackoff: true, // standard retry with backoff on transient provider errors
       secretsStripped: true, // re-verified 2026-10-08: every live asset scanned clean + key rotated
@@ -337,7 +351,7 @@ export const projects: Project[] = [
     // `tier1Notes` deliberately omitted: gasho.tech is a PUBLIC repo and internal gap status
     // must not be readable on GitHub (Release Format v1.1 §2 rule 4 — internal truth lives in
     // kanban/verifier reports and the GIMA handoff doc, never a repo). 2026-10-08.
-    publishedAt: "2026-10-06",
+    publishedAt: "2026-10-12",
   },
 
   /**
