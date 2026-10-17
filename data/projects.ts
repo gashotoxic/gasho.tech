@@ -355,52 +355,57 @@ export const projects: Project[] = [
   },
 
   /**
-   * Queued project #2 (spec §7): Tender / RFQ Finder + Bid Drafter.
+   * Project #2 (spec §7): Tender / RFQ Finder + Bid Drafter.
    *
-   * Placeholder only, and deliberately `status: "draft"` (Release Format v1.1 §4):
-   * - it is NOT queued for a build here — it enters through the Phase 2 researcher backlog and
-   *   gets rubric-scored like every other idea, so this entry gets replaced by the researcher's
-   *   output when that lands;
-   * - keeping one real draft entry means the draft-hiding rule (absent from the grid, the
-   *   sitemap and llms.txt; the detail route 404s unconditionally) is demonstrable against
-   *   production data, not just asserted.
+   * Full pipeline provenance: idea scored 32/35 by the Phase 2 researcher (run R-20261010-01),
+   * built by GIMA 2026-10-06/07 (independent verifier PASS 14/14), audited again 2026-10-17
+   * (fresh end-to-end run clean). Flipped `draft` -> `preview` 2026-10-17 on @user's call —
+   * the flagship established the release format and this is the first project to follow it.
+   * Release Format v1.1 §4: stays `preview` until its own Tier 1 is 12/12 with evidence,
+   * then flips `live` through the same gate the flagship used.
    */
   {
     slug: "tender-rfq-finder",
     title: "Tender / RFQ Finder + Bid Drafter",
     tagline: "Scans Kenyan tender boards for the RFQs a business can actually win, then drafts the response.",
     problem:
-      "Queued for scoring by the Phase 2 researcher. Working assumption: Kenyan SMEs that bid for " +
-      "public and corporate tenders read the same boards by hand every week, miss deadlines, and " +
-      "re-draft the same boilerplate sections for every bid.",
+      "Kenyan SMEs and contractors read tenders.go.ke and dozens of county portals by hand " +
+      "every week. Promising RFQs slip past unnoticed, deadlines get missed in the noise, and " +
+      "every bid restarts the same boilerplate from a blank page.",
     workflow:
-      "1. (Draft — scope to be set by the Phase 2 researcher's scored proposal.)\n" +
-      "2. Planned shape: watch tender boards, score each RFQ against the company's profile, alert on the ones worth bidding, then assemble a first-draft response from the company's own past bids.",
+      "1. Fetch the open tenders from Kenya's national procurement portal — 500+ live per run — " +
+      "with graceful degradation when a source is blocked or stale.\n" +
+      "2. Score every tender 0–5 on five axes: capability fit, deadline feasibility, buyer " +
+      "credibility, value attractiveness and competition. Deterministic rubric — same input, " +
+      "same scores, and every number traces back to a real source URL.\n" +
+      "3. Flag the top picks and write a first-draft bid response for each: company profile, " +
+      "capability mapping to the tender's requirements, compliance checklist, pricing placeholder.\n" +
+      "4. Ship one ranked report, deadline-aware and ready to work from.",
     agentArchitecture: {
-      models: ["TBD — assigned when the researcher's proposal is accepted"],
-      tools: ["TBD — tender-board sources and browser fallback to be confirmed"],
-      memory: "TBD",
-      routing: "TBD",
+      models: ["Deterministic Python pipeline — no model in the scoring path"],
+      tools: ["National tender-portal API client", "Rate-limited HTTP with 24h fetch cache and retry/backoff"],
+      memory: "24h fetch cache + per-run report history",
+      routing: "One command: fetch → parse → score → ranked report + bid drafts",
     },
     liveUrl: "",
-    hosting: { provider: "TBD", plan: "TBD", region: "TBD", url: "" },
+    hosting: { provider: "Self-hosted script", plan: "n/a", region: "n/a", url: "" },
     githubUrl: "",
     readmeUrl: "",
     demoVideoUrl: "",
-    status: "draft",
+    status: "preview",
     tier1: {
-      readme5min: false,
+      readme5min: true, // 5-minute architecture + scoring rubric in README (verifier item 12, 2026-10-07)
       demoVideo60s: false,
       publicGithub: false,
       promptsVersioned: false,
       modelCallsLogged: false,
-      toolOutputsValidated: false,
-      retriesWithBackoff: false,
-      secretsStripped: false,
+      toolOutputsValidated: true, // every parsed record schema-validated (tf/schema.py; tests + verifier item 3)
+      retriesWithBackoff: true, // retry with exponential backoff on fetch failures (verifier item 7)
+      secretsStripped: true, // zero credentials in code/outputs — env-sourced config only (verifier item 10)
       humanApprovalOnMoneyEmailDelete: false,
       streamingResponses: false,
       repeatQueriesCached: false,
-      budgetCap: false,
+      budgetCap: true, // per-run time/request/cost caps enforced (tf/http_client.py Budget.check; verifier item 9)
     },
   },
 ];
