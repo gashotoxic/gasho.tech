@@ -18,6 +18,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${baseUrl}/profile`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
     { url: `${baseUrl}/blogs`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.6 },
     { url: `${baseUrl}/projects`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.7 },
+    { url: `${baseUrl}/tenders`, lastModified: new Date(), changeFrequency: "daily", priority: 0.7 },
   ]
 
   // Only projects that clear the Tier 1 gate (status "live" + every tier1 check true).

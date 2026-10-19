@@ -227,6 +227,18 @@ export default async function ProjectPage(props: Props) {
             </a>
           )}
         </div>
+
+        {/* Tender dashboard CTA — only the Tender / RFQ Finder entry points at /tenders. */}
+        {project.slug === "tender-rfq-finder" && (
+          <div className="mt-8">
+            <Link
+              href="/tenders"
+              className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 font-semibold text-[#0b6b58] shadow-sm hover:bg-white/90 transition-colors"
+            >
+              Open the live tender dashboard
+            </Link>
+          </div>
+        )}
       </div>
 
       <div className="bg-grey py-12">

@@ -1,0 +1,933 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-10-19T16:33:08+03:00",
+  "generator": "tender-finder",
+  "run": {
+    "elapsed_seconds": 234.8,
+    "http_requests": 43,
+    "records_scored": 300,
+    "records_excluded": 16,
+    "budget_status": "within cap (elapsed 235s < 600s)"
+  },
+  "source_health": [
+    {
+      "source": "PPIP / tenders.go.ke (national portal API)",
+      "status": "ok",
+      "records": 300,
+      "detail": "fetched 30 page(s) of 394 active tenders (300 records parsed)"
+    },
+    {
+      "source": "County portals (WordPress REST: Kisumu, Kajiado)",
+      "status": "degraded",
+      "records": 0,
+      "detail": "kisumu-county: category 'tender-notice' (8 posts), fetched 8, newest 2020-09-21, cutoff 2026-09-19 · kajiado-county: category 'tenders' (8 posts), fetched 8, newest 2019-04-23, cutoff 2026-09-19"
+    },
+    {
+      "source": "Kenya Gazette (kenyalaw.org archive)",
+      "status": "failed",
+      "records": 0,
+      "detail": "gazette index fetch failed (FetchError: failed after 3 attempt(s): https://kenyalaw.org/gazettes/ (The read operation timed out))"
+    }
+  ],
+  "tenders": [
+    {
+      "rank": 1,
+      "title": "FRAMEWORK AGREEMENT FOR REPAIR AND MAINTENANCE OF SERVERS, DESKTOP COMPUTERS, LAN, IPBX, CCTV, PRINTERS, AUDIO-VISUAL EQUIPMENT, PHOTOCOPIERS, UPS AND RELATED ICT EQUIPMENT.",
+      "buyer": "Kirinyaga County Government",
+      "category": "Goods",
+      "deadline": "2026-10-27 10:00",
+      "scores": {
+        "capability": 5,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 17,
+      "url": "https://tenders.go.ke/tenders/307639",
+      "source": "ppip"
+    },
+    {
+      "rank": 2,
+      "title": "PROVISION OF SECURITY SERVICES AND CCTV INSTALLATION & MONITORING AT ICT HUBS ACROSS KAJIADO NORTH CONSTITUENCY FOR A PERIOD OF TWO (2) YEARS",
+      "buyer": "Kajiado North NGCDF",
+      "category": "Non Consultancy Services",
+      "deadline": "2026-10-22 10:00",
+      "scores": {
+        "capability": 4,
+        "deadline_feasibility": 2,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 15,
+      "url": "https://tenders.go.ke/tenders/308745",
+      "source": "ppip"
+    },
+    {
+      "rank": 3,
+      "title": "THE DESIGN, SUPPLY, DELIVERY, INSTALLATION, CONFIGURATION, TESTING, COMMISSIONING AND MAINTENANCE OF AN ENTERPRISE RESOURCE PLANNING (ERP) SYSTEM",
+      "buyer": "GAMBLING REGULATORY AUTHORITY",
+      "category": "Goods",
+      "deadline": "2026-10-23 11:00",
+      "scores": {
+        "capability": 3,
+        "deadline_feasibility": 2,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 3
+      },
+      "total": 15,
+      "url": "https://tenders.go.ke/tenders/308978",
+      "source": "ppip"
+    },
+    {
+      "rank": 4,
+      "title": "PROVISION OF CONSULTANCY SERVICES FOR POST IMPLEMENTATION REVIEW OF RETAIL BOND SYSTEM FOR CENTRAL BANK OF KENYA",
+      "buyer": "Central Bank of Kenya",
+      "category": "Non Consultancy Services",
+      "deadline": "2026-10-28 10:30",
+      "scores": {
+        "capability": 3,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 15,
+      "url": "https://tenders.go.ke/tenders/307953",
+      "source": "ppip"
+    },
+    {
+      "rank": 5,
+      "title": "PROPOSED CONSTRUCTION OF NJIRU CHIEF'S OFFICE DIGITAL HUB",
+      "buyer": "Kasarani National Government Constituency Development Fund",
+      "category": "Works",
+      "deadline": "2026-10-22 10:00",
+      "scores": {
+        "capability": 2,
+        "deadline_feasibility": 2,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 3
+      },
+      "total": 14,
+      "url": "https://tenders.go.ke/tenders/308773",
+      "source": "ppip"
+    },
+    {
+      "rank": 6,
+      "title": "TENDER FOR SUPPLY, INSTALLATION, TESTING, TRAINING AND COMMISSIONING OF INTEGRATED SECURITY SYSTEM FOR CENTRAL BANK OF KENYA",
+      "buyer": "Central Bank of Kenya",
+      "category": "Goods",
+      "deadline": "2026-10-22 10:30",
+      "scores": {
+        "capability": 3,
+        "deadline_feasibility": 2,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 14,
+      "url": "https://tenders.go.ke/tenders/305657",
+      "source": "ppip"
+    },
+    {
+      "rank": 7,
+      "title": "PROVISION OF SATELLITE NETWORK INFRASTRUCTURE OF IEMS FOR RESULTS TRANSMISSION SYSTEM UNDER THREE (3) YEARS CONTRACT",
+      "buyer": "Independent Electoral and Boundaries Commission",
+      "category": "Non Consultancy Services",
+      "deadline": "2026-10-22 11:00",
+      "scores": {
+        "capability": 3,
+        "deadline_feasibility": 2,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 14,
+      "url": "https://tenders.go.ke/tenders/307989",
+      "source": "ppip"
+    },
+    {
+      "rank": 8,
+      "title": "SUPPLY, INSTALLATION, TESTING, TRAINING, COMMISSIONING AND MAINTENANCE OF INTEGRATED ENTERPRISE RESOURCE PLANNING SYSTEM",
+      "buyer": "Technical University of Kenya",
+      "category": "Non Consultancy Services",
+      "deadline": "2026-10-23 11:00",
+      "scores": {
+        "capability": 2,
+        "deadline_feasibility": 2,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 3
+      },
+      "total": 14,
+      "url": "https://tenders.go.ke/tenders/307900",
+      "source": "ppip"
+    },
+    {
+      "rank": 9,
+      "title": "TERMS OF REFERENCE FOR INDIVIDUAL CONSULTANT - RAILWAY ELECTRICAL SYSTEMS ENGINEERING EXPERT (RE-TENDER)",
+      "buyer": "Kenya Railways",
+      "category": "Consultancy Services",
+      "deadline": "2026-10-26 14:00",
+      "scores": {
+        "capability": 2,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 14,
+      "url": "https://tenders.go.ke/tenders/307567",
+      "source": "ppip"
+    },
+    {
+      "rank": 10,
+      "title": "CONSULTANCY FIRM SERVICES FOR SKILLS DEVELOPMENT AND EMPLOYMENT",
+      "buyer": "NATIONAL COUNCIL FOR NOMADIC EDUCATION IN KENYA",
+      "category": "Consultancy Services",
+      "deadline": "2026-10-27 09:00",
+      "scores": {
+        "capability": 2,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 14,
+      "url": "https://tenders.go.ke/tenders/308501",
+      "source": "ppip"
+    },
+    {
+      "rank": 11,
+      "title": "FRAMEWORK FOR SUPPLY AND DELIVERY OF FUEL AND LUBRICANTS - FRAMEWORK AGREEMENT FOR THREE (3) YEARS",
+      "buyer": "Turkana County Government",
+      "category": "Non Consultancy Services",
+      "deadline": "2026-10-27 10:00",
+      "scores": {
+        "capability": 1,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 3
+      },
+      "total": 14,
+      "url": "https://tenders.go.ke/tenders/308517",
+      "source": "ppip"
+    },
+    {
+      "rank": 12,
+      "title": "FRAMEWORK FOR PROVISION OF AIR TRAVEL SERVICES. FRAMEWORK AGREEMENT FOR THREE (3) YEARS",
+      "buyer": "Turkana County Government",
+      "category": "Non Consultancy Services",
+      "deadline": "2026-10-27 10:00",
+      "scores": {
+        "capability": 1,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 3
+      },
+      "total": 14,
+      "url": "https://tenders.go.ke/tenders/308518",
+      "source": "ppip"
+    },
+    {
+      "rank": 13,
+      "title": "CONSULTANCY FIRM SERVICES FOR DESIGN, COMPLIANCE AND SUPERVISION OF CIVIL WORKS (LEARNING, SAFETY, RETENTION AND CLEAN COOKING INFRASTRUCTURE) IN 12 ASAL COUNTIES IN KENYA",
+      "buyer": "NATIONAL COUNCIL FOR NOMADIC EDUCATION IN KENYA",
+      "category": "Consultancy Services",
+      "deadline": "2026-10-27 11:00",
+      "scores": {
+        "capability": 2,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 14,
+      "url": "https://tenders.go.ke/tenders/308504",
+      "source": "ppip"
+    },
+    {
+      "rank": 14,
+      "title": "CONSULTANCY FIRM SERVICES FOR DESIGN, COMPLIANCE AND SUPERVISION OF FARMING, VALUE ADDITION AND IRRIGATION (SCHOOL FARMS AND HOMEGROWN SOLUTIONS) IN 12 ASAL COUNTIES IN KENYA",
+      "buyer": "NATIONAL COUNCIL FOR NOMADIC EDUCATION IN KENYA",
+      "category": "Consultancy Services",
+      "deadline": "2026-10-28 09:00",
+      "scores": {
+        "capability": 2,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 14,
+      "url": "https://tenders.go.ke/tenders/308502",
+      "source": "ppip"
+    },
+    {
+      "rank": 15,
+      "title": "Request for Expression of Interest for Integration and Implementation of Digital Literacy in the Competency Based Curriculum through Gender Inclusive Strategies",
+      "buyer": "ICT Authority",
+      "category": "Consultancy Services",
+      "deadline": "2026-10-28 10:00",
+      "scores": {
+        "capability": 2,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 14,
+      "url": "https://tenders.go.ke/tenders/308400",
+      "source": "ppip"
+    },
+    {
+      "rank": 16,
+      "title": "REQUEST FOR PROPOSAL FOR PROVISION OF END-TO-END TECHNICAL SUPPORT, MAINTENANCE, UPGRADES AND FEATURES EXPANSION SERVICES FOR NAKURU INTEGRATED COUNTY REVENUE MANAGEMENT SYSTEM. (OPEN NATIONAL TENDER)",
+      "buyer": "Nakuru County Government",
+      "category": "Consultancy Services",
+      "deadline": "2026-10-28 10:00",
+      "scores": {
+        "capability": 2,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 14,
+      "url": "https://tenders.go.ke/tenders/309020",
+      "source": "ppip"
+    },
+    {
+      "rank": 17,
+      "title": "Supply and Delivery of Computers (Desktops, Laptops and IPADS)",
+      "buyer": "Nyamira County Government",
+      "category": "Goods",
+      "deadline": "2026-10-28 10:30",
+      "scores": {
+        "capability": 2,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 14,
+      "url": "https://tenders.go.ke/tenders/309014",
+      "source": "ppip"
+    },
+    {
+      "rank": 18,
+      "title": "INDIVIDUAL CONSULTANT SERVICES FOR MONITORING AND EVALUATION (M&E) OF THE IMPRESED PROJECT – BASELINE SURVEY, M&E SYSTEMS STRENGTHENING, MID-TERM REVIEW SUPPORT AND END-OF-PROJECT EVALUATION IN 12 ASAL COUNTIES IN KENYA",
+      "buyer": "NATIONAL COUNCIL FOR NOMADIC EDUCATION IN KENYA",
+      "category": "Consultancy Services",
+      "deadline": "2026-10-28 11:00",
+      "scores": {
+        "capability": 2,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 14,
+      "url": "https://tenders.go.ke/tenders/308506",
+      "source": "ppip"
+    },
+    {
+      "rank": 19,
+      "title": "INDIVIDUAL CONSULTANT SERVICES FOR PROJECT MANAGEMENT, SUSTAINABILITY AND INSTITUTIONAL CAPACITY (SUPPORT SERVICES FOR STRENGTHENING INSTITUTIONAL CAPACITY AND COORDINATION) IN 12 ASAL COUNTIES IN KENYA",
+      "buyer": "NATIONAL COUNCIL FOR NOMADIC EDUCATION IN KENYA",
+      "category": "Consultancy Services",
+      "deadline": "2026-10-29 10:00",
+      "scores": {
+        "capability": 2,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 14,
+      "url": "https://tenders.go.ke/tenders/308503",
+      "source": "ppip"
+    },
+    {
+      "rank": 20,
+      "title": "CONSTRUCTION OF BASIC DIGITAL HUB AT SINYERERI DIGITAL ICT HUB",
+      "buyer": "NGCDF CHERANGANY",
+      "category": "Works",
+      "deadline": "2026-10-21 10:30",
+      "scores": {
+        "capability": 3,
+        "deadline_feasibility": 1,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/308671",
+      "source": "ppip"
+    },
+    {
+      "rank": 21,
+      "title": "PROCUREMENT OF WORKS FOR THE PROPOSED REHABILITATION OF WATER AND DRAINAGE SYSTEMS IN THE TOWER BLOCK",
+      "buyer": "Kenyatta National Hospital",
+      "category": "Works",
+      "deadline": "2026-10-22 10:00",
+      "scores": {
+        "capability": 2,
+        "deadline_feasibility": 2,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/308116",
+      "source": "ppip"
+    },
+    {
+      "rank": 22,
+      "title": "SUPPLY, DELIVERY AND MAINTENANCE OF COMPUTERS, SCARNERS, PHOTOCOPIERS AND COMPUTER ACCESSORIES",
+      "buyer": "COUNTY COMMISSIONER MARSABIT",
+      "category": "Non Consultancy Services",
+      "deadline": "2026-10-22 10:00",
+      "scores": {
+        "capability": 3,
+        "deadline_feasibility": 2,
+        "buyer_credibility": 4,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/308275",
+      "source": "ppip"
+    },
+    {
+      "rank": 23,
+      "title": "PROVISION OF CONSULTANCY SERVICES ON WOTE MUNICIPALITY INTERGRATED DEVELOPMENT PLAN 2026-2027.",
+      "buyer": "Makueni County Government",
+      "category": "Consultancy Services",
+      "deadline": "2026-10-22 10:00",
+      "scores": {
+        "capability": 2,
+        "deadline_feasibility": 2,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/308721",
+      "source": "ppip"
+    },
+    {
+      "rank": 24,
+      "title": "PROVISION OF CONSULTANCY SERVICES ON MUNICIPAL NAMING & SIGNAGE POLICY",
+      "buyer": "Makueni County Government",
+      "category": "Consultancy Services",
+      "deadline": "2026-10-22 10:00",
+      "scores": {
+        "capability": 2,
+        "deadline_feasibility": 2,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/308723",
+      "source": "ppip"
+    },
+    {
+      "rank": 25,
+      "title": "SUPPLY, DELIVERY, INSTALLATION, TESTING, COMMISSIONING, SUPPORT AND MAINTENANCE OF THE INTEGRATED ELECTORAL MANAGEMENT SYSTEM (IEMS), HARDWARE EQUIPMENT AND ACCESSORIES",
+      "buyer": "Independent Electoral and Boundaries Commission",
+      "category": "Non Consultancy Services",
+      "deadline": "2026-10-22 11:00",
+      "scores": {
+        "capability": 2,
+        "deadline_feasibility": 2,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/305924",
+      "source": "ppip"
+    },
+    {
+      "rank": 26,
+      "title": "REQUEST FOR EXPRESSION OF INTEREST (EOI) FOR PROVISION OF CONSULTANCY SERVICES FOR KAA PLC BUSINESS TRANSFORMATION STRATEGY",
+      "buyer": "Kenya Airport Authority",
+      "category": "Consultancy Services",
+      "deadline": "2026-10-22 11:00",
+      "scores": {
+        "capability": 2,
+        "deadline_feasibility": 2,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/308747",
+      "source": "ppip"
+    },
+    {
+      "rank": 27,
+      "title": "PROVISION OF COMPREHENSIVE INSURANCE OF MOTOR VEHICLE, MOTOR CYCLES AND MACHINERY, DATA CENTRE AND THE GOVERNOR’S ADMINISTRATION BLOCK (INCLUSIVE OF THE ANNEX)",
+      "buyer": "Kitui County Government",
+      "category": "Works",
+      "deadline": "2026-10-22 12:00",
+      "scores": {
+        "capability": 2,
+        "deadline_feasibility": 2,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/308002",
+      "source": "ppip"
+    },
+    {
+      "rank": 28,
+      "title": "PROVISION OF SYSTEM REVIEW, DEVELOPMENT, DEPLOYMENT AND MAINTENANCE OF TEACHER PERFORMANCE APPRAISAL AND DEVELOPMENT (TPAD) ONLINE SYSTEMS UNDER KPEEL PROJECT",
+      "buyer": "Teachers Service Commission",
+      "category": "Non Consultancy Services",
+      "deadline": "2026-10-23 10:00",
+      "scores": {
+        "capability": 2,
+        "deadline_feasibility": 2,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/308707",
+      "source": "ppip"
+    },
+    {
+      "rank": 29,
+      "title": "REQUEST FOR PROPOSAL FOR: CONSULTANCY SERVICES TO UNDERTAKE ENVIRONMENTAL AND SOCIAL IMPACT ASSESSMENT (ESIA)",
+      "buyer": "NYASARE WATER SUPPLY AND SANITATION COMPANY LTD",
+      "category": "Consultancy Services",
+      "deadline": "2026-10-26 10:00",
+      "scores": {
+        "capability": 2,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 4,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/308357",
+      "source": "ppip"
+    },
+    {
+      "rank": 30,
+      "title": "TENDER FOR LEASE OF SUITABLE LAND / GRAVEL BORROW PITS AND GRANT OF TEMPORARY RIGHTS OF ACCESS, EXCAVATION AND EXTRACTION OF GRAVEL AND/OR QUARRY MATERIAL FOR COUNTY ROAD MAINTENANCE WORKS.",
+      "buyer": "Kirinyaga County Government",
+      "category": "Non Consultancy Services",
+      "deadline": "2026-10-26 10:00",
+      "scores": {
+        "capability": 1,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/308851",
+      "source": "ppip"
+    },
+    {
+      "rank": 31,
+      "title": "PROVISION OF DRIVING COURSE TRAINING SERVICES FOR KINANGO AND MKONGANI WARD",
+      "buyer": "Kwale County Government",
+      "category": "Non Consultancy Services",
+      "deadline": "2026-10-26 10:30",
+      "scores": {
+        "capability": 1,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/308924",
+      "source": "ppip"
+    },
+    {
+      "rank": 32,
+      "title": "TERMS OF REFERENCE FOR INDIVIDUAL CONSULTANT - SIGNALLING AND TELECOMMUNICATION ENGINEERING EXPERT (RE-TENDER)",
+      "buyer": "Kenya Railways",
+      "category": "Consultancy Services",
+      "deadline": "2026-10-26 11:00",
+      "scores": {
+        "capability": 1,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/307563",
+      "source": "ppip"
+    },
+    {
+      "rank": 33,
+      "title": "PROVISION OF MEDICAL INSURANCE COVER FOR THE SPEAKER, MEMBERS OF COUNTY ASSEMBLY (MCAs), COUNTY ASSEMBLY SERVICE BOARD MEMBERS, MEMBERS OF STAFF AND THEIR DEPENDANTS. TENDER MAY BE RENEWED ON SAME TERMS AND CONDITIONS YEARLY BASED ON SATISFACTORY PERFORMANCE",
+      "buyer": "county assembly of nyamira",
+      "category": "Non Consultancy Services",
+      "deadline": "2026-10-26 12:15",
+      "scores": {
+        "capability": 1,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/309011",
+      "source": "ppip"
+    },
+    {
+      "rank": 34,
+      "title": "FRAMEWORK AGREEMENT FOR PROVISION OF AIR TICKETING AND TRAVEL SERVICES",
+      "buyer": "Kirinyaga County Government",
+      "category": "Non Consultancy Services",
+      "deadline": "2026-10-27 10:00",
+      "scores": {
+        "capability": 1,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/307633",
+      "source": "ppip"
+    },
+    {
+      "rank": 35,
+      "title": "FRAMEWORK AGREEMENT FOR PROVISION OF HOTEL ACCOMMODATION, CONFERENCE FACILITIES AND OUTSIDE CATERING SERVICES.",
+      "buyer": "Kirinyaga County Government",
+      "category": "Non Consultancy Services",
+      "deadline": "2026-10-27 10:00",
+      "scores": {
+        "capability": 1,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/307638",
+      "source": "ppip"
+    },
+    {
+      "rank": 36,
+      "title": "FRAMEWORK AGREEMENT FOR ROUTINE SERVICE, REPAIR AND MAINTENANCE OF COUNTY MOTOR VEHICLES, PLANT AND EARTH-MOVING EQUIPMENT (GARAGES)",
+      "buyer": "Kirinyaga County Government",
+      "category": "Non Consultancy Services",
+      "deadline": "2026-10-27 10:00",
+      "scores": {
+        "capability": 1,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/307640",
+      "source": "ppip"
+    },
+    {
+      "rank": 37,
+      "title": "FRAMEWORK AGREEMENT FOR SERVICING, REPAIR AND MAINTENANCE OF GENERAL MEDICAL, LABORATORY AND DENTAL EQUIPMENT",
+      "buyer": "Kirinyaga County Government",
+      "category": "Non Consultancy Services",
+      "deadline": "2026-10-27 10:00",
+      "scores": {
+        "capability": 1,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/307641",
+      "source": "ppip"
+    },
+    {
+      "rank": 38,
+      "title": "PROVISION OF MEDICAL INSURANCE COVER FOR TVETA STAFF AND BOARD MEMBERS",
+      "buyer": "Technical and Vocational Education and Training Authority",
+      "category": "Non Consultancy Services",
+      "deadline": "2026-10-27 10:01",
+      "scores": {
+        "capability": 1,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/308402",
+      "source": "ppip"
+    },
+    {
+      "rank": 39,
+      "title": "TERMS OF REFERENCE FOR INDIVIDUAL CONSULTANT - TRANSIT-ORIENTED DEVELOPMENT EXPERT",
+      "buyer": "Kenya Railways",
+      "category": "Consultancy Services",
+      "deadline": "2026-10-27 11:00",
+      "scores": {
+        "capability": 1,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/307568",
+      "source": "ppip"
+    },
+    {
+      "rank": 40,
+      "title": "Request For Proposal for Consultancy Services on Resource Mobilization",
+      "buyer": "WILDLIFE RESEARCH AND TRAINING INSTITUTE",
+      "category": "Consultancy Services",
+      "deadline": "2026-10-27 13:00",
+      "scores": {
+        "capability": 2,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 4,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/308830",
+      "source": "ppip"
+    },
+    {
+      "rank": 41,
+      "title": "TERMS OF REFERENCE FOR INDIVIDUAL EXPERT - RAIL CIVIL ENGINEERING EXPERT (RE-TENDER)",
+      "buyer": "Kenya Railways",
+      "category": "Consultancy Services",
+      "deadline": "2026-10-27 14:00",
+      "scores": {
+        "capability": 1,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/307565",
+      "source": "ppip"
+    },
+    {
+      "rank": 42,
+      "title": "PROVISION FOR MEDICAL INSURANCE COVER FOR MCAS SPEAKER AND BOARD MEMBERS",
+      "buyer": "County Assembly Of Kwale",
+      "category": "Non Consultancy Services",
+      "deadline": "2026-10-28 10:00",
+      "scores": {
+        "capability": 1,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/309093",
+      "source": "ppip"
+    },
+    {
+      "rank": 43,
+      "title": "PROPOSED CONSTRUCTION OF LAW COURT AT AWENDO TOWN",
+      "buyer": "AWENDO NGCDF",
+      "category": "Works",
+      "deadline": "2026-10-28 10:00",
+      "scores": {
+        "capability": 0,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 3
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/309098",
+      "source": "ppip"
+    },
+    {
+      "rank": 44,
+      "title": "Provision of Air Ticketing Services (IATA registered Firm only)",
+      "buyer": "Nyamira County Government",
+      "category": "Non Consultancy Services",
+      "deadline": "2026-10-28 10:30",
+      "scores": {
+        "capability": 1,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/308997",
+      "source": "ppip"
+    },
+    {
+      "rank": 45,
+      "title": "Provision of Catering and Accommodation Services",
+      "buyer": "Nyamira County Government",
+      "category": "Non Consultancy Services",
+      "deadline": "2026-10-28 10:30",
+      "scores": {
+        "capability": 1,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/309000",
+      "source": "ppip"
+    },
+    {
+      "rank": 46,
+      "title": "Provision of Legal Services",
+      "buyer": "Nyamira County Government",
+      "category": "Non Consultancy Services",
+      "deadline": "2026-10-28 10:30",
+      "scores": {
+        "capability": 1,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/309015",
+      "source": "ppip"
+    },
+    {
+      "rank": 47,
+      "title": "Repair and Servicing of Motor Vehicles, Motorcycles & Heavy Equipment",
+      "buyer": "Nyamira County Government",
+      "category": "Non Consultancy Services",
+      "deadline": "2026-10-28 10:30",
+      "scores": {
+        "capability": 1,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/309016",
+      "source": "ppip"
+    },
+    {
+      "rank": 48,
+      "title": "TENDER FOR PROCUREMENT OF ANNUAL SUPPORT & MAINTENANCE SERVICES FOR IBM GUARDIUM SOLUTION",
+      "buyer": "Kenya Power & Lighting Company",
+      "category": "Non Consultancy Services",
+      "deadline": "2026-10-29 10:00",
+      "scores": {
+        "capability": 1,
+        "deadline_feasibility": 3,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 13,
+      "url": "https://tenders.go.ke/tenders/308863",
+      "source": "ppip"
+    },
+    {
+      "rank": 49,
+      "title": "PROVISION OF DRONE/UAS MAPPING TRAINING AND REMOTE PILOT LICENSING SERVICES FOR FOUR COUNTY STAFF",
+      "buyer": "Makueni County Government",
+      "category": "Consultancy Services",
+      "deadline": "2026-10-22 10:00",
+      "scores": {
+        "capability": 1,
+        "deadline_feasibility": 2,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 12,
+      "url": "https://tenders.go.ke/tenders/308720",
+      "source": "ppip"
+    },
+    {
+      "rank": 50,
+      "title": "PROVISION OF CONSULTING SERVICES ON EMALI MUNICIPALITY SPECIAL ZONING REGULATIONS.",
+      "buyer": "Makueni County Government",
+      "category": "Consultancy Services",
+      "deadline": "2026-10-22 10:00",
+      "scores": {
+        "capability": 1,
+        "deadline_feasibility": 2,
+        "buyer_credibility": 5,
+        "value": 2,
+        "competition": 2
+      },
+      "total": 12,
+      "url": "https://tenders.go.ke/tenders/308722",
+      "source": "ppip"
+    }
+  ],
+  "top_picks": [
+    {
+      "rank": 1,
+      "title": "FRAMEWORK AGREEMENT FOR REPAIR AND MAINTENANCE OF SERVERS, DESKTOP COMPUTERS, LAN, IPBX, CCTV, PRINTERS, AUDIO-VISUAL EQUIPMENT, PHOTOCOPIERS, UPS AND RELATED ICT EQUIPMENT.",
+      "buyer": "Kirinyaga County Government",
+      "deadline": "2026-10-27 10:00",
+      "total": 17,
+      "url": "https://tenders.go.ke/tenders/307639",
+      "draft": {
+        "company_profile": "**GashoTech** — Nairobi, Kenya. AI, automation, cybersecurity and web/software\nengineering company.\n\n- Capabilities: custom software & web platforms, AI/ML solutions and\n  integrations, cybersecurity services (assessment, hardening, monitoring),\n  process automation, IT support and maintenance.\n- Delivery model: local team, agile sprints, documented handover, post-delivery\n  support.\n- [ ] Confirm current registration details (AGPO/PPRA, tax compliance, KRA PIN,\n  business registration) before submission — attach certificates.\n- [ ] Attach company profile document (PDF) and 2-3 reference letters.\n\n> TODO(human): paste the official registered company profile text here.",
+        "capability_mapping": "| GashoTech capability | Why it maps |\n|----------------------|-------------|\n| Cybersecurity & security systems services | tender text matches /cyber|security|surveillance|cctv/ |\n| Networks & infrastructure | tender text matches /network|broadband|internet|server/ |\n| ICT equipment maintenance & technical support | tender text matches /ict|computer|maintenance|support/ |\n\n> TODO(human): open the tender document, list each stated requirement\n> verbatim, and map it to a concrete GashoTech deliverable + reference.",
+        "compliance_checklist": "- [ ] Bid validity period: 120 days (from source record)\n- [ ] Submission venue: FIRST FLOOR CONFERENCE ROOM, COUNTY HEADQUARTER’S, KUTUS\n- [ ] Tender document(s) attached at source: https://tenders.go.ke/storage/Documents/1791353007849-tender-notice.pdf, https://tenders.go.ke/storage/Documents/1791353007872-tender-document.pdf\n- [ ] Signed tender form / bid submission form (as per tender document)\n- [ ] Certificate of registration / incorporation\n- [ ] KRA Tax Compliance Certificate (valid)\n- [ ] AGPO/PPRA registration certificate where applicable\n- [ ] Bid security of the stated amount/form (see tender details above), if required\n- [ ] Proof of financial capacity (bank statement / credit line) if requested\n- [ ] Technical specification compliance matrix (Section 2 of this skeleton)\n- [ ] Manufacturer's authorization letters for quoted products, if applicable\n- [ ] Signed confidentiality / non-collusion declaration\n- [ ] Contact sheet: company address, phone, email (organisation-level contacts only)",
+        "pricing": "| Line item | Qty | Unit price (KSh) | Total (KSh) |\n|-----------|-----|------------------|-------------|\n| TODO — item 1 from tender BoQ | | | |\n| TODO — item 2 | | | |\n| **Total bid sum** | | | |\n\n- [ ] Prices exclusive/inclusive of VAT as the tender requires (confirm)\n- [ ] Bid security arranged and attached\n- [ ] Priced schedule matches the tender's BoQ line-for-line"
+      }
+    },
+    {
+      "rank": 2,
+      "title": "PROVISION OF SECURITY SERVICES AND CCTV INSTALLATION & MONITORING AT ICT HUBS ACROSS KAJIADO NORTH CONSTITUENCY FOR A PERIOD OF TWO (2) YEARS",
+      "buyer": "Kajiado North NGCDF",
+      "deadline": "2026-10-22 10:00",
+      "total": 15,
+      "url": "https://tenders.go.ke/tenders/308745",
+      "draft": {
+        "company_profile": "**GashoTech** — Nairobi, Kenya. AI, automation, cybersecurity and web/software\nengineering company.\n\n- Capabilities: custom software & web platforms, AI/ML solutions and\n  integrations, cybersecurity services (assessment, hardening, monitoring),\n  process automation, IT support and maintenance.\n- Delivery model: local team, agile sprints, documented handover, post-delivery\n  support.\n- [ ] Confirm current registration details (AGPO/PPRA, tax compliance, KRA PIN,\n  business registration) before submission — attach certificates.\n- [ ] Attach company profile document (PDF) and 2-3 reference letters.\n\n> TODO(human): paste the official registered company profile text here.",
+        "capability_mapping": "| GashoTech capability | Why it maps |\n|----------------------|-------------|\n| Cybersecurity & security systems services | tender text matches /cyber|security|surveillance|cctv/ |\n| ICT equipment maintenance & technical support | tender text matches /ict|computer|maintenance|support/ |\n| Supply, delivery & installation management | tender text matches /supply|delivery|installation/ |\n\n> TODO(human): open the tender document, list each stated requirement\n> verbatim, and map it to a concrete GashoTech deliverable + reference.",
+        "compliance_checklist": "- [ ] Bid validity period: 150 days (from source record)\n- [ ] Submission venue: NG-CDF KAJIADO NORTH BOARDROOM\n- [ ] Tender document(s) attached at source: https://tenders.go.ke/storage/Documents/1792014900202-advert-tender-document.pdf\n- [ ] Signed tender form / bid submission form (as per tender document)\n- [ ] Certificate of registration / incorporation\n- [ ] KRA Tax Compliance Certificate (valid)\n- [ ] AGPO/PPRA registration certificate where applicable\n- [ ] Bid security of the stated amount/form (see tender details above), if required\n- [ ] Proof of financial capacity (bank statement / credit line) if requested\n- [ ] Technical specification compliance matrix (Section 2 of this skeleton)\n- [ ] Manufacturer's authorization letters for quoted products, if applicable\n- [ ] Signed confidentiality / non-collusion declaration\n- [ ] Contact sheet: company address, phone, email (organisation-level contacts only)",
+        "pricing": "| Line item | Qty | Unit price (KSh) | Total (KSh) |\n|-----------|-----|------------------|-------------|\n| TODO — item 1 from tender BoQ | | | |\n| TODO — item 2 | | | |\n| **Total bid sum** | | | |\n\n- [ ] Prices exclusive/inclusive of VAT as the tender requires (confirm)\n- [ ] Bid security arranged and attached\n- [ ] Priced schedule matches the tender's BoQ line-for-line"
+      }
+    },
+    {
+      "rank": 3,
+      "title": "THE DESIGN, SUPPLY, DELIVERY, INSTALLATION, CONFIGURATION, TESTING, COMMISSIONING AND MAINTENANCE OF AN ENTERPRISE RESOURCE PLANNING (ERP) SYSTEM",
+      "buyer": "GAMBLING REGULATORY AUTHORITY",
+      "deadline": "2026-10-23 11:00",
+      "total": 15,
+      "url": "https://tenders.go.ke/tenders/308978",
+      "draft": {
+        "company_profile": "**GashoTech** — Nairobi, Kenya. AI, automation, cybersecurity and web/software\nengineering company.\n\n- Capabilities: custom software & web platforms, AI/ML solutions and\n  integrations, cybersecurity services (assessment, hardening, monitoring),\n  process automation, IT support and maintenance.\n- Delivery model: local team, agile sprints, documented handover, post-delivery\n  support.\n- [ ] Confirm current registration details (AGPO/PPRA, tax compliance, KRA PIN,\n  business registration) before submission — attach certificates.\n- [ ] Attach company profile document (PDF) and 2-3 reference letters.\n\n> TODO(human): paste the official registered company profile text here.",
+        "capability_mapping": "| GashoTech capability | Why it maps |\n|----------------------|-------------|\n| Custom software & data systems (GashoTech core) | tender text matches /software|application|system|erp|database|data/ |\n| ICT equipment maintenance & technical support | tender text matches /ict|computer|maintenance|support/ |\n| Supply, delivery & installation management | tender text matches /supply|delivery|installation/ |\n\n> TODO(human): open the tender document, list each stated requirement\n> verbatim, and map it to a concrete GashoTech deliverable + reference.",
+        "compliance_checklist": "- [ ] Bid validity period: 7 days (from source record)\n- [ ] Submission venue: ACK Garden Annex 7th Floor Boardroom\n- [ ] Tender document(s) attached at source: https://tenders.go.ke/storage/Documents/1792177327819-the-design-supply-delivery-installation-configuration-testing-commissioning-and-mainte.pdf\n- [ ] Signed tender form / bid submission form (as per tender document)\n- [ ] Certificate of registration / incorporation\n- [ ] KRA Tax Compliance Certificate (valid)\n- [ ] AGPO/PPRA registration certificate where applicable\n- [ ] Bid security of the stated amount/form (see tender details above), if required\n- [ ] Proof of financial capacity (bank statement / credit line) if requested\n- [ ] Technical specification compliance matrix (Section 2 of this skeleton)\n- [ ] Manufacturer's authorization letters for quoted products, if applicable\n- [ ] Signed confidentiality / non-collusion declaration\n- [ ] Contact sheet: company address, phone, email (organisation-level contacts only)",
+        "pricing": "| Line item | Qty | Unit price (KSh) | Total (KSh) |\n|-----------|-----|------------------|-------------|\n| TODO — item 1 from tender BoQ | | | |\n| TODO — item 2 | | | |\n| **Total bid sum** | | | |\n\n- [ ] Prices exclusive/inclusive of VAT as the tender requires (confirm)\n- [ ] Bid security arranged and attached\n- [ ] Priced schedule matches the tender's BoQ line-for-line"
+      }
+    }
+  ],
+  "totals": {
+    "active_tenders_seen": 300,
+    "scored": 300,
+    "top_picks": 3
+  }
+}

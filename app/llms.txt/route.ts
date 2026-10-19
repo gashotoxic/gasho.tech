@@ -107,6 +107,7 @@ ${projectList}
 
 - Homepage: https://gashotech.com/
 - Projects: https://gashotech.com/projects
+- Kenyan Tender Radar: https://gashotech.com/tenders
 - AI Solutions: https://gashotech.com/services/ai
 - AI Automation: https://gashotech.com/services/automation
 - Cybersecurity: https://gashotech.com/services/cybersecurity
