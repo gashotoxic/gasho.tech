@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowLeft, ExternalLink, Radio } from "lucide-react"
 import BidDraftPanel from "@/components/tenders/bid-draft"
+import TenderExplorer from "@/components/tenders/tender-explorer"
 import RelativeTime from "@/components/tenders/relative-time"
 import {
   deadlineLabel,
@@ -123,6 +124,7 @@ export default function TendersPage() {
           <a href="#source-health" className="text-muted-foreground hover:text-[#1abc9c] transition-colors">Source health</a>
           <a href="#how-it-works" className="text-muted-foreground hover:text-[#1abc9c] transition-colors">How it works</a>
           <a href="#scoring-rubric" className="text-muted-foreground hover:text-[#1abc9c] transition-colors">Scoring rubric</a>
+          <a href="#requirements" className="text-muted-foreground hover:text-[#1abc9c] transition-colors">Requirements</a>
           <a href="#faq" className="text-muted-foreground hover:text-[#1abc9c] transition-colors">FAQ</a>
         </div>
       </nav>
@@ -194,73 +196,15 @@ export default function TendersPage() {
               <section id="ranked-tenders" className="scroll-offset mb-14">
                 <h2 className="text-2xl font-bold mb-2">Ranked tenders</h2>
                 <p className="text-muted-foreground mb-6 max-w-3xl leading-relaxed">
-                  Every scored tender in this run, ordered by total score. The five dim
-                  columns are the individual axis scores (0–5 each); the deadline column
-                  colours the time left — red within 3 days, amber within 7, green beyond.
+                  Every scored tender in this run, ordered by total score. Filter by sector
+                  and buyer level, or narrow to what&apos;s closing soon. The five dim columns
+                  are the individual axis scores (0–5 each); the deadline column colours the
+                  time left — red within 3 days, amber within 7, green beyond.
                 </p>
-                <div className="bg-card rounded-xl border border-border/50 shadow-sm overflow-x-auto">
-                  <table className="w-full min-w-[860px] text-left">
-                    <thead>
-                      <tr className="border-b border-border/50 text-xs uppercase tracking-wide text-muted-foreground">
-                        <th className="px-4 py-3 font-medium">#</th>
-                        <th className="px-4 py-3 font-medium">Tender</th>
-                        <th className="px-4 py-3 font-medium">Category</th>
-                        <th className="px-4 py-3 font-medium">Deadline</th>
-                        {SCORE_COLUMNS.map((col) => (
-                          <th key={col.key} className="px-2 py-3 font-medium" title={col.full}>
-                            {col.short}
-                          </th>
-                        ))}
-                        <th className="px-3 py-3 font-medium">Total</th>
-                        <th className="px-4 py-3 font-medium">Source</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {ranked.map((tender) => (
-                        <tr
-                          key={`${tender.rank}-${tender.url}`}
-                          className="border-b border-border/30 last:border-0 align-top hover:bg-[#1abc9c]/5 transition-colors"
-                        >
-                          <td className="px-4 py-3 text-sm text-muted-foreground tabular-nums">{tender.rank}</td>
-                          <td className="px-4 py-3 max-w-[280px]">
-                            <div className="text-sm font-medium leading-snug">{tender.title}</div>
-                            <div className="text-xs text-muted-foreground mt-0.5">{tender.buyer}</div>
-                          </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{tender.category}</td>
-                          <td className="px-4 py-3">
-                            <DeadlineCell deadline={tender.deadline} now={now} />
-                          </td>
-                          {SCORE_COLUMNS.map((col) => (
-                            <td
-                              key={col.key}
-                              className="px-2 py-3 text-xs text-muted-foreground/70 tabular-nums"
-                              title={col.full}
-                            >
-                              {tender.scores[col.key]}
-                            </td>
-                          ))}
-                          <td className="px-3 py-3 text-sm font-semibold tabular-nums">{tender.total}</td>
-                          <td className="px-4 py-3">
-                            <a
-                              href={tender.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-[#1abc9c] hover:text-[#16a085] text-sm font-medium transition-colors"
-                            >
-                              Open
-                              <ExternalLink className="w-3.5 h-3.5" />
-                            </a>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {ranked.length >= 50 && (
-                  <p className="text-xs text-muted-foreground mt-3">
-                    Showing the top 50 of this run — the full ranked report lives with the project.
-                  </p>
-                )}
+                <TenderExplorer
+                  tenders={ranked}
+                  referenceAt={state === "ready" ? snapshot.generated_at : new Date().toISOString()}
+                />
               </section>
 
               {/* ── Source health strip ───────────────────────────────────────── */}
@@ -484,11 +428,73 @@ export default function TendersPage() {
             </div>
           </section>
 
+          {/* ── Requirements for bidding ────────────────────────────────────── */}
+          <section id="requirements" className="scroll-offset mb-14">
+            <h2 className="text-2xl font-bold mb-2">Requirements for bidding</h2>
+            <p className="text-muted-foreground mb-6 max-w-3xl leading-relaxed">
+              Kenyan public tenders ask for two layers of paperwork: a baseline that
+              applies to almost every bid, and the specifics set by each tender&apos;s own
+              documents. Sort the baseline out once and it stops being the reason a
+              deadline gets missed.
+            </p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="bg-card rounded-lg p-5 shadow-sm">
+                <h3 className="font-semibold text-[#1abc9c] mb-2">The baseline — needed for almost every tender</h3>
+                <ul className="text-sm text-muted-foreground leading-relaxed space-y-1.5 list-disc pl-4">
+                  <li>A registered business entity (certificate of incorporation or registration, via the Business Registration Service)</li>
+                  <li>KRA PIN certificate and a valid Tax Compliance Certificate</li>
+                  <li>A valid single business permit from your county</li>
+                  <li>Supplier registration or prequalification with the procuring entity — many run annual prequalification, and the documents download free on PPIP</li>
+                  <li>For the 30% AGPO set-aside (youth, women and PWD-owned enterprises): an AGPO certificate</li>
+                </ul>
+              </div>
+              <div className="bg-card rounded-lg p-5 shadow-sm">
+                <h3 className="font-semibold text-[#1abc9c] mb-2">The specific — set by each tender</h3>
+                <ul className="text-sm text-muted-foreground leading-relaxed space-y-1.5 list-disc pl-4">
+                  <li>The tender document itself: Instructions to Tenderers, forms and evaluation criteria (downloadable from the notice — free or paid depending on the entity)</li>
+                  <li>Tender security on higher-value tenders</li>
+                  <li>Professional or technical registrations for consultancies</li>
+                  <li>Past-performance references and similar contracts delivered</li>
+                </ul>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground mt-4 max-w-3xl leading-relaxed">
+              Read the tender&apos;s own Instructions to Tenderers first — it always wins over
+              general advice. The official reading, straight from the regulator:
+            </p>
+            <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {[
+                { label: "Standard tender documents & formats (PPRA)", href: "https://ppra.go.ke/standard-tender-documents/" },
+                { label: "Public Procurement & Asset Disposal Act 2015", href: "https://ppra.go.ke/ppda/" },
+                { label: "Procurement Regulations 2020 (full text)", href: "https://new.kenyalaw.org/akn/ke/act/ln/2020/69/eng@2020-04-30" },
+                { label: "PPIP supplier portal", href: "https://tenders.go.ke/" },
+                { label: "AGPO registration", href: "https://agpo.go.ke/" },
+                { label: "KRA PIN & tax compliance", href: "https://www.kra.go.ke/" },
+              ].map((link) => (
+                <li key={link.href}>
+                  <a
+                    href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-[#1abc9c] hover:text-[#16a085] text-sm font-medium transition-colors"
+                  >
+                    {link.label}
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+
           {/* ── FAQ ─────────────────────────────────────────────────────────── */}
           <section id="faq" className="scroll-offset mb-10">
             <h2 className="text-2xl font-bold mb-6">FAQ</h2>
             <div className="space-y-3">
               {[
+                {
+                  q: "How is this different from tenders.go.ke and the government sites?",
+                  a: "tenders.go.ke (PPIP) is the official national portal — the legal source of truth where every public entity must publish opportunities, addenda and awards. It lists everything, and you scan and judge fit for yourself. The Kenya Gazette and county portals add legal notices and local listings, many stale or PDF-only. Tender Radar is a working layer on top of PPIP: every 3 hours it re-reads the active tenders, scores each one for fit across five axes, flags deadlines, ranks the top 50 and drafts first-cut bid responses for the top picks. PPIP is where you bid; Tender Radar is where you decide what to bid on. Every row links to the official notice, and all submissions happen through the official process.",
+                },
                 {
                   q: "How often is this refreshed?",
                   a: "Every 3 hours. The 'Last refreshed' line at the top shows when the most recent run finished, and the days-left figures recalculate against the current time.",

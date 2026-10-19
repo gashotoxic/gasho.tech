@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-19T18:02:39+03:00",
+  "generated_at": "2026-10-19T18:16:52+03:00",
   "generator": "tender-finder",
   "run": {
-    "elapsed_seconds": 156.4,
-    "http_requests": 4,
+    "elapsed_seconds": 32.0,
+    "http_requests": 1,
     "records_scored": 300,
     "records_excluded": 16,
-    "budget_status": "within cap (elapsed 156s < 600s)"
+    "budget_status": "within cap (elapsed 32s < 600s)"
   },
   "source_health": [
     {
@@ -26,7 +26,7 @@
       "source": "Kenya Gazette (kenyalaw.org archive)",
       "status": "failed",
       "records": 0,
-      "detail": "gazette index fetch failed (FetchError: failed after 3 attempt(s): https://kenyalaw.org/gazettes/ (The read operation timed out))"
+      "detail": "gazette index fetch failed (FetchError: disallowed by robots.txt: https://kenyalaw.org/gazettes/)"
     }
   ],
   "tenders": [
@@ -45,7 +45,9 @@
       },
       "total": 17,
       "url": "https://tenders.go.ke/tenders/307639",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "ict-digital",
+      "buyer_level": "county"
     },
     {
       "rank": 2,
@@ -62,7 +64,9 @@
       },
       "total": 15,
       "url": "https://tenders.go.ke/tenders/308745",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "ict-digital",
+      "buyer_level": "ngcdf"
     },
     {
       "rank": 3,
@@ -79,7 +83,9 @@
       },
       "total": 15,
       "url": "https://tenders.go.ke/tenders/308978",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "ict-digital",
+      "buyer_level": "state-corporation"
     },
     {
       "rank": 4,
@@ -96,7 +102,9 @@
       },
       "total": 15,
       "url": "https://tenders.go.ke/tenders/307953",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "ict-digital",
+      "buyer_level": "other"
     },
     {
       "rank": 5,
@@ -113,7 +121,9 @@
       },
       "total": 14,
       "url": "https://tenders.go.ke/tenders/308773",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "ict-digital",
+      "buyer_level": "ngcdf"
     },
     {
       "rank": 6,
@@ -130,7 +140,9 @@
       },
       "total": 14,
       "url": "https://tenders.go.ke/tenders/305657",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "ict-digital",
+      "buyer_level": "other"
     },
     {
       "rank": 7,
@@ -147,7 +159,9 @@
       },
       "total": 14,
       "url": "https://tenders.go.ke/tenders/307989",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "ict-digital",
+      "buyer_level": "state-corporation"
     },
     {
       "rank": 8,
@@ -164,7 +178,9 @@
       },
       "total": 14,
       "url": "https://tenders.go.ke/tenders/307900",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "ict-digital",
+      "buyer_level": "education"
     },
     {
       "rank": 9,
@@ -181,7 +197,9 @@
       },
       "total": 14,
       "url": "https://tenders.go.ke/tenders/307567",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "consultancy",
+      "buyer_level": "other"
     },
     {
       "rank": 10,
@@ -198,7 +216,9 @@
       },
       "total": 14,
       "url": "https://tenders.go.ke/tenders/308501",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "consultancy",
+      "buyer_level": "education"
     },
     {
       "rank": 11,
@@ -215,7 +235,9 @@
       },
       "total": 14,
       "url": "https://tenders.go.ke/tenders/308517",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "goods-supplies",
+      "buyer_level": "county"
     },
     {
       "rank": 12,
@@ -232,7 +254,9 @@
       },
       "total": 14,
       "url": "https://tenders.go.ke/tenders/308518",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "other",
+      "buyer_level": "county"
     },
     {
       "rank": 13,
@@ -249,7 +273,9 @@
       },
       "total": 14,
       "url": "https://tenders.go.ke/tenders/308504",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "consultancy",
+      "buyer_level": "education"
     },
     {
       "rank": 14,
@@ -266,7 +292,9 @@
       },
       "total": 14,
       "url": "https://tenders.go.ke/tenders/308502",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "consultancy",
+      "buyer_level": "education"
     },
     {
       "rank": 15,
@@ -283,7 +311,9 @@
       },
       "total": 14,
       "url": "https://tenders.go.ke/tenders/308400",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "ict-digital",
+      "buyer_level": "state-corporation"
     },
     {
       "rank": 16,
@@ -300,7 +330,9 @@
       },
       "total": 14,
       "url": "https://tenders.go.ke/tenders/309020",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "ict-digital",
+      "buyer_level": "county"
     },
     {
       "rank": 17,
@@ -317,7 +349,9 @@
       },
       "total": 14,
       "url": "https://tenders.go.ke/tenders/309014",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "ict-digital",
+      "buyer_level": "county"
     },
     {
       "rank": 18,
@@ -334,7 +368,9 @@
       },
       "total": 14,
       "url": "https://tenders.go.ke/tenders/308506",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "consultancy",
+      "buyer_level": "education"
     },
     {
       "rank": 19,
@@ -351,7 +387,9 @@
       },
       "total": 14,
       "url": "https://tenders.go.ke/tenders/308503",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "consultancy",
+      "buyer_level": "education"
     },
     {
       "rank": 20,
@@ -368,7 +406,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/308671",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "ict-digital",
+      "buyer_level": "ngcdf"
     },
     {
       "rank": 21,
@@ -385,7 +425,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/308116",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "other",
+      "buyer_level": "state-corporation"
     },
     {
       "rank": 22,
@@ -402,7 +444,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/308275",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "ict-digital",
+      "buyer_level": "county"
     },
     {
       "rank": 23,
@@ -419,7 +463,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/308721",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "consultancy",
+      "buyer_level": "county"
     },
     {
       "rank": 24,
@@ -436,7 +482,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/308723",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "consultancy",
+      "buyer_level": "county"
     },
     {
       "rank": 25,
@@ -453,7 +501,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/305924",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "ict-digital",
+      "buyer_level": "state-corporation"
     },
     {
       "rank": 26,
@@ -470,7 +520,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/308747",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "consultancy",
+      "buyer_level": "state-corporation"
     },
     {
       "rank": 27,
@@ -487,7 +539,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/308002",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "ict-digital",
+      "buyer_level": "county"
     },
     {
       "rank": 28,
@@ -504,7 +558,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/308707",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "ict-digital",
+      "buyer_level": "education"
     },
     {
       "rank": 29,
@@ -521,7 +577,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/308357",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "consultancy",
+      "buyer_level": "other"
     },
     {
       "rank": 30,
@@ -538,7 +596,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/308851",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "works-infrastructure",
+      "buyer_level": "county"
     },
     {
       "rank": 31,
@@ -555,7 +615,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/308924",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "training-capacity",
+      "buyer_level": "county"
     },
     {
       "rank": 32,
@@ -572,7 +634,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/307563",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "consultancy",
+      "buyer_level": "other"
     },
     {
       "rank": 33,
@@ -589,7 +653,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/309011",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "other",
+      "buyer_level": "county"
     },
     {
       "rank": 34,
@@ -606,7 +672,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/307633",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "other",
+      "buyer_level": "county"
     },
     {
       "rank": 35,
@@ -623,7 +691,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/307638",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "other",
+      "buyer_level": "county"
     },
     {
       "rank": 36,
@@ -640,7 +710,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/307640",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "other",
+      "buyer_level": "county"
     },
     {
       "rank": 37,
@@ -657,7 +729,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/307641",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "other",
+      "buyer_level": "county"
     },
     {
       "rank": 38,
@@ -674,7 +748,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/308402",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "other",
+      "buyer_level": "education"
     },
     {
       "rank": 39,
@@ -691,7 +767,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/307568",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "consultancy",
+      "buyer_level": "other"
     },
     {
       "rank": 40,
@@ -708,7 +786,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/308830",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "consultancy",
+      "buyer_level": "other"
     },
     {
       "rank": 41,
@@ -725,7 +805,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/307565",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "works-infrastructure",
+      "buyer_level": "other"
     },
     {
       "rank": 42,
@@ -742,7 +824,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/309093",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "other",
+      "buyer_level": "county"
     },
     {
       "rank": 43,
@@ -759,7 +843,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/309098",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "works-infrastructure",
+      "buyer_level": "ngcdf"
     },
     {
       "rank": 44,
@@ -776,7 +862,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/308997",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "other",
+      "buyer_level": "county"
     },
     {
       "rank": 45,
@@ -793,7 +881,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/309000",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "other",
+      "buyer_level": "county"
     },
     {
       "rank": 46,
@@ -810,7 +900,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/309015",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "other",
+      "buyer_level": "county"
     },
     {
       "rank": 47,
@@ -827,7 +919,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/309016",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "other",
+      "buyer_level": "county"
     },
     {
       "rank": 48,
@@ -844,7 +938,9 @@
       },
       "total": 13,
       "url": "https://tenders.go.ke/tenders/308863",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "other",
+      "buyer_level": "other"
     },
     {
       "rank": 49,
@@ -861,7 +957,9 @@
       },
       "total": 12,
       "url": "https://tenders.go.ke/tenders/308720",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "training-capacity",
+      "buyer_level": "county"
     },
     {
       "rank": 50,
@@ -878,7 +976,9 @@
       },
       "total": 12,
       "url": "https://tenders.go.ke/tenders/308722",
-      "source": "ppip"
+      "source": "ppip",
+      "sector": "consultancy",
+      "buyer_level": "county"
     }
   ],
   "top_picks": [

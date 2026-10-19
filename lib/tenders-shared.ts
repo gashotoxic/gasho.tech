@@ -20,6 +20,9 @@ export interface TenderRecord {
   total: number
   url: string
   source: string
+  /** Pipeline classification (optional — older snapshots predate these fields). */
+  sector?: string
+  buyer_level?: string
 }
 
 export interface BidDraft {
