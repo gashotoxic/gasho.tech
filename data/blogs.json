@@ -457,7 +457,7 @@
       "category": "AI",
       "date": "2026-07-28",
       "image": "/images/kenya-draft-ai-policy-consultation-4-august-deadline.webp",
-      "published": false,
+      "published": true,
       "tags": [
         "ai",
         "policy"
@@ -489,7 +489,7 @@
       "category": "AI",
       "date": "2026-08-10",
       "image": "/images/kenya-draft-ai-emerging-tech-policy-consultation.webp",
-      "published": false,
+      "published": true,
       "tags": [
         "ai",
         "policy"
@@ -633,7 +633,7 @@
       "category": "AI",
       "date": "2026-08-31",
       "image": "/images/kenya-opens-public-consultation-draft.webp",
-      "published": false,
+      "published": true,
       "tags": [
         "ai",
         "policy"
@@ -649,7 +649,7 @@
       "category": "AI",
       "date": "2026-09-02",
       "image": "/images/opens-public-consultation-draft-ai-emerging.webp",
-      "published": false,
+      "published": true,
       "tags": [
         "ai",
         "policy"
@@ -1116,6 +1116,25 @@
       "readTime": 7,
       "image": "/images/mpesa-jumbe-split-notifications-explained.webp",
       "category": "Technology",
+      "published": true
+    },
+    {
+      "title": "AI Voice Scams in Kenya: How a 10-Second Audio Clip Can Empty Your M-PESA",
+      "date": "2026-10-21",
+      "excerpt": "A scammer needs only seconds of someone's voice to fake a family emergency call. Here is the free defence every Kenyan household can set up in one evening.",
+      "content": "## The call that sounds exactly like family\n\nYour phone rings. The voice on the other end is your cousin — the same laugh, the same accent, the same way he says your name. He is stuck in a strange town, his phone is about to go off, and he needs KSh 5,000 on M-PESA right now. There is one problem: your cousin is at work, his phone is in his pocket, and he never called you.\n\nThat voice is real. It is also fake. AI voice-cloning tools can now produce a convincing copy of someone's voice from a few seconds of recorded audio — a WhatsApp voice note, a TikTok video, a short interview clip. What used to require a recording studio and specialist knowledge is now a free app and a phone. The technology is not coming to Kenya someday; it is already in the hands of ordinary fraudsters, and police forces around the world have confirmed it is being used in exactly this kind of fraud. The people most likely to be targeted are the ones who trust their family the most: parents, grandparents, and anyone who would send money first and ask questions later.\n\n## Why a 20-year-old in Kisumu should care\n\nIf you are young and online, you are not just a potential victim — you are the source material. Every voice note you send in a group chat, every video you post, every audio clip that leaves your phone can become the raw audio a scammer needs to clone you. The first call a cloned voice usually makes is not to you. It is to your parent, asking for money in your voice, at a time of day designed to create panic.\n\nThat is the uncomfortable arithmetic of 2026: the more connected and expressive your family is, the more raw material exists to impersonate it. The good news is that the strongest defence available to a Kenyan household costs nothing, needs no app, and takes one dinner conversation to set up.\n\n## What actually changed\n\nVoice cloning is not new, but its price and its requirements collapsed. A few years ago, a convincing clone needed minutes of clean, quiet recording and paid software operated by someone who knew what they were doing. Today's tools work from a short, imperfect clip recorded on a normal phone. Background noise, laughter, a bad connection — none of it is a reliable obstacle anymore, and the output is good enough to fool someone who loves you, because love is exactly what does the fooling.\n\nThe same collapse happened to video and images. Fake screenshots of politicians, fabricated \"news\" clips, and AI-generated photos now circulate freely, and researchers have already documented coordinated campaigns that use AI to mass-produce posts that look like they were written by ordinary Kenyan citizens. The bar for manufacturing something that looks and sounds official has effectively disappeared.\n\n## The scam pattern to recognise\n\nCloned-voice fraud follows a shape so consistent that knowing the shape is most of the defence. It arrives by voice call or voice note. It impersonates someone close — a child, a sibling, a parent, a boss. It carries urgency: an accident, an arrest, a hospital, a deadline of minutes. And it always carries a rule about secrecy: \"don't tell anyone,\" \"don't call anyone else,\" \"keep this between us.\"\n\nThat secrecy rule is not drama — it is the mechanism. The scam only works if the person receiving the call does not check. A two-minute phone call to the real cousin destroys the entire scheme, which is why the scammer's first job is to make sure you never make it.\n\n## The code word: the cheapest defence in Kenya\n\nEvery household should have one agreed phrase that is never typed, never posted, and never said in a voice note. If a call claims to be family and cannot produce the code word, the call is not family — full stop. This is the single highest-value security action a Kenyan family can take, and it works whether the clone is made from a stolen voice note or a hijacked profile picture.\n\nTwo rules make the code word work:\n\n- **Choose it offline.** If it exists in any chat, screenshot or voice note, it can be stolen. Agree on it at the dinner table, in the matatu, on the walk home — anywhere without a phone.\n- **Make it boring.** \"The green church roof\" beats anything sentimental, because sentimental phrases are guessable from a family's public posts.\n\n## The call-back rule\n\nNo matter how convincing the voice, the response to any money request is the same: hang up and call the person back on the number already saved in your phone. Not the number that called. Not a number they give you \"from a friend's phone.\" The saved one.\n\nScammers rely on the emotional momentum of the moment — the panic, the urgency, the fear that waiting will make it worse. The call-back breaks that momentum completely, because it moves the conversation from their script to a channel they do not control. A genuine emergency survives a two-minute check; only a scam needs you to skip it.\n\n## Keep your voice out of the public feed\n\nYou cannot stop voice cloning from existing, but you can shrink the raw material available. Avoid posting long, clear voice notes publicly. Be deliberate with videos where you speak directly to the camera for extended periods. Encourage older relatives — the most targeted group — to treat unexpected voice calls asking about money with the same suspicion they would apply to a stranger at the gate.\n\nNone of this means going silent. It means understanding that your voice is now a credential, and credentials deserve the same care as your M-PESA PIN.\n\n## What to do if it already happened\n\nIf money has already been sent:\n\n1. **Act in minutes, not days.** Contact your bank or mobile-money provider's fraud channels immediately and ask what reversal options exist.\n2. **Report it.** Report to Safaricom through its official fraud channels and to the police, and keep every screenshot, transaction message and phone number as evidence.\n3. **Warn the family group.** The same clone that targeted you will likely be used on the next relative within days. A warning in the group chat is free protection for everyone in it.\n\n## Forward this before it happens\n\nThe households that refuse cloned-voice fraud are not the ones with better technology. They are the ones that agreed on one code word over dinner and taught the call-back rule to the most trusting person in the family.\n\nForward this article to your family WhatsApp group today. The two minutes it takes to agree on a code word is the cheapest insurance Kenyan families have ever been offered — and unlike the cloned voice on the other end of the line, it is real.",
+      "author": "GashoTech Team",
+      "tags": [
+        "AI Voice Scams",
+        "Voice Cloning",
+        "M-PESA",
+        "Cybersecurity",
+        "Kenya"
+      ],
+      "slug": "ai-voice-clone-scams-kenya-family-code-word",
+      "readTime": 6,
+      "image": "/images/ai-voice-clone-scams-kenya-family-code-word.webp",
+      "category": "Cybersecurity",
       "published": true
     }
   ]
