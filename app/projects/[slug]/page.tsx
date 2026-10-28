@@ -1,9 +1,16 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { FileText, Globe, Server, Video } from "lucide-react"
-import { GithubIcon } from "@/components/social-icons"
-import { getProject, isLiveProject, isPublicProject, isShareGated, verifyShareKey, type Project } from "@/data/projects"
+import { ProjectLinks } from "@/components/projects/project-links"
+import {
+  getProject,
+  isLiveProject,
+  isPublicProject,
+  isShareGated,
+  projectLinks,
+  verifyShareKey,
+  type Project,
+} from "@/data/projects"
 
 // The share-link gate reads `?k=` at request time (Release Format v1.1 §2 rule 1), so this
 // route renders per request instead of via generateStaticParams.
@@ -43,6 +50,19 @@ async function resolveProject(props: Props): Promise<Project | null> {
     return null
   }
   return project
+}
+
+/**
+ * Serialize JSON-LD for a raw `<script>` sink. `JSON.stringify` does not escape `</script>`,
+ * so a value containing it would close the tag and let the rest run as markup. `<` → `\u003c`
+ * keeps the payload inert while remaining valid JSON for crawlers (the link fields are
+ * data-authored, so this is defence in depth rather than a live hole).
+ */
+function toJsonLd(schema: unknown): string {
+  return JSON.stringify(schema)
+    .replace(/</g, "\\u003c")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029")
 }
 
 export async function generateMetadata(props: Props): Promise<Metadata> {
@@ -131,11 +151,11 @@ export default async function ProjectPage(props: Props) {
     <div className="pt-16">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(projectSchema) }}
+        dangerouslySetInnerHTML={{ __html: toJsonLd(projectSchema) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+        dangerouslySetInnerHTML={{ __html: toJsonLd(breadcrumbSchema) }}
       />
 
       {/* Breadcrumb */}
@@ -169,64 +189,14 @@ export default async function ProjectPage(props: Props) {
           </p>
         )}
 
-        {/* Links */}
-        <div className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-3 text-sm font-medium">
-          {project.liveUrl && (
-            <a
-              href={project.liveUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-white hover:text-[#094d3e] transition-colors"
-            >
-              <Globe className="w-4 h-4" />
-              Live demo
-            </a>
-          )}
-          {project.hosting.url && (
-            <a
-              href={project.hosting.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-white hover:text-[#094d3e] transition-colors"
-            >
-              <Server className="w-4 h-4" />
-              Hosting
-            </a>
-          )}
-          {project.githubUrl && (
-            <a
-              href={project.githubUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-white hover:text-[#094d3e] transition-colors"
-            >
-              <GithubIcon className="w-4 h-4" />
-              GitHub
-            </a>
-          )}
-          {project.readmeUrl && (
-            <a
-              href={project.readmeUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-white hover:text-[#094d3e] transition-colors"
-            >
-              <FileText className="w-4 h-4" />
-              README
-            </a>
-          )}
-          {project.demoVideoUrl && (
-            <a
-              href={project.demoVideoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-white hover:text-[#094d3e] transition-colors"
-            >
-              <Video className="w-4 h-4" />
-              60s demo
-            </a>
-          )}
-        </div>
+        {/* Demo links — live demo first, then the video demo, GitHub, README and hosting.
+            Anything missing is simply absent instead of a dead link (`projectLinks()`), and
+            the row keeps its reserved height either way, so the hero does not jump. */}
+        <ProjectLinks
+          links={projectLinks(project)}
+          variant="hero"
+          className="mt-8 justify-center gap-x-6 gap-y-3"
+        />
 
         {/* Tender dashboard CTA — only the Tender / RFQ Finder entry points at /tenders. */}
         {project.slug === "tender-rfq-finder" && (

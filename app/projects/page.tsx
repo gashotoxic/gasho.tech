@@ -1,8 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { Globe, Server } from "lucide-react"
-import { GithubIcon } from "@/components/social-icons"
-import { TIER1_CHECKS, isLiveProject, publicProjects } from "@/data/projects"
+import { TIER1_CHECKS, publicProjects } from "@/data/projects"
+import { ProjectCard } from "@/components/projects/project-card"
 
 export const metadata: Metadata = {
   title: "Projects",
@@ -47,10 +46,12 @@ export default function ProjectsPage() {
           </p>
         </div>
 
-        {/* Project cards — live entries get the answer-key contract (title, one-liner, Live
-            demo + Hosting + GitHub links), preview entries a clean teaser with a Preview
-            badge. Internal entries never get a card. Public copy is complete or absent:
-            no checklists, no gap notes, no status notes (Release Format v1.1 §2 rule 3). */}
+        {/* Project cards. Each card renders title, one-liner and its demo links — live demo,
+            video demo, GitHub — with anything missing simply absent (`projectLinks()` +
+            `CARD_LINK_KINDS`, one shared projection with the detail page). Preview entries
+            carry a Preview badge. Internal entries never get a card. Public copy is complete
+            or absent: no checklists, no gap notes, no status notes (Release Format v1.1 §2
+            rule 3). */}
         {projects.length === 0 ? (
           <div className="text-center bg-card border border-border/50 rounded-xl p-12">
             <h2 className="text-xl font-semibold mb-3">In the workshop</h2>
@@ -67,69 +68,9 @@ export default function ProjectsPage() {
           </div>
         ) : (
           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-            {projects.map((project) => {
-              const isLive = isLiveProject(project)
-              return (
-                <article
-                  key={project.slug}
-                  className="group flex flex-col bg-card rounded-xl p-6 shadow-sm border border-border/50 hover:border-[#1abc9c]/50 transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
-                >
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <h2 className="text-xl font-semibold group-hover:text-[#1abc9c] transition-colors">
-                      <Link href={`/projects/${project.slug}`}>{project.title}</Link>
-                    </h2>
-                    {!isLive && (
-                      <span className="shrink-0 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 px-3 py-1 text-xs font-semibold uppercase tracking-wide">
-                        Preview
-                      </span>
-                    )}
-                  </div>
-
-                  <p className="text-sm text-muted-foreground leading-relaxed flex-1">
-                    {project.tagline}
-                  </p>
-
-                  {/* Links render only where the URL exists — never a dead link. */}
-                  {(project.liveUrl || project.hosting.url || project.githubUrl) && (
-                    <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm">
-                      {project.liveUrl && (
-                        <a
-                          href={project.liveUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-[#1abc9c] hover:text-[#16a085] font-medium transition-colors"
-                        >
-                          <Globe className="w-4 h-4" />
-                          Live demo
-                        </a>
-                      )}
-                      {project.hosting.url && (
-                        <a
-                          href={project.hosting.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-[#1abc9c] font-medium transition-colors"
-                        >
-                          <Server className="w-4 h-4" />
-                          Hosting
-                        </a>
-                      )}
-                      {project.githubUrl && (
-                        <a
-                          href={project.githubUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-[#1abc9c] font-medium transition-colors"
-                        >
-                          <GithubIcon className="w-4 h-4" />
-                          GitHub
-                        </a>
-                      )}
-                    </div>
-                  )}
-                </article>
-              )
-            })}
+            {projects.map((project) => (
+              <ProjectCard key={project.slug} project={project} />
+            ))}
           </div>
         )}
 
