@@ -176,43 +176,27 @@ export default function StudioPage() {
         ? `/images/blog/${slug}.webp`
         : '/images/AI.webp'
 
-      // If we have image data, commit it first
-      if (imageData) {
-        await fetch('/api/studio/publish', {
-          method: 'POST',
-          headers: authHeaders(),
-          body: JSON.stringify({
-            title: result.title,
-            excerpt: result.excerpt,
-            content: result.content,
-            category: result.category,
-            author: publishAuthor,
-            imageData,
-            imagePath,
-            published: publishPublished,
-          }),
-        }).then(r => r.json())
-      }
-
-      // Commit blog post
-      const res = await fetch('/api/blogs', {
+      // /api/studio/publish is the only write path: it commits the image (when
+      // there is one) and upserts the post into the full post list. There is
+      // deliberately no fallback — falling back to /api/blogs on failure would
+      // write the post from a stale build snapshot and defeat the merge.
+      const res = await fetch('/api/studio/publish', {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({
-          slug,
           title: result.title,
           excerpt: result.excerpt,
           content: result.content,
           category: result.category,
           author: publishAuthor,
-          image: imagePath,
-          date: new Date().toISOString().split('T')[0],
+          imageData,
+          imagePath,
           published: publishPublished,
         }),
       })
 
       const data = await res.json()
-      if (res.ok || res.status === 201) {
+      if (res.ok) {
         setMessage({ text: 'Published successfully!', type: 'success' })
         setTimeout(() => router.push(`/blogs/${slug}`), 2000)
       } else {
@@ -621,7 +605,7 @@ export default function StudioPage() {
                       </Link>
                     </div>
                     <div className="mt-3 text-xs text-muted-foreground space-y-1">
-                      <p>💡 <strong>Pro tip:</strong> Generate multiple image variations by tweaking the prompt on create.gashotech.com's Media tab. You can also create animations, product mockups, and social media visuals.</p>
+                      <p>💡 <strong>Pro tip:</strong> Generate multiple image variations by tweaking the prompt on create.gashotech.com&apos;s Media tab. You can also create animations, product mockups, and social media visuals.</p>
                     </div>
                   </div>
                 </div>
