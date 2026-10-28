@@ -6,6 +6,12 @@ import Link from "next/link"
 import { blogPosts } from "@/lib/blogs"
 import { Plus, Edit3, Trash2, ExternalLink, LogOut, Lock } from "lucide-react"
 import type { BlogPost } from "@/lib/blogs"
+import {
+  clearAdminToken,
+  readAdminToken,
+  refreshAdminSession,
+  storeAdminToken,
+} from "@/lib/admin-client"
 
 interface BlogForm {
   title: string
@@ -27,8 +33,6 @@ const emptyForm: BlogForm = {
   published: true,
 }
 
-const TOKEN_KEY = "gashotech_admin_token"
-
 export default function BlogAdminPage() {
   const router = useRouter()
   const [token, setToken] = useState<string | null>(null)
@@ -42,12 +46,26 @@ export default function BlogAdminPage() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState({ text: "", type: "success" as "success" | "error" })
 
-  // Check for existing token on mount
+  // Restore a saved session on mount, extending it while it is still valid.
   useEffect(() => {
-    const saved = localStorage.getItem(TOKEN_KEY)
-    if (saved) {
-      setToken(saved)
-      setPosts(blogPosts)
+    const saved = readAdminToken()
+    if (!saved) return
+
+    // Restoring a persisted session is an external-system sync; this rule does
+    // not model localStorage reads, so the setters here are intentional.
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setToken(saved)
+    setPosts(blogPosts)
+    /* eslint-enable react-hooks/set-state-in-effect */
+
+    let cancelled = false
+    refreshAdminSession().then((extended) => {
+      if (cancelled || extended) return
+      setToken(null)
+      setLoginError("Your session expired. Sign in again.")
+    })
+    return () => {
+      cancelled = true
     }
   }, [])
 
@@ -64,13 +82,20 @@ export default function BlogAdminPage() {
       })
 
       if (!res.ok) {
-        setLoginError("Invalid password")
+        const wait = res.headers.get("Retry-After")
+        setLoginError(
+          res.status === 429
+            ? `Too many failed attempts. Try again in ${wait ? `${wait} seconds` : "a few minutes"}.`
+            : res.status === 503
+              ? "Admin login is not configured on the server."
+              : "Invalid password"
+        )
         setLoggingIn(false)
         return
       }
 
       const data = await res.json()
-      localStorage.setItem(TOKEN_KEY, data.token)
+      storeAdminToken(data.token)
       setToken(data.token)
       setPosts(blogPosts)
     } catch {
@@ -81,7 +106,7 @@ export default function BlogAdminPage() {
   }
 
   const handleLogout = () => {
-    localStorage.removeItem(TOKEN_KEY)
+    clearAdminToken()
     setToken(null)
     setPassword("")
   }
@@ -111,6 +136,13 @@ export default function BlogAdminPage() {
         body: JSON.stringify(newPost),
       })
       const data = await res.json()
+      if (res.status === 401) {
+        clearAdminToken()
+        setToken(null)
+        setLoginError("Your session expired. Sign in again.")
+        setSaving(false)
+        return
+      }
       if (res.ok) {
         setMessage({ text: editingSlug ? "Blog post updated! Changes pushed to GitHub." : "Blog post created! Changes pushed to GitHub.", type: "success" })
         setShowForm(false)
@@ -141,6 +173,10 @@ export default function BlogAdminPage() {
         setPosts((p) => p.filter((b) => b.slug !== slug))
         setMessage({ text: "Post deleted and committed to GitHub.", type: "success" })
         setTimeout(() => setMessage({ text: "", type: "success" }), 3000)
+      } else if (res.status === 401) {
+        clearAdminToken()
+        setToken(null)
+        setLoginError("Your session expired. Sign in again.")
       } else {
         const data = await res.json()
         setMessage({ text: data.error || "Delete failed", type: "error" })
