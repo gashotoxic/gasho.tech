@@ -4,6 +4,13 @@ import { commitBlogChanges, commitImage, readBlogFile, type BlogFileSnapshot } f
 import { buildNewPost, normalizeSlug } from '@/lib/blog-post-update'
 import { publishPostToStore, type PostStore } from '@/lib/blog-publish'
 
+/**
+ * Stored hero images live under `public/images`. Anything else (an off-site URL,
+ * a traversal, a data: URI) is not a file this site serves, and `next/image`
+ * would fail on it at render time — so it never reaches the post.
+ */
+const SAFE_IMAGE_PATH = /^\/images\/[A-Za-z0-9._\-\/]+$/
+
 export interface PublishRequest {
   title: string
   excerpt: string
@@ -45,10 +52,18 @@ export async function POST(request: Request) {
 
     // Step 1: Commit image to GitHub (a post may have no generated image; the
     // post list write below is the part that must never be skipped)
-    let imagePath = body.imagePath || '/images/AI.webp'
+    //
+    // `imagePath` is stored as the post's hero image and reaches `next/image`, so
+    // an off-site or malformed value would break the rendered page rather than
+    // just look wrong. Keep the house default instead of trusting the body.
+    const requestedImagePath = typeof body.imagePath === 'string' ? body.imagePath : ''
+    if (requestedImagePath && !SAFE_IMAGE_PATH.test(requestedImagePath)) {
+      console.warn('Ignoring unusable imagePath:', requestedImagePath)
+    }
+    let imagePath = SAFE_IMAGE_PATH.test(requestedImagePath) ? requestedImagePath : '/images/AI.webp'
     let imageCommitted = false
 
-    if (body.imageData && body.imageData.trim()) {
+    if (typeof body.imageData === 'string' && body.imageData.trim()) {
       const imageResult = await commitImage(
         body.imageData,
         `public/images/blog/${slug}.webp`,

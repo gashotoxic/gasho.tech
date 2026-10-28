@@ -275,7 +275,27 @@ const SAFE_LINK_HREF = /^(?:https?:\/\/|mailto:|tel:|\/(?!\/)|#|\.{1,2}\/)/i
 function safeLinkHref(href: string): string | null {
   const candidate = href.trim()
   if (!candidate) return null
-  return SAFE_LINK_HREF.test(candidate) ? candidate : null
+
+  // Browsers fold `\` to `/` for special schemes, so `/\evil.example` passes a
+  // "starts with one slash" test yet resolves to `https://evil.example/`. No
+  // legitimate target contains a backslash; refuse the whole class.
+  if (candidate.includes('\\')) return null
+
+  if (!SAFE_LINK_HREF.test(candidate)) return null
+
+  // Belt and braces: resolve the candidate and reject anything that leaves the
+  // site without naming a scheme we allow. The regex above is the policy; the
+  // parser is the check that the policy actually held.
+  try {
+    const base = 'https://gashotech.com/'
+    const resolved = new URL(candidate, base)
+    const namesScheme = /^(?:https?:|mailto:|tel:)/i.test(candidate)
+    if (!namesScheme && resolved.origin !== new URL(base).origin) return null
+  } catch {
+    return null
+  }
+
+  return candidate
 }
 
 export function renderMarkdown(md: string): string {

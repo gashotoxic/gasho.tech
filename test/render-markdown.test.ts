@@ -79,6 +79,17 @@ test("only same-page and named-scheme targets become links", () => {
   assert.ok(!/href=/.test(html), `protocol-relative href survived: ${html}`)
 })
 
+test("a backslash cannot smuggle an off-site link past the path allowlist", () => {
+  // Browsers fold `\` to `/` for special schemes, so `/\evil.example` looks like
+  // a same-site path to a regex but resolves to https://evil.example/ in the URL
+  // parser — a trusted-domain link smuggle. No legitimate target has a backslash.
+  for (const href of ["/\\evil.example/login", "/\\//evil.example", "\\\\evil.example/login", "/\\/\\evil.example"]) {
+    const html = renderMarkdown(`[x](${href})`)
+    assert.ok(!/href=/.test(html), `backslash href survived: ${href} -> ${html}`)
+    assert.ok(html.includes("x"), html)
+  }
+})
+
 test("ordinary markdown still renders", () => {
   const html = renderMarkdown(
     [
