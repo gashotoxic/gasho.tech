@@ -1,6 +1,8 @@
 // GitHub API utility for persisting blog data across Vercel deploys
 // Uses GH_TOKEN env var to commit changes to data/blogs.json
 
+import type { BlogPostShape } from "./blog-post-update.ts"
+
 const GITHUB_TOKEN = process.env.GH_TOKEN
 const REPO_OWNER = "gashotoxic"
 const REPO_NAME = "gasho.tech"
@@ -12,11 +14,65 @@ interface GitHubCommitResult {
   sha?: string
   url?: string
   error?: string
+  /** HTTP status from the API when the write failed (409 = sha conflict). */
+  status?: number
+}
+
+export interface BlogFileSnapshot {
+  posts: BlogPostShape[]
+  sha?: string
+  /** True when `data/blogs.json` does not exist yet (first ever publish). */
+  missing?: boolean
+}
+
+/**
+ * Read the live `data/blogs.json` from the repository — the source of truth for
+ * anything that rewrites the file (the deployed copy is a build-time snapshot).
+ *
+ * Throws when the file cannot be read; callers that write MUST NOT fall back to
+ * an empty list, because publishing on top of an unknown post list is how one
+ * publish destroys every other post.
+ */
+export async function readBlogFile(): Promise<BlogFileSnapshot> {
+  if (!GITHUB_TOKEN) {
+    throw new Error("GH_TOKEN not set")
+  }
+
+  const apiUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`
+  const res = await fetch(`${apiUrl}?ref=${BRANCH}`, {
+    headers: {
+      Authorization: `Bearer ${GITHUB_TOKEN}`,
+      Accept: "application/vnd.github.v3+json",
+    },
+  })
+
+  // A missing file is a legitimate empty archive (first ever publish).
+  if (res.status === 404) return { posts: [], missing: true }
+  if (!res.ok) throw new Error(`GitHub read failed: ${res.status}`)
+
+  const file = await res.json()
+  const encoded = typeof file.content === "string" ? file.content : ""
+  const raw =
+    file.encoding === "base64"
+      ? Buffer.from(encoded, "base64").toString("utf-8")
+      : encoded
+
+  const parsed = JSON.parse(raw) as unknown
+  const posts = Array.isArray(parsed)
+    ? parsed
+    : (parsed as { posts?: unknown } | null)?.posts
+
+  if (!Array.isArray(posts)) {
+    throw new Error("data/blogs.json does not contain a post list")
+  }
+
+  return { posts: posts as BlogPostShape[], sha: file.sha }
 }
 
 export async function commitBlogChanges(
   content: string,
-  commitMessage: string
+  commitMessage: string,
+  expectedSha?: string
 ): Promise<GitHubCommitResult> {
   if (!GITHUB_TOKEN) {
     return { success: false, error: "GH_TOKEN not set" }
@@ -25,20 +81,32 @@ export async function commitBlogChanges(
   const apiUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`
 
   try {
-    // Step 1: Get current file SHA
-    const getRes = await fetch(`${apiUrl}?ref=${BRANCH}`, {
-      headers: {
-        Authorization: `Bearer ${GITHUB_TOKEN}`,
-        Accept: "application/vnd.github.v3+json",
-      },
-    })
+    // Step 1: Get current file SHA.
+    // A caller that just read the file passes the SHA it read, so a commit that
+    // lands in between fails loudly (409) instead of being silently overwritten.
+    let currentSha: string | undefined = expectedSha
 
-    if (!getRes.ok) {
-      return { success: false, error: `Failed to fetch current file: ${getRes.status}` }
+    if (!currentSha) {
+      const getRes = await fetch(`${apiUrl}?ref=${BRANCH}`, {
+        headers: {
+          Authorization: `Bearer ${GITHUB_TOKEN}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      })
+
+      // 404 = the file does not exist yet, so this PUT creates it (no `sha`).
+      // Any other failure is reported instead of guessed at.
+      if (getRes.status !== 404) {
+        if (!getRes.ok) {
+          return {
+            success: false,
+            error: `Failed to fetch current file: ${getRes.status}`,
+            status: getRes.status,
+          }
+        }
+        currentSha = (await getRes.json()).sha as string
+      }
     }
-
-    const currentFile = await getRes.json()
-    const currentSha = currentFile.sha
 
     // Step 2: Commit updated content
     const commitRes = await fetch(apiUrl, {
@@ -58,7 +126,11 @@ export async function commitBlogChanges(
 
     if (!commitRes.ok) {
       const err = await commitRes.text()
-      return { success: false, error: `Commit failed: ${commitRes.status} - ${err}` }
+      return {
+        success: false,
+        error: `Commit failed: ${commitRes.status} - ${err}`,
+        status: commitRes.status,
+      }
     }
 
     const result = await commitRes.json()
