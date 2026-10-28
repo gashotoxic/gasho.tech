@@ -34,6 +34,7 @@ function fixture(fields: {
   readmeUrl?: string
   hostingUrl?: string
   title?: string
+  linkLabels?: Partial<Record<"live" | "video" | "repo" | "readme" | "hosting", string>>
 } = {}): Project {
   return {
     slug: "fixture",
@@ -47,6 +48,7 @@ function fixture(fields: {
     githubUrl: fields.githubUrl ?? "",
     readmeUrl: fields.readmeUrl ?? "",
     demoVideoUrl: fields.demoVideoUrl ?? "",
+    linkLabels: fields.linkLabels,
     status: "preview",
     tier1: { ...EMPTY_TIER1 },
   }
@@ -179,5 +181,81 @@ test("the shipped data never produces a non-http(s) href, and every card link is
     }
     const positions = projectLinks(project, CARD_LINK_KINDS).map((link) => order.get(link.kind))
     assert.deepEqual(positions, [...positions].sort((a, b) => Number(a) - Number(b)), `${project.slug}: links must render live → video → repo`)
+  }
+})
+
+// ---------------------------------------------------------------------------
+// Label overrides + label in name (WCAG 2.5.3) — review R-PR39 LOW/MEDIUM-4
+// ---------------------------------------------------------------------------
+
+test("a slot label can be overridden, and the override reaches the accessible name", () => {
+  const links = projectLinks(
+    fixture({ liveUrl: LIVE, linkLabels: { live: "Tender dashboard" } }),
+  )
+  assert.equal(links[0].label, "Tender dashboard")
+  assert.match(links[0].ariaLabel, /Tender dashboard/, "aria-label must contain the visible label")
+})
+
+test("the tender dashboard is labelled for what it is, not 'Live demo'", () => {
+  const tender = projects.find((project) => project.slug === "tender-rfq-finder")
+  assert.ok(tender, "tender-rfq-finder must exist in the shipped data")
+  const live = projectLinks(tender).find((link) => link.kind === "live")
+  assert.ok(live, "the tender entry must expose its live slot")
+  assert.equal(live.label, "Tender dashboard")
+  assert.equal(live.href, "https://gashotech.com/tenders", "the owner-confirmed destination is unchanged")
+})
+
+test("every rendered link's accessible name contains its visible label (2.5.3 label in name)", () => {
+  for (const project of projects) {
+    for (const link of projectLinks(project)) {
+      assert.ok(
+        link.ariaLabel.toLowerCase().includes(link.label.toLowerCase()),
+        `${project.slug}:${link.kind} aria-label "${link.ariaLabel}" must contain the visible label "${link.label}"`,
+      )
+    }
+  }
+})
+
+test("hosting names the hosting page in its accessible name", () => {
+  const links = projectLinks(fixture({ hostingUrl: "https://vercel.com/dashboard/example" }))
+  assert.equal(links.length, 1)
+  assert.equal(links[0].label, "Hosting")
+  assert.match(links[0].ariaLabel, /hosting page/)
+})
+
+// ---------------------------------------------------------------------------
+// URL hygiene — review R-PR39 OPTIONAL
+// ---------------------------------------------------------------------------
+
+test("trailing-slash variants of one destination collapse to a single link", () => {
+  const links = projectLinks(
+    fixture({ liveUrl: "https://demo.example.com/tenders", hostingUrl: "https://demo.example.com/tenders/" }),
+  )
+  assert.equal(links.length, 1)
+  assert.equal(links[0].kind, "live")
+})
+
+test("control characters and backslashes are never renderable", () => {
+  const refused = [
+    "https://example.com/a\\b",
+    "https://example.com/a\u0000b",
+    "https://example.com/a\u001fb",
+    "https://example.com/a\u007fb",
+  ]
+  for (const value of refused) {
+    assert.equal(isRenderableUrl(value), false, `${JSON.stringify(value)} must be refused`)
+  }
+})
+
+test("invisible directional and zero-width characters are never renderable", () => {
+  const refused = [
+    "https://example.com/\u061cgnp", // ALM
+    "https://example.com/\u200egnp", // LRM
+    "https://example.com/\u200fgnp", // RLM
+    "https://example.com/\u200bgnp", // zero-width space
+    "https://example.com/a\u0085b", // NEL
+  ]
+  for (const value of refused) {
+    assert.equal(isRenderableUrl(value), false, `${JSON.stringify(value)} must be refused`)
   }
 })

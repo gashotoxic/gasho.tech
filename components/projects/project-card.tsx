@@ -8,7 +8,7 @@ import { ProjectLinks } from "@/components/projects/project-links"
  * Card contract: title, one-liner, then the demo links — live demo, video demo, GitHub —
  * with anything missing simply absent (see `CARD_LINK_KINDS` / `projectLinks()`). The link
  * row is always rendered with its own reserved height (`mt-auto` + `ProjectLinks`
- * `min-h-5`), so a card whose links are still empty occupies the same footprint as one with
+ * `min-h-7`), so a card whose links are still empty occupies the same footprint as one with
  * links: no layout shift, no empty button.
  */
 export function ProjectCard({ project }: { project: Project }) {

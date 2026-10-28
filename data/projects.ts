@@ -90,6 +90,13 @@ interface ProjectBase {
   readmeUrl: string; // 5-minute architecture README
   demoVideoUrl: string; // explainer / demo video (YouTube, X, or a self-hosted mp4); the fallback demo when nothing is hosted
   /**
+   * Optional visible-label override per slot, for a destination whose honest name is not the
+   * generic one — e.g. a `liveUrl` that is a dashboard, not a demo. The accessible name is
+   * built from the resolved label, so an override keeps WCAG 2.5.3 (label in name) intact.
+   * Read only by `projectLinks()`; the defaults live in `LINK_LABELS`.
+   */
+  linkLabels?: Partial<Record<ProjectLinkKind, string>>;
+  /**
    * Optional per-check note. Only set for checks that are `false`, and only to say WHY —
    * "missing" (does not exist yet) vs "unverified" (exists but not demonstrated). Never
    * set a note for a check marked `true`: a passing check needs evidence, not prose.
@@ -165,12 +172,27 @@ const LINK_LABELS: Record<ProjectLinkKind, string> = {
   hosting: "Hosting",
 };
 
-const LINK_ARIA: Record<ProjectLinkKind, (title: string) => string> = {
-  live: (title) => `${title} — open the live demo in a new tab`,
-  video: (title) => `${title} — watch the video demo in a new tab`,
-  repo: (title) => `${title} — view the source code on GitHub in a new tab`,
-  readme: (title) => `${title} — read the architecture README in a new tab`,
-  hosting: (title) => `${title} — see where it is hosted, in a new tab`,
+/** The stored field behind each slot — validation errors name the FIELD, so they grep. */
+const LINK_FIELDS: Record<ProjectLinkKind, string> = {
+  live: "liveUrl",
+  video: "demoVideoUrl",
+  repo: "githubUrl",
+  readme: "readmeUrl",
+  hosting: "hosting.url",
+};
+
+/**
+ * Accessible name per slot. The resolved visible label is interpolated VERBATIM into the
+ * name, so WCAG 2.5.3 (label in name) holds for the defaults AND for a project that overrides
+ * one — an accessible name that does not contain the visible text breaks voice control
+ * ("click Tender dashboard").
+ */
+const LINK_ARIA: Record<ProjectLinkKind, (title: string, label: string) => string> = {
+  live: (title, label) => `${title} — ${label} (opens in a new tab)`,
+  video: (title, label) => `${title} — ${label} (opens in a new tab)`,
+  repo: (title, label) => `${title} — ${label}: view the source code (opens in a new tab)`,
+  readme: (title, label) => `${title} — ${label}: read the architecture (opens in a new tab)`,
+  hosting: (title, label) => `${title} — ${label}: open the hosting page (opens in a new tab)`,
 };
 
 /**
@@ -179,14 +201,17 @@ const LINK_ARIA: Record<ProjectLinkKind, (title: string) => string> = {
  * This is the only place the question is answered for hrefs: `validateProjects()` uses it to
  * fail the build on a placeholder, and the UI uses it to drop a link instead of rendering a
  * dead one. Credentials in the authority (`https://user:pass@host`) are refused: they would
- * hand a password to anyone who clicks, and nothing here ever needs them. `<`, `>`, `"` and
- * the bidi control characters are refused too, so a URL-shaped string can never smuggle
- * markup into a sink that does not escape (JSON-LD is serialized via `toJsonLd()` as well).
+ * hand a password to anyone who clicks, and nothing here ever needs them. `<`, `>`, `"`, the
+ * bidi controls (U+061C, U+200E/F, U+202A–E, U+2066–9), zero-width and other invisible
+ * formatting characters (U+200B, U+0085), ASCII control characters and the backslash are
+ * refused too, so a URL-shaped string can never smuggle markup into a sink that does not
+ * escape (JSON-LD is serialized via `toJsonLd()` as well) and cannot be read as a different
+ * URL than the one written — browsers normalize `\` to `/`.
  */
 export function isRenderableUrl(raw: string | undefined): boolean {
   const value = (raw ?? "").trim();
   if (!/^https?:\/\/\S+\.\S+$/i.test(value)) return false;
-  if (/[<>"\u202a-\u202e\u2066-\u2069]/.test(value)) return false;
+  if (/[<>"\\\u0000-\u001f\u007f\u0085\u061c\u200b\u200e\u200f\u202a-\u202e\u2066-\u2069]/.test(value)) return false;
   const authority = value.replace(/^https?:\/\//i, "").split(/[/?#]/, 1)[0];
   return !authority.includes("@");
 }
@@ -211,8 +236,9 @@ function linkSlots(
  * branched, a project that is not hosted shows its video demo exactly where the live demo
  * would have been, a project with both shows both (live first), and a project with neither
  * yields an empty list — which the component renders as reserved whitespace, not a button.
- * Identical hrefs collapse to the first (highest-priority) slot, so `hosting.url` pointing
- * at the same page as `liveUrl` does not produce two links to one destination.
+ * Identical destinations collapse to the first (highest-priority) slot — compared with the
+ * trailing slash normalized away, so `hosting.url` pointing at `…/tenders/` while `liveUrl`
+ * points at `…/tenders` does not produce two links to one page.
  */
 export function projectLinks(
   project: Project,
@@ -224,16 +250,23 @@ export function projectLinks(
   for (const [kind, raw] of linkSlots(project)) {
     if (!wanted.has(kind) || !isRenderableUrl(raw)) continue;
     const href = (raw as string).trim();
-    if (seen.has(href)) continue;
-    seen.add(href);
+    const destination = normalizeHref(href);
+    if (seen.has(destination)) continue;
+    seen.add(destination);
+    const label = project.linkLabels?.[kind]?.trim() || LINK_LABELS[kind];
     links.push({
       kind,
-      label: LINK_LABELS[kind],
+      label,
       href,
-      ariaLabel: LINK_ARIA[kind](project.title),
+      ariaLabel: LINK_ARIA[kind](project.title, label),
     });
   }
   return links;
+}
+
+/** Two hrefs that differ only by trailing slashes are the same destination. */
+function normalizeHref(href: string): string {
+  return href.replace(/\/+$/, "") || href;
 }
 
 // ---------------------------------------------------------------------------
@@ -349,11 +382,11 @@ export function validateProjects(entries: readonly Project[]): void {
     // absolute http(s) URL (user directive 2026-10-28). A "n/a", a "TODO", a bare path or a
     // half-typed "https://" is a dead href on a public card, so it fails the build here
     // rather than being silently dropped by the renderer.
-    for (const [field, raw] of linkSlots(entry)) {
+    for (const [kind, raw] of linkSlots(entry)) {
       const value = (raw ?? "").trim();
       if (value !== "" && !isRenderableUrl(value)) {
         throw new Error(
-          `projects.ts: "${label}" — ${field} must be empty or a real absolute http(s) url ` +
+          `projects.ts: "${label}" — ${LINK_FIELDS[kind]} must be empty or a real absolute http(s) url ` +
             `(got ${JSON.stringify(raw ?? "")}) — a missing link is hidden, never faked.`,
         );
       }
@@ -520,8 +553,12 @@ export const projects: Project[] = [
       routing: "One command: fetch → parse → score → ranked report + bid drafts",
     },
     // Live surface: the pipeline's ranked tender dashboard is published on this site and
-    // renders publicly, so it is linked as the live demo.
+    // renders publicly, so it is linked as the live slot — labelled "Tender dashboard", not
+    // "Live demo", because the snapshot behind it is refreshed by a separate cron and its
+    // `lastRefreshed` can be days old. Calling it a demo would export a freshness claim this
+    // page cannot back (the stale-snapshot repair is tracked outside this repo).
     liveUrl: "https://gashotech.com/tenders",
+    linkLabels: { live: "Tender dashboard" },
     hosting: { provider: "Self-hosted script", plan: "n/a", region: "n/a", url: "" },
     // Repo is not public: a link nobody can open helps nobody, so it stays empty and hidden
     // until the repo is actually made public.

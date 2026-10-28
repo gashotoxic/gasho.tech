@@ -20,9 +20,11 @@ const VARIANTS: Record<ProjectLinksVariant, { item: string; live: string }> = {
     item: "text-muted-foreground hover:text-[#1abc9c]",
     live: "text-[#1abc9c] hover:text-[#16a085]",
   },
+  // `text-sm` is part of the hero variant on purpose: the hero inherits the jumbotron's
+  // larger base size, so without it the link row renders at roughly double the card size.
   hero: {
-    item: "text-white hover:text-[#094d3e]",
-    live: "text-white hover:text-[#094d3e]",
+    item: "text-sm text-white hover:text-[#094d3e]",
+    live: "text-sm text-white hover:text-[#094d3e]",
   },
 }
 
@@ -35,17 +37,18 @@ interface ProjectLinksProps {
 /**
  * The demo links for one project, rendered from `projectLinks()`.
  *
- * The wrapper is ALWAYS rendered and reserves one line (`min-h-5`), so a card with no links
- * yet and a card with one sit in the same box — nothing jumps as the data fills in. A link
- * whose URL is missing is simply not in `links`, so there is no empty button and no dead
- * href. Every anchor opens in a new tab with `rel="noopener noreferrer"` and carries an
- * accessible name naming the project, the destination and the new-tab behaviour.
+ * The wrapper is ALWAYS rendered and reserves one line (`min-h-7` = 28px, above a `text-sm`
+ * line at the 1.8 line-height, 25.2px), so a card with no links yet and a card with one sit
+ * in the same box — nothing jumps as the data fills in. A link whose URL is missing is
+ * simply not in `links`, so there is no empty button and no dead href. Every anchor opens in
+ * a new tab with `rel="noopener noreferrer"` and carries an accessible name naming the
+ * project, the destination and the new-tab behaviour.
  */
 export function ProjectLinks({ links, variant = "card", className }: ProjectLinksProps) {
   const styles = VARIANTS[variant]
   return (
     <div
-      className={cn("flex flex-wrap items-center gap-x-5 gap-y-2 min-h-5", className)}
+      className={cn("flex flex-wrap items-center gap-x-5 gap-y-2 min-h-7", className)}
       data-project-links={links.length}
     >
       {links.map((link) => {
