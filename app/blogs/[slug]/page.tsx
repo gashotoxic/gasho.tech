@@ -54,6 +54,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
+/**
+ * JSON-LD is injected into a `<script>` element. `JSON.stringify` leaves raw `<`
+ * alone, so a stored title containing `</script>` would close the element and
+ * turn post text into live markup. Escaping `<` as the JSON escape `\u003c` keeps
+ * the payload valid JSON and inert.
+ */
+function safeJsonLd(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, "\\u003c")
+}
+
 function formatContent(content: string): string {
   return renderMarkdown(content)
     .replace(/<h1>/g, '<h1 class="text-3xl font-bold mt-8 mb-4">')
@@ -76,7 +86,7 @@ export default async function BlogPostPage({ params }: Props) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: safeJsonLd({
             "@context": "https://schema.org",
             "@type": "Article",
             headline: post.title,
