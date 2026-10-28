@@ -6,6 +6,7 @@ import {
   LOCKOUT_MAX_MS,
   LOGIN_MAX_FAILURES,
   LOGIN_WINDOW_MS,
+  MAX_TRACKED_KEYS,
   checkLoginAllowed,
   clientKey,
   recordLoginFailure,
@@ -117,6 +118,40 @@ test("an active lockout survives memory pressure from other clients", () => {
   }
 
   assert.equal(checkLoginAllowed(KEY, START).allowed, false)
+})
+
+test("a saturated tracker fails CLOSED instead of granting unlimited attempts", () => {
+  // Regression (review R2 / PR #27 head 5b579e9): with the map full of LIVE
+  // lockouts there was nothing to evict, and the limiter fell through to an
+  // untracked throwaway bucket. A brand-new key then got 50/50 login attempts
+  // instead of 5/50 — unlimited attempts exactly when the limiter was loaded.
+  // Fill the tracker to its cap with clients that are ALL currently locked out.
+  for (let i = 0; i < MAX_TRACKED_KEYS; i += 1) {
+    failTimes(`172.20.${i >> 8}.${i & 255}`, LOGIN_MAX_FAILURES, START)
+  }
+
+  const stranger = "192.0.2.201"
+  let allowedCount = 0
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const gate = checkLoginAllowed(stranger, START)
+    if (gate.allowed) allowedCount += 1
+    else {
+      // The delay must be honest: the earliest tracked lockout expires at
+      // START + LOCKOUT_BASE_MS, which is when a slot frees up again.
+      assert.equal(gate.retryAfterSeconds, LOCKOUT_BASE_MS / 1000)
+    }
+    recordLoginFailure(stranger, START)
+  }
+  assert.equal(
+    allowedCount,
+    0,
+    `saturated tracker let a new key try ${allowedCount}/50 times; must be 0 (fail closed)`
+  )
+
+  // The denial must not be a permanent "deny everyone" either: once the earliest
+  // lockouts expire the buckets are swept and new keys are tracked again.
+  const afterLockoutsExpire = START + LOCKOUT_BASE_MS + 1
+  assert.equal(checkLoginAllowed("192.0.2.202", afterLockoutsExpire).allowed, true)
 })
 
 test("clientKey uses the last x-forwarded-for hop, not the caller's first entry", () => {
