@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
 import { services } from "@/data/services"
+import { toJsonLd } from "@/lib/json-ld"
 import { notFound } from "next/navigation"
 
 const serviceContent: Record<string, { title: string; overview: string; benefits: string[]; features: { title: string; desc: string }[]; useCases: { title: string; desc: string }[] }> = {
@@ -239,11 +240,11 @@ export default async function ServicePage({ params }: Props) {
       {/* JSON-LD Structured Data */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }}
+        dangerouslySetInnerHTML={{ __html: toJsonLd(serviceSchema) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+        dangerouslySetInnerHTML={{ __html: toJsonLd(faqSchema) }}
       />
 
       {/* Breadcrumb Navigation */}
