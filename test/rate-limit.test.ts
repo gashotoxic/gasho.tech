@@ -100,6 +100,25 @@ test("tracked clients stay bounded under a flood of distinct IPs", () => {
   assert.equal(typeof gate.retryAfterSeconds, "number")
 })
 
+test("an active lockout survives memory pressure from other clients", () => {
+  // Fill the tracker to its cap with distinct clients that each have a failure.
+  for (let i = 0; i < 5000; i += 1) {
+    recordLoginFailure(`172.16.${i >> 8}.${i & 255}`, START)
+  }
+
+  // Lock one client out...
+  failTimes(KEY, LOGIN_MAX_FAILURES, START)
+  assert.equal(checkLoginAllowed(KEY, START).allowed, false)
+
+  // ...then push enough new clients through to force eviction. Eviction must
+  // never drop a bucket that is currently locked out.
+  for (let i = 0; i < 20; i += 1) {
+    recordLoginFailure(`10.99.${i}.1`, START)
+  }
+
+  assert.equal(checkLoginAllowed(KEY, START).allowed, false)
+})
+
 test("clientKey uses the last x-forwarded-for hop, not the caller's first entry", () => {
   const spoofed = new Request("https://gashotech.com/api/blogs/login", {
     headers: { "x-forwarded-for": "1.2.3.4, 203.0.113.7" },

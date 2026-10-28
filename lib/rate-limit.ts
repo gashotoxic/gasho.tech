@@ -61,17 +61,32 @@ function sweep(now: number): void {
 }
 
 function getBucket(key: string, now: number): Bucket {
-  let bucket = buckets.get(key)
-  if (!bucket) {
-    if (buckets.size >= MAX_TRACKED_KEYS) sweep(now)
-    if (buckets.size >= MAX_TRACKED_KEYS) {
-      const oldest = buckets.keys().next()
-      if (!oldest.done) buckets.delete(oldest.value)
-    }
-    bucket = freshBucket()
-    buckets.set(key, bucket)
+  const existing = buckets.get(key)
+  if (existing) {
+    pruneBucket(existing, now)
+    return existing
   }
-  pruneBucket(bucket, now)
+
+  if (buckets.size >= MAX_TRACKED_KEYS) {
+    sweep(now)
+    if (buckets.size >= MAX_TRACKED_KEYS) {
+      // Evict the insertion-oldest bucket that is NOT currently locked out.
+      // Dropping a live lockout would hand that client a fresh window, so when
+      // every tracked bucket is locked we fail open instead of evicting one.
+      let evictable: string | null = null
+      for (const [candidate, bucket] of buckets) {
+        if (bucket.lockedUntil <= now) {
+          evictable = candidate
+          break
+        }
+      }
+      if (evictable === null) return freshBucket()
+      buckets.delete(evictable)
+    }
+  }
+
+  const bucket = freshBucket()
+  buckets.set(key, bucket)
   return bucket
 }
 

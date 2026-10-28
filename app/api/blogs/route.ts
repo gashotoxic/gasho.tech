@@ -2,22 +2,13 @@ import { promises as fs } from "fs"
 import path from "path"
 import { NextResponse } from "next/server"
 import { verifyToken } from "@/lib/auth"
+import { applyPostUpdate, buildNewPost, normalizeSlug, type BlogPostShape } from "@/lib/blog-post-update"
 import { commitBlogChanges } from "@/lib/github"
 
 const DATA_FILE = path.join(process.cwd(), "data", "blogs.json")
 const CACHE_FILE = "/tmp/blogs.json"
 
-interface BlogPost {
-  slug: string
-  title: string
-  excerpt: string
-  content: string
-  author: string
-  category: string
-  date: string
-  image: string
-  published: boolean
-}
+type BlogPost = BlogPostShape
 
 function checkAuth(request: Request): boolean {
   const authHeader = request.headers.get("authorization")
@@ -25,21 +16,6 @@ function checkAuth(request: Request): boolean {
   return verifyToken(authHeader.slice(7))
 }
 
-/** Slugs feed routing, so normalise and bound them instead of trusting the body. */
-function normalizeSlug(input: unknown, fallback: string): string | null {
-  const raw = typeof input === "string" && input.trim() ? input : fallback
-  const slug = raw
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "")
-  if (!slug || slug.length > 120) return null
-  return slug
-}
-
-function asString(value: unknown, fallback: string): string {
-  return typeof value === "string" && value.trim() ? value : fallback
-}
 
 async function readPosts(): Promise<BlogPost[]> {
   try {
@@ -76,17 +52,18 @@ export async function POST(request: Request) {
   }
 
   try {
-    const post: BlogPost = await request.json()
-    if (!post || typeof post !== "object") {
+    const raw = await request.json()
+    if (!raw || typeof raw !== "object") {
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
     }
-    if (!post.title || !post.content) {
+    const candidate = raw as Record<string, unknown>
+    if (typeof candidate.title !== "string" || typeof candidate.content !== "string") {
       return NextResponse.json({ error: "Title and content are required" }, { status: 400 })
     }
 
     const posts = await readPosts()
-    const derivedSlug = post.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
-    const slug = normalizeSlug(post.slug, derivedSlug)
+    const derivedSlug = candidate.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
+    const slug = normalizeSlug(candidate.slug, derivedSlug)
     if (!slug) {
       return NextResponse.json({ error: "Invalid slug" }, { status: 400 })
     }
@@ -95,16 +72,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "A post with this slug already exists" }, { status: 409 })
     }
 
-    const newPost: BlogPost = {
-      slug,
-      title: post.title,
-      excerpt: post.excerpt || post.title,
-      content: post.content,
-      author: post.author || "GashoTech Team",
-      category: post.category || "Technology",
-      date: new Date().toISOString().split("T")[0],
-      image: post.image || "/images/AI.webp",
-      published: post.published ?? true,
+    const newPost = buildNewPost(candidate, slug)
+    if (!newPost) {
+      return NextResponse.json({ error: "Title and content are required" }, { status: 400 })
     }
 
     posts.push(newPost)
@@ -133,13 +103,14 @@ export async function PUT(request: Request) {
   }
 
   try {
-    const updated: BlogPost = await request.json()
-    if (!updated || typeof updated !== "object" || !updated.slug) {
+    const raw = await request.json()
+    if (!raw || typeof raw !== "object") {
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
     }
+    const body = raw as Record<string, unknown>
 
     const posts = await readPosts()
-    const slug = normalizeSlug(updated.slug, "")
+    const slug = normalizeSlug(body.slug, "")
     const index = slug ? posts.findIndex((p) => p.slug === slug) : -1
 
     if (index === -1) {
@@ -148,24 +119,13 @@ export async function PUT(request: Request) {
 
     // Field-by-field: the caller may not rewrite the slug, the date, or inject
     // arbitrary keys into the stored post.
-    const existing = posts[index]
-    posts[index] = {
-      slug: existing.slug,
-      title: asString(updated.title, existing.title),
-      excerpt: asString(updated.excerpt, existing.excerpt),
-      content: asString(updated.content, existing.content),
-      author: asString(updated.author, existing.author),
-      category: asString(updated.category, existing.category),
-      date: existing.date,
-      image: asString(updated.image, existing.image),
-      published:
-        typeof updated.published === "boolean" ? updated.published : existing.published,
-    }
+    posts[index] = applyPostUpdate(posts[index], body)
+    const saved = posts[index]
     const jsonContent = JSON.stringify({ posts }, null, 2)
 
     await cachePosts(posts)
 
-    const result = await commitBlogChanges(jsonContent, `feat(blog): update post "${updated.title}"`)
+    const result = await commitBlogChanges(jsonContent, `feat(blog): update post "${saved.title}"`)
     if (!result.success) {
       console.error("GitHub commit failed:", result.error)
       return NextResponse.json({ error: "Could not commit the change to GitHub. Check server logs." }, { status: 500 })
