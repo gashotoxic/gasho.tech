@@ -1,19 +1,19 @@
 name: CI
 
-# Every branch, not only PRs into main: the stacked-PR train (#40 → #41 → #42 →
-# #43 …) targets other feature branches, so `branches: [main, master]` meant the
-# unit suite never ran for the PRs that most needed it.
+# `pull_request` on every base branch, not only main/master: the stacked-PR
+# train (#40 → #41 → #42 → #43 …) targets other feature branches, so the unit
+# suite never ran for the PRs that most needed it.
+# `push` stays on the default branch on purpose — a push trigger on `**` would
+# run every job twice for any branch with an open PR (once for the push, once
+# for the pull_request event), including two full builds plus the canary's.
 on:
   push:
-    branches: ["**"]
+    branches: [main, master]
   pull_request:
     branches: ["**"]
 
-# One run per branch. The triggers above fire on both `push` and `pull_request`,
-# so without this a branch with an open PR runs the whole suite — three builds,
-# including the canary's — twice for every push. `head_ref` is set on pull_request
-# events and `ref_name` on push, so both events for a branch land in one group and
-# the newer one cancels the older.
+# Superseded runs of the same PR are cancelled: three builds per run, and only
+# the newest commit's result is the one anyone reads.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
