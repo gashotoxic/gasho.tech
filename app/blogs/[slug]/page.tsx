@@ -4,6 +4,7 @@ import Link from "next/link"
 import Image from "next/image"
 import type { BlogPost } from "@/lib/blogs"
 import { renderMarkdown } from "@/lib/studio-api"
+import { safeJsonLd } from "@/lib/escape"
 import { Calendar, Tag, ArrowLeft } from "lucide-react"
 
 interface Props {
@@ -55,14 +56,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 /**
- * JSON-LD is injected into a `<script>` element. `JSON.stringify` leaves raw `<`
- * alone, so a stored title containing `</script>` would close the element and
- * turn post text into live markup. Escaping `<` as the JSON escape `\u003c` keeps
- * the payload valid JSON and inert.
+ * JSON-LD is injected into a `<script>` element, so it goes through the shared
+ * escaper in `lib/escape.ts` (`<` -> `\u003c`) — `JSON.stringify` alone leaves a
+ * stored `</script>` able to close the element and turn post text into markup.
  */
-function safeJsonLd(value: unknown): string {
-  return JSON.stringify(value).replace(/</g, "\\u003c")
-}
 
 function formatContent(content: string): string {
   return renderMarkdown(content)
