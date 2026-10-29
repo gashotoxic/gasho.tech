@@ -192,6 +192,43 @@ export function verifyToken(token: unknown, now: number = Date.now()): boolean {
 }
 
 /**
+ * What an `Authorization` header says about the caller.
+ *
+ * The three cases are distinct on purpose, and every route must keep them
+ * distinct:
+ *
+ * - `anonymous` — no header. A public read: serve the published projection.
+ * - `invalid`   — a header that is present and does not verify (expired, forged,
+ *                 rotated password, `Bearer` typo, empty token). That is a
+ *                 *failed session*, not an anonymous visitor, and answering 200
+ *                 with the published projection hid expiry: the admin panel then
+ *                 showed a list with every draft missing and no "sign in again".
+ * - `admin`     — a valid session.
+ */
+export type AdminAuth = "admin" | "anonymous" | "invalid"
+
+/**
+ * Read the caller's admin state from the request.
+ *
+ * Routes must go through this (or `isAuthorizedRequest`) instead of comparing
+ * tokens or parsing the header themselves: the `/api/blogs` and
+ * `/api/studio/publish` copies had already drifted apart once.
+ */
+export function readAdminAuth(request: Request, now: number = Date.now()): AdminAuth {
+  const header = request.headers.get("authorization")
+  if (header === null) return "anonymous"
+  if (!header.startsWith("Bearer ")) return "invalid"
+  const token = header.slice("Bearer ".length).trim()
+  if (!token) return "invalid"
+  return verifyToken(token, now) ? "admin" : "invalid"
+}
+
+/** True only for a valid admin session (an invalid header is not a caller). */
+export function isAuthorizedRequest(request: Request, now: number = Date.now()): boolean {
+  return readAdminAuth(request, now) === "admin"
+}
+
+/**
  * Extend a still-valid session: new `iat`/`exp`, same `sess`, so the absolute
  * cap keeps applying. Returns null when the token is invalid or already capped.
  */

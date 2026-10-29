@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { readAdminAuth } from '@/lib/auth'
 import { callLLM } from '@/lib/studio-api'
 
 const SYSTEM_PROMPT = `You are a professional blog writer for GashoTech — an AI, Automation, and Cybersecurity company based in Nairobi, Kenya.
@@ -38,6 +39,12 @@ export interface WriteRequest {
 
 export async function POST(request: Request) {
   try {
+    // Auth gate before the body is read: a 4k-token LLM completion billed to the
+    // Chutes key is the whole body of this route.
+    if (readAdminAuth(request) !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body: WriteRequest = await request.json()
 
     if (!body.title || !body.excerpt || !body.topics || !body.category || !body.model || !body.provider) {

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { readAdminAuth } from '@/lib/auth'
 import { webSearch, callLLM } from '@/lib/studio-api'
 
 const SYSTEM_PROMPT = `You are the content strategist for GashoTech (AI, Automation, Cybersecurity in Nairobi, Kenya).
@@ -21,6 +22,12 @@ export interface ResearchRequest {
 
 export async function POST(request: Request) {
   try {
+    // Auth gate before the body is read: this route runs a web search and an LLM
+    // completion, both billed to the Chutes key.
+    if (readAdminAuth(request) !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body: ResearchRequest = await request.json()
 
     if (!body.query || !body.model || !body.provider) {
