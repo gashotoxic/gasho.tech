@@ -9,7 +9,7 @@ Root of the Next.js App Router. Contains route segments, server components, layo
 ## Ownership
 
 - `api/` — Route handlers (REST endpoints)
-- `blogs/` — Blog post dynamic routes (renders entries from `data/blogs.json`)
+- `blogs/` — Blog routes (index, post pages, admin panel, studio) over `data/blogs.json`
 - `feed.xml/` — RSS feed route
 - `llms.txt/` — `/llms.txt` route (LLM discovery file)
 - `privacy/` — Privacy policy page
