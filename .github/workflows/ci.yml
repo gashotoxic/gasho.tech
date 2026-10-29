@@ -17,9 +17,11 @@ on:
 # cancelling the first leaves that commit marked "cancelled" rather than tested —
 # exactly the commit that is now serving traffic. Keying the group on the event
 # type as well keeps a PR run and a push run of the same branch from evicting each
-# other (they mean different things: "does this PR pass?" vs "is main green?").
+# other (they mean different things: "does this PR pass?" vs "is main green?"), and
+# a PR is keyed by its *number*, not its branch name — a fork can name its branch
+# anything, and must not be able to cancel someone else's run by guessing it.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref_name }}
   cancel-in-progress: ${{ github.event_name != 'push' }}
 
 jobs:

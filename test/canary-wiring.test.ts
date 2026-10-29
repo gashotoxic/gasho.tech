@@ -33,10 +33,15 @@ function buildTree(files: Record<string, string>): string {
   return root
 }
 
-function withBuild<T>(files: Record<string, string>, run: (dir: string) => T): T {
+async function withBuild<T>(
+  files: Record<string, string>,
+  run: (dir: string) => T | Promise<T>
+): Promise<T> {
   const dir = buildTree(files)
   try {
-    return run(dir)
+    // Awaited: an async `main()` that scanned after an await would otherwise race
+    // the cleanup and flake.
+    return await run(dir)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -76,17 +81,15 @@ test("--help exits 0 without needing a build", async () => {
   assert.equal(await main(["--help"]), 0)
 })
 
-test("the CLI exits 0 for a clean tree", () => {
+test("the CLI exits 0 for a clean tree", () =>
   withBuild({ "static/chunks/app/page-abc.js": "self.__next_f.push('clean')" }, (dir) => {
     assert.equal(exitStatusFor(dir), 0)
-  })
-})
+  }))
 
-test("the CLI exits 1 for a leaking tree, so CI fails the job", () => {
+test("the CLI exits 1 for a leaking tree, so CI fails the job", () =>
   withBuild({ "server/app/page.html": `<script>${CANARY_MARKER}</script>` }, (dir) => {
     assert.equal(exitStatusFor(dir), 1)
-  })
-})
+  }))
 
 test("the CLI exits 2 when the build directory is missing", () => {
   const missing = path.join(os.tmpdir(), `canary-missing-${process.pid}-${Date.now()}-cli`)

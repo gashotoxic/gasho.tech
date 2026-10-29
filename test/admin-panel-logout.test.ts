@@ -69,7 +69,7 @@ test("the extractor and checker fail on a handler that only clears the token", (
   assert.deepEqual(missingResets(body), ["setPosts([])"], "the checker cannot see the missing reset")
 })
 
-test("handleLogout clears the archive as well as the session", () => {
+test("[wiring] handleLogout clears the archive as well as the session", () => {
   const source = readFileSync(ADMIN_PAGE, "utf-8")
   const body = functionBody(source, "handleLogout")
 
@@ -80,7 +80,7 @@ test("handleLogout clears the archive as well as the session", () => {
   )
 })
 
-test("the post list really does live in state (so the reset above is not vacuous)", () => {
+test("[wiring] the post list really does live in state (so the reset above is not vacuous)", () => {
   const source = readFileSync(ADMIN_PAGE, "utf-8")
   assert.match(source, /const \[posts, setPosts\] = useState<BlogPost\[\]>\(\[\]\)/)
 })
@@ -94,7 +94,7 @@ test("the post list really does live in state (so the reset above is not vacuous
  * whether it may still write). What is asserted here is only the wiring, because
  * a correct guard that the page never consults protects nothing.
  */
-test("sign-out invalidates any load that is still in flight", () => {
+test("[wiring] sign-out invalidates any load that is still in flight", () => {
   const source = readFileSync(ADMIN_PAGE, "utf-8")
   const body = functionBody(source, "handleLogout")
   assert.match(
@@ -104,7 +104,7 @@ test("sign-out invalidates any load that is still in flight", () => {
   )
 })
 
-test("loadPosts refuses to write state once its ticket is stale", () => {
+test("[wiring] loadPosts refuses to write state once its ticket is stale", () => {
   const source = readFileSync(ADMIN_PAGE, "utf-8")
   const body = functionBody(source, "loadPosts")
 
