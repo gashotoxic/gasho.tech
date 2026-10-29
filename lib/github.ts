@@ -1,6 +1,7 @@
 // GitHub API utility for persisting blog data across Vercel deploys
 // Uses GH_TOKEN env var to commit changes to data/blogs.json
 
+import { createHash } from "node:crypto"
 import type { BlogPostShape } from "./blog-post-update.ts"
 
 const GITHUB_TOKEN = process.env.GH_TOKEN
@@ -15,6 +16,59 @@ const FILE_PATH = "data/blogs.json"
  * instead of holding a request open until the platform kills it.
  */
 const REQUEST_TIMEOUT_MS = 8000
+
+/** Every call below is for this one repository. */
+const REPO_API = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}`
+
+/**
+ * The size ceiling on `data/blogs.json` — and it is not the 1 MB one people
+ * remember. GitHub's rules for the contents endpoint:
+ *
+ * - **≤ 1 MB** — the body comes back inline (base64) in one request.
+ * - **1–100 MB** — metadata only: `sha` and `size` are there, but `content` is
+ *   `""` and `encoding` is `"none"`. The body has to come from the Git blobs
+ *   endpoint, addressed by that sha.
+ * - **> 100 MB** — the endpoint is not supported at all. Nothing can read the
+ *   archive: every write 500s permanently and `GET /api/blogs` quietly serves the
+ *   deployed snapshot while admin edits fail.
+ *
+ * The archive was 565 KB / 73 posts when this was written: 62 posts of headroom
+ * against the *old* 1 MB assumption, which is why the real ceiling is worth
+ * naming now rather than discovering it a year from now. This constant turns that
+ * into a named failure with a fix in the message instead of a mystery 500.
+ */
+export const BLOG_FILE_MAX_BYTES = 100 * 1024 * 1024
+export const BLOG_FILE_WARN_BYTES = Math.floor(BLOG_FILE_MAX_BYTES * 0.8)
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${bytes} B`
+}
+
+/**
+ * Raised when `data/blogs.json` is past the point GitHub will serve it. The
+ * message names the size, the ceiling and the actual remedy, because the failure
+ * this replaces is an empty `content` field on a 200 and a JSON syntax error four
+ * frames deep in the read.
+ */
+export class BlogFileTooLargeError extends Error {
+  constructor(bytes: number, limit: number = BLOG_FILE_MAX_BYTES) {
+    super(
+      `data/blogs.json is ${formatBytes(bytes)}, over GitHub's ${formatBytes(limit)} ceiling: the contents and ` +
+        `blobs APIs cannot read a file that large, so every blog write would fail permanently. ` +
+        `Split the archive into one file per post (data/blogs/<slug>.json) — readers to update: lib/blogs.ts, ` +
+        `app/sitemap.ts, app/feed.xml/route.ts, app/llms*.txt, the studio and the admin page.`
+    )
+    this.name = "BlogFileTooLargeError"
+  }
+}
+
+/**
+ * One warning per process is enough: above 80% of the ceiling every read hits
+ * this branch, and a log line per request would bury the one that matters.
+ */
+let warnedAboutArchiveSize = false
 
 interface GitHubCommitResult {
   success: boolean
@@ -66,8 +120,7 @@ export async function readBlogFile(): Promise<BlogFileSnapshot> {
     throw new Error("GH_TOKEN not set")
   }
 
-  const apiUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`
-  const res = await fetch(`${apiUrl}?ref=${BRANCH}`, {
+  const res = await fetch(`${REPO_API}/contents/${FILE_PATH}?ref=${BRANCH}`, {
     headers: {
       Authorization: `Bearer ${GITHUB_TOKEN}`,
       Accept: "application/vnd.github.v3+json",
@@ -83,11 +136,24 @@ export async function readBlogFile(): Promise<BlogFileSnapshot> {
   if (!res.ok) throw new Error(`GitHub read failed: ${res.status}`)
 
   const file = await res.json()
-  const encoded = typeof file.content === "string" ? file.content : ""
-  const raw =
-    file.encoding === "base64"
-      ? Buffer.from(encoded, "base64").toString("utf-8")
-      : encoded
+
+  // The size guard runs before a body is asked for. Past the ceiling the contents
+  // API still answers 200 — with an empty `content` — so the failure it prevents is
+  // silent, and its fix is a different piece of work. Say which one it is.
+  const size = typeof file.size === "number" ? file.size : undefined
+  if (size !== undefined) {
+    if (size > BLOG_FILE_MAX_BYTES) throw new BlogFileTooLargeError(size)
+    if (size >= BLOG_FILE_WARN_BYTES && !warnedAboutArchiveSize) {
+      warnedAboutArchiveSize = true
+      console.warn(
+        `data/blogs.json is ${formatBytes(size)} — ${Math.round((size / BLOG_FILE_MAX_BYTES) * 100)}% of the ` +
+          `${formatBytes(BLOG_FILE_MAX_BYTES)} ceiling at which GitHub stops serving it. ` +
+          `Split the archive before it gets there (see scripts/check-blogs-size.mjs).`
+      )
+    }
+  }
+
+  const raw = await readBlogFileBody(file, size)
 
   const parsed = JSON.parse(raw) as unknown
   const posts = Array.isArray(parsed)
@@ -99,6 +165,103 @@ export async function readBlogFile(): Promise<BlogFileSnapshot> {
   }
 
   return { posts: posts as BlogPostShape[], sha: file.sha }
+}
+
+/**
+ * The body of `data/blogs.json`, from the metadata the contents call returned.
+ *
+ * Up to 1 MB the body is inline and this stays one request — deliberately, since
+ * this read sits on every public page render.
+ *
+ * A larger file comes back as metadata only (`content: ""`, `encoding: "none"`)
+ * and its body is fetched from the Git blobs endpoint *by the sha the metadata
+ * read reported*. That is what makes the two-call read safe: a blob sha names one
+ * immutable version, so the body cannot be a newer file than the sha a write
+ * pins. (The `raw` media type returns the body with no sha at all, which is why
+ * the body comes from the blob instead.) The sha GitHub reports for a file *is*
+ * the git blob id, so the bytes are checked against it rather than trusted.
+ */
+async function readBlogFileBody(
+  file: { content?: unknown; encoding?: unknown; sha?: unknown },
+  size?: number
+): Promise<string> {
+  if (file.encoding === "base64" && typeof file.content === "string" && file.content.length > 0) {
+    const inline = Buffer.from(file.content, "base64").toString("utf-8")
+    assertBodySize(inline, size)
+    return inline
+  }
+
+  // No body and no sha: nothing to fetch, and nothing a write could be pinned to.
+  // Returning "" here is how an empty archive gets written over the real one.
+  if (typeof file.sha !== "string" || !file.sha) {
+    throw new Error("data/blogs.json was read without a body and without a blob sha")
+  }
+
+  // The sha is interpolated into the blob URL, so it has to be a sha and nothing
+  // else: `x/../../rate_limit` or `x?per_page=1` would otherwise steer a request
+  // that carries the token to a different endpoint on api.github.com.
+  if (!/^[0-9a-f]{40}$/i.test(file.sha)) {
+    throw new Error("data/blogs.json was read with a malformed blob sha")
+  }
+
+  // This branch exists because the file is large. Without the size GitHub reported
+  // there is no ceiling to hold the fetch to, so fail closed rather than pull an
+  // unbounded body through the public read path.
+  if (typeof size !== "number" || !Number.isFinite(size)) {
+    throw new Error("data/blogs.json was read without a size; refusing to fetch its body unbounded")
+  }
+
+  const res = await fetch(`${REPO_API}/git/blobs/${file.sha}`, {
+    headers: {
+      Authorization: `Bearer ${GITHUB_TOKEN}`,
+      Accept: "application/vnd.github.v3+json",
+    },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  })
+  if (!res.ok) throw new Error(`GitHub blob read failed: ${res.status}`)
+
+  const blob = await res.json()
+  if (blob.sha !== file.sha) {
+    // A body that is not the version the metadata named would be published on top
+    // of, and then committed over, a list it never read.
+    throw new Error("GitHub returned a blob that is not the version data/blogs.json was read at")
+  }
+  if (blob.encoding !== "base64" || typeof blob.content !== "string" || !blob.content) {
+    throw new Error("GitHub returned no body for data/blogs.json")
+  }
+
+  const bytes = Buffer.from(blob.content, "base64")
+  const raw = bytes.toString("utf-8")
+
+  // A truncated base64 body still decodes to *something*.
+  assertBodySize(raw, size)
+
+  // ...and a body can echo the requested `sha` field while holding other bytes, so
+  // the content itself has to match its own address. The sha for a file is its git
+  // blob id; recomputing it is the difference between "GitHub said so" and "these
+  // are the bytes that sha names" — and a list from the former, written back with
+  // the metadata sha pinned, would overwrite the real archive.
+  if (gitBlobSha(bytes) !== file.sha.toLowerCase()) {
+    throw new Error("data/blogs.json body does not hash to the sha it was read at")
+  }
+
+  return raw
+}
+
+/** The git blob id of these bytes — what the contents API reports as a file's `sha`. */
+function gitBlobSha(bytes: Buffer): string {
+  return createHash("sha1")
+    .update(Buffer.concat([Buffer.from(`blob ${bytes.length}\0`, "utf-8"), bytes]))
+    .digest("hex")
+}
+
+/** Refuse a body whose decoded size is not the size GitHub reported. */
+function assertBodySize(raw: string, size?: number): void {
+  if (size === undefined) return
+  const actual = Buffer.byteLength(raw, "utf-8")
+  if (actual !== size) {
+    throw new Error(`data/blogs.json read as ${actual} bytes but GitHub reported ${size}`)
+  }
 }
 
 /**
@@ -148,6 +311,14 @@ export async function commitBlogChanges(
     // Defence in depth for JS callers: a commit that names no base can only be
     // an accident, and any accident here overwrites the archive.
     return { success: false, error: "Refusing to commit without the sha the file was read at" }
+  }
+
+  const contentBytes = Buffer.byteLength(content, "utf-8")
+  if (contentBytes > BLOG_FILE_MAX_BYTES) {
+    // The read refuses first (it cannot fetch a body that large), so getting here
+    // means the content grew past the ceiling inside this process. Same named
+    // failure rather than a 413 with no explanation.
+    return { success: false, error: new BlogFileTooLargeError(contentBytes).message }
   }
 
   const apiUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`
