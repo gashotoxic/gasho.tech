@@ -380,6 +380,59 @@ test("a rejected post write leaves the ARCHIVED post's image alone", async () =>
   }
 })
 
+test("whitespace-only content is refused before any commit", async () => {
+  const stub = stubFetch((call) => {
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") return blogRead(archivedPosts())
+    if (call.url.includes(IMAGE_CONTENTS) && call.method === "GET") {
+      return new Response("not found", { status: 404 })
+    }
+    if (call.url.includes(IMAGE_CONTENTS) && call.method === "PUT") {
+      return jsonResponse({ content: { sha: "image-sha" }, commit: { sha: "1mage" } })
+    }
+    throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+  })
+
+  try {
+    const { response } = await publishRequest({
+      title: "Blank Body Post",
+      content: "   ",
+      imageData: Buffer.from("fake-webp").toString("base64"),
+      published: true,
+    })
+
+    assert.equal(response.status, 400)
+    assert.equal(
+      stub.calls.filter((call) => call.method === "PUT" || call.method === "DELETE").length,
+      0,
+      "a body the builder will reject must not commit its image first"
+    )
+  } finally {
+    stub.restore()
+  }
+})
+
+test("isWritableImagePath keeps repository writes inside the image directory", async () => {
+  const { isWritableImagePath } = await import("../lib/github.ts")
+
+  for (const unsafe of [
+    "public/images/blog/../../data/blogs.json",
+    "data/blogs.json",
+    "public/images/blog",
+    "public/images/blog/",
+    "public/images/blog/x.webp?ref=main",
+    "public/images/blog/x.webp#frag",
+    "public/images/blog/..\\x.webp",
+    "/public/images/blog/x.webp",
+    "",
+  ]) {
+    assert.equal(isWritableImagePath(unsafe), false, `${unsafe} must be refused`)
+  }
+
+  for (const safe of ["public/images/blog/kenya-ai.webp", "public/images/blog/2026/a.webp"]) {
+    assert.equal(isWritableImagePath(safe), true, `${safe} must be allowed`)
+  }
+})
+
 test("isSafeImagePath rejects traversals and accepts stored image paths", async () => {
   const { isSafeImagePath } = await import("../app/api/studio/publish/route.ts")
 

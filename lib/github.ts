@@ -145,6 +145,25 @@ export async function commitBlogChanges(
 }
 
 /**
+ * Every path this module writes or deletes must live under the blog image
+ * directory: the value reaches the GitHub contents API as a repository path, so
+ * a traversal or a stray query/backslash is refused here even though today's
+ * only caller builds it from a normalised slug. Defence in depth — the guard
+ * lives next to the write, not next to the caller.
+ */
+const WRITABLE_IMAGE_ROOT = "public/images/blog/"
+
+export function isWritableImagePath(filePath: unknown): boolean {
+  return (
+    typeof filePath === "string" &&
+    filePath.startsWith(WRITABLE_IMAGE_ROOT) &&
+    filePath.length > WRITABLE_IMAGE_ROOT.length &&
+    !filePath.includes("..") &&
+    !/[?#\\]/.test(filePath)
+  )
+}
+
+/**
  * Remove a file this process just committed.
  *
  * A publish commits the hero image before the post list (the post must not point
@@ -158,6 +177,10 @@ export async function deleteImage(
   sha: string,
   commitMessage: string
 ): Promise<GitHubCommitResult> {
+  if (!isWritableImagePath(filePath)) {
+    return { success: false, error: `Refusing to delete outside ${WRITABLE_IMAGE_ROOT}: ${filePath}` }
+  }
+
   if (!GITHUB_TOKEN) {
     return { success: false, error: "GH_TOKEN not set" }
   }
@@ -197,7 +220,7 @@ export async function deleteImage(
 /**
  * Commit a base64 image to the repository (hero images under `public/images`).
  *
- * The caller is responsible for validating `filePath`: it becomes a repository
+ * The path is validated here as well as by the caller: it becomes a repository
  * path, so it must never be built from unvalidated input.
  */
 export async function commitImage(
@@ -205,6 +228,10 @@ export async function commitImage(
   filePath: string,
   commitMessage: string
 ): Promise<GitHubCommitResult> {
+  if (!isWritableImagePath(filePath)) {
+    return { success: false, error: `Refusing to write outside ${WRITABLE_IMAGE_ROOT}: ${filePath}` }
+  }
+
   if (!GITHUB_TOKEN) {
     return { success: false, error: "GH_TOKEN not set" }
   }

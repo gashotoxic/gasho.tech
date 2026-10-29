@@ -55,7 +55,16 @@ export async function POST(request: Request) {
 
     // Types first: `title` reaches a regex and `content` reaches the renderer, so
     // a non-string is a caller mistake (400), not a server failure (500).
-    if (typeof body.title !== 'string' || typeof body.content !== 'string' || !body.title || !body.content) {
+    //
+    // Whitespace counts as missing: `buildNewPost` trims, so `"   "` would pass
+    // this check, commit the hero image, and then be refused with nothing
+    // referencing that commit.
+    if (
+      typeof body.title !== 'string' ||
+      typeof body.content !== 'string' ||
+      !body.title.trim() ||
+      !body.content.trim()
+    ) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -133,6 +142,21 @@ export async function POST(request: Request) {
       }
     }
 
+    // Undo an image commit this same request made but left unreferenced.
+    // Nothing points at the file, so leaving it behind is an orphan commit on
+    // main. An archived post keeps its image — that file is its hero image.
+    const discardOrphanedImage = async (title: string) => {
+      if (archived || !committedImageTarget || !committedImageSha) return
+      const cleanup = await deleteImage(
+        committedImageTarget,
+        committedImageSha,
+        `chore(blog): drop unused image for "${title}"`
+      )
+      if (!cleanup.success) {
+        console.warn('Could not remove the orphaned image commit:', cleanup.error)
+      }
+    }
+
     const post = buildNewPost(
       {
         title: body.title,
@@ -148,6 +172,7 @@ export async function POST(request: Request) {
     )
 
     if (!post) {
+      await discardOrphanedImage(body.title)
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
@@ -179,17 +204,8 @@ export async function POST(request: Request) {
       // The image commit landed before this one (the post must not point at a
       // file that does not exist yet). If the post never existed, nothing
       // references that image: remove it instead of leaving an orphan commit on
-      // main. An existing post keeps its image — the file is its hero image.
-      if (!archived && committedImageTarget && committedImageSha) {
-        const cleanup = await deleteImage(
-          committedImageTarget,
-          committedImageSha,
-          `chore(blog): drop unused image for "${post.title}"`
-        )
-        if (!cleanup.success) {
-          console.warn('Could not remove the orphaned image commit:', cleanup.error)
-        }
-      }
+      // main.
+      await discardOrphanedImage(post.title)
 
       // A sha conflict means someone else committed between our read and write.
       // That is a retryable client condition, not a server fault — say so.
