@@ -150,6 +150,13 @@ export async function commitBlogChanges(
  * a traversal or a stray query/backslash is refused here even though today's
  * only caller builds it from a normalised slug. Defence in depth — the guard
  * lives next to the write, not next to the caller.
+ *
+ * Writes only ever target files this process is about to create, so the stricter
+ * rule is safe: query strings and fragments are refused here. Note that a *stored*
+ * post may legitimately carry one (`/images/<slug>.webp?v=3`, five posts do), so a
+ * caller must never feed a stored image value straight back into a write — strip
+ * the query first. The read-side guard (`isSafeImagePath` in the publish route)
+ * accepts a query string for exactly that reason.
  */
 const WRITABLE_IMAGE_ROOT = "public/images/blog/"
 
