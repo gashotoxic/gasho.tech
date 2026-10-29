@@ -144,6 +144,62 @@ export async function commitBlogChanges(
   }
 }
 
+/**
+ * Remove a file this process just committed.
+ *
+ * A publish commits the hero image before the post list (the post must not point
+ * at a file that does not exist yet). When the post write is then rejected, the
+ * image commit is left on `main` with nothing referencing it — the route calls
+ * this to undo its own write. The caller passes the blob sha it wrote, so a
+ * concurrent change to the same path fails (409) instead of being deleted.
+ */
+export async function deleteImage(
+  filePath: string,
+  sha: string,
+  commitMessage: string
+): Promise<GitHubCommitResult> {
+  if (!GITHUB_TOKEN) {
+    return { success: false, error: "GH_TOKEN not set" }
+  }
+
+  const apiUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${filePath}`
+
+  try {
+    const deleteRes = await fetch(apiUrl, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${GITHUB_TOKEN}`,
+        Accept: "application/vnd.github.v3+json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ message: commitMessage, sha, branch: BRANCH }),
+    })
+
+    if (!deleteRes.ok) {
+      const err = await deleteRes.text()
+      return {
+        success: false,
+        error: `Delete failed: ${deleteRes.status} - ${err}`,
+        status: deleteRes.status,
+      }
+    }
+
+    const result = await deleteRes.json()
+    return {
+      success: true,
+      url: `https://github.com/${REPO_OWNER}/${REPO_NAME}/commit/${result.commit?.sha}`,
+    }
+  } catch (err) {
+    return { success: false, error: `Exception: ${err}` }
+  }
+}
+
+/**
+ * Commit a base64 image to the repository (hero images under `public/images`).
+ *
+ * The caller is responsible for validating `filePath`: it becomes a repository
+ * path, so it must never be built from unvalidated input.
+ */
 export async function commitImage(
   imageData: string,
   filePath: string,

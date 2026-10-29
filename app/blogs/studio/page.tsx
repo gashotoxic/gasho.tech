@@ -197,8 +197,17 @@ export default function StudioPage() {
 
       const data = await res.json()
       if (res.ok) {
-        setMessage({ text: 'Published successfully!', type: 'success' })
-        setTimeout(() => router.push(`/blogs/${slug}`), 2000)
+        // `created === false` means this slug already existed and the publish
+        // replaced it. The /api/blogs POST path refuses that with a 409, so this
+        // path says so too instead of claiming a fresh publish.
+        setMessage({
+          text:
+            data.created === false
+              ? 'Replaced the existing post for this slug — the archive entry was updated, not duplicated.'
+              : 'Published successfully!',
+          type: 'success',
+        })
+        setTimeout(() => router.push(`/blogs/${data.slug || slug}`), 2000)
       } else {
         setMessage({ text: data.error || 'Publish failed. Try copying the content instead.', type: 'error' })
       }
