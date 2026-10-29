@@ -148,8 +148,9 @@ export default function BlogAdminPage() {
         setShowForm(false)
         setEditingSlug(null)
         setForm(emptyForm)
-        // Reload posts from server
-        const reload = await fetch("/api/blogs")
+        // Reload posts from the server. The list endpoint hands drafts to an
+        // authenticated caller only, so the session token travels with it.
+        const reload = await fetch("/api/blogs", { headers: authHeaders() })
         const freshPosts = await reload.json()
         setPosts(Array.isArray(freshPosts) ? freshPosts : blogPosts)
         setTimeout(() => setMessage({ text: "", type: "success" }), 4000)
