@@ -1,10 +1,8 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { blogPosts } from "@/lib/blogs"
-import { Plus, Edit3, Trash2, ExternalLink, LogOut, Lock } from "lucide-react"
+import { Plus, Edit3, Trash2, ExternalLink, LogOut, Lock, RefreshCw } from "lucide-react"
 import type { BlogPost } from "@/lib/blogs"
 import {
   clearAdminToken,
@@ -13,6 +11,18 @@ import {
   storeAdminToken,
 } from "@/lib/admin-client"
 
+/**
+ * The admin panel loads the post list from `GET /api/blogs`, never from
+ * `data/blogs.json`.
+ *
+ * Importing the data module into this client component (as it used to) shipped
+ * the whole archive — every body, drafts included — in a public JavaScript
+ * chunk of `/blogs/admin`, so "the admin panel" was readable by anyone. The
+ * endpoint is the only correct source: it returns published posts to anyone
+ * and the full list (drafts included) to a `Bearer` session, and it is the live
+ * archive rather than a build-time snapshot, so the list is fresh after a save.
+ */
+
 interface BlogForm {
   title: string
   excerpt: string
@@ -20,7 +30,6 @@ interface BlogForm {
   category: string
   author: string
   image: string
-  published: boolean
 }
 
 const emptyForm: BlogForm = {
@@ -30,44 +39,85 @@ const emptyForm: BlogForm = {
   category: "AI",
   author: "GashoTech Team",
   image: "/images/gashotech_logo_correct.webp",
-  published: true,
 }
 
 export default function BlogAdminPage() {
-  const router = useRouter()
   const [token, setToken] = useState<string | null>(null)
   const [password, setPassword] = useState("")
   const [loginError, setLoginError] = useState("")
   const [loggingIn, setLoggingIn] = useState(false)
   const [posts, setPosts] = useState<BlogPost[]>([])
+  const [postsStatus, setPostsStatus] = useState<"loading" | "ready" | "error">("loading")
   const [showForm, setShowForm] = useState(false)
   const [editingSlug, setEditingSlug] = useState<string | null>(null)
   const [form, setForm] = useState<BlogForm>(emptyForm)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState({ text: "", type: "success" as "success" | "error" })
 
-  // Restore a saved session on mount, extending it while it is still valid.
+  /**
+   * Load the post list for this session, drafts included.
+   *
+   * `GET /api/blogs` answers 200 with the *public* (published-only) projection
+   * for a missing or expired token, so it can never be the "your session is
+   * gone" signal — a stale session would silently render the public list inside
+   * the admin panel and an admin would think their drafts had been deleted.
+   * `refreshAdminSession()` is the honest check: it returns null only on a
+   * genuine 401, and keeps the token on a 429/5xx where the session may still
+   * be perfectly valid.
+   */
+  const loadPosts = useCallback(async (sessionToken: string) => {
+    setPostsStatus("loading")
+
+    const live = await refreshAdminSession()
+    if (!live) {
+      setToken(null)
+      setPosts([])
+      setPostsStatus("ready")
+      setLoginError("Your session expired. Sign in again.")
+      return
+    }
+    if (live !== sessionToken) setToken(live)
+
+    try {
+      const res = await fetch("/api/blogs", {
+        headers: { Authorization: `Bearer ${live}` },
+        cache: "no-store",
+      })
+
+      // Kept as a safety net: today the endpoint degrades to the public
+      // projection instead, but a 401 must never render as a working session.
+      if (res.status === 401) {
+        clearAdminToken()
+        setToken(null)
+        setPosts([])
+        setPostsStatus("ready")
+        setLoginError("Your session expired. Sign in again.")
+        return
+      }
+      if (!res.ok) throw new Error(`GET /api/blogs returned ${res.status}`)
+
+      const data = await res.json()
+      setPosts(Array.isArray(data) ? (data as BlogPost[]) : [])
+      setPostsStatus("ready")
+    } catch (error) {
+      console.error("Could not load the post list:", error)
+      setPostsStatus("error")
+    }
+  }, [])
+
+  // Restore a saved session on mount. loadPosts refreshes it as part of the
+  // session check, so there is no second refresh here to race with it.
   useEffect(() => {
     const saved = readAdminToken()
     if (!saved) return
 
     // Restoring a persisted session is an external-system sync; this rule does
-    // not model localStorage reads, so the setters here are intentional.
+    // not model localStorage reads, so the setter here is intentional.
     /* eslint-disable react-hooks/set-state-in-effect */
     setToken(saved)
-    setPosts(blogPosts)
     /* eslint-enable react-hooks/set-state-in-effect */
-
-    let cancelled = false
-    refreshAdminSession().then((extended) => {
-      if (cancelled || extended) return
-      setToken(null)
-      setLoginError("Your session expired. Sign in again.")
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+    void loadPosts(saved)
+  }, [loadPosts])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -97,7 +147,8 @@ export default function BlogAdminPage() {
       const data = await res.json()
       storeAdminToken(data.token)
       setToken(data.token)
-      setPosts(blogPosts)
+      setLoginError("")
+      void loadPosts(data.token)
     } catch {
       setLoginError("Failed to connect. Check your internet.")
     }
@@ -123,9 +174,16 @@ export default function BlogAdminPage() {
 
     const slug = editingSlug || form.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
 
+    // The form has no draft toggle, and an edit must not publish a draft by
+    // accident: keep whatever visibility the stored post already has. (Drafts
+    // are not confidential here — `published: false` only hides a post from the
+    // site, not from the internet — but "edit a draft" must not mean "publish".)
+    const archived = editingSlug ? posts.find((p) => p.slug === editingSlug) : undefined
+
     const newPost = {
       slug,
       ...form,
+      published: archived ? archived.published : true,
       date: new Date().toISOString().split("T")[0],
     }
 
@@ -148,19 +206,9 @@ export default function BlogAdminPage() {
         setShowForm(false)
         setEditingSlug(null)
         setForm(emptyForm)
-        // Reload posts from the server. The list endpoint hands drafts to an
-        // authenticated caller only, so the session token travels with it.
-        const reload = await fetch("/api/blogs", { headers: authHeaders() })
-        if (reload.status === 401) {
-          // Session expired between the save and the reload. Falling back to the
-          // bundled snapshot here would put deleted posts back on screen.
-          clearAdminToken()
-          setToken(null)
-          setLoginError("Your session expired. Sign in again.")
-        } else if (reload.ok) {
-          const freshPosts = await reload.json()
-          if (Array.isArray(freshPosts)) setPosts(freshPosts)
-        }
+        // Reload the list with the session token so drafts stay visible and the
+        // list reflects what the server actually committed.
+        if (token) await loadPosts(token)
         setTimeout(() => setMessage({ text: "", type: "success" }), 4000)
       } else {
         setMessage({ text: data.error || "Something went wrong", type: "error" })
@@ -205,7 +253,6 @@ export default function BlogAdminPage() {
       category: post.category,
       author: post.author,
       image: post.image,
-      published: post.published,
     })
     setEditingSlug(slug)
     setShowForm(true)
@@ -400,18 +447,11 @@ export default function BlogAdminPage() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="published"
-                  checked={form.published}
-                  onChange={(e) => setForm({ ...form, published: e.target.checked })}
-                  className="rounded border-border"
-                />
-                <label htmlFor="published" className="text-sm">
-                  Published
-                </label>
-              </div>
+              <p className="text-xs text-muted-foreground">
+                Saved posts are public: this site is built from a public Git repository, so
+                an unpublished flag hides a post from the site, not from the internet. Keep
+                confidential or unfinished writing outside this repository.
+              </p>
               <div className="flex gap-3 pt-2">
                 <button
                   type="submit"
@@ -439,14 +479,31 @@ export default function BlogAdminPage() {
         {/* Posts List */}
         <div className="bg-card border border-border rounded-xl overflow-hidden shadow">
           <div className="p-4 border-b border-border bg-muted/50 flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">{posts.length} post(s)</p>
+            <p className="text-sm text-muted-foreground">
+              {postsStatus === "loading" ? "Loading…" : `${posts.length} post(s)`}
+            </p>
             <span className="text-xs text-muted-foreground">
-              Changes auto-commit to <strong>feature/migration-nextjs</strong>
+              Changes auto-commit to <strong>main</strong>
             </span>
           </div>
-          {posts.length === 0 ? (
+          {postsStatus === "loading" && posts.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground" role="status">
+              Loading posts…
+            </div>
+          ) : postsStatus === "error" ? (
+            <div className="p-8 text-center">
+              <p className="text-muted-foreground">Could not load the post list.</p>
+              <button
+                onClick={() => token && loadPosts(token)}
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 border border-border rounded-lg hover:bg-accent transition-all text-sm"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Try again
+              </button>
+            </div>
+          ) : posts.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground">
-              No blog posts yet. Click "New Post" to create one.
+              No blog posts yet. Click &ldquo;New Post&rdquo; to create one.
             </div>
           ) : (
             posts.map((post) => (

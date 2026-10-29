@@ -1,17 +1,18 @@
-"use client"
-
+// Server component on purpose: it renders the three latest published previews
+// from the build-time archive. Marking it "use client" (as it was) pulled the
+// whole of data/blogs.json — every post body, drafts included — into a public
+// JavaScript chunk. Interactivity lives in <FadeIn>, which is a client
+// component and can be rendered as a child from a server component.
 import { FadeIn } from "@/components/effects/fade-in";
 import Image from "next/image";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-import { blogPosts } from "@/lib/blogs";
-import { Calendar, Tag, ChevronRight } from "lucide-react";
+import { latestPublishedPosts } from "@/lib/blogs";
+import { blogPosts } from "@/lib/blogs-data";
+import { Calendar, ChevronRight } from "lucide-react";
 
 export default function Blogs() {
-  const posts = blogPosts
-    .filter((p) => p.published)
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 3);
+  const posts = latestPublishedPosts(blogPosts, 3);
 
   return (
     <section className="bg-grey section-padding">
