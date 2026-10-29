@@ -39,6 +39,16 @@ export default function StudioPage() {
   const [query, setQuery] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' | 'warning' } | null>(null)
+  /**
+   * Slugs the route reported for an `ambiguous-title` 409.
+   *
+   * The refusal itself is correct — two archived posts share the title, so the
+   * title cannot say which one this publish means — but the message used to be a
+   * dead end: the studio has no slug field, so "send the slug" told the user to
+   * do something the screen they are on cannot do. These render as links into the
+   * admin panel, which *can* edit either one.
+   */
+  const [ambiguousSlugs, setAmbiguousSlugs] = useState<string[]>([])
   const [result, setResult] = useState<GenerateAllResult | null>(null)
   const [showMarkdownPreview, setShowMarkdownPreview] = useState(false)
   const [copiedField, setCopiedField] = useState<string | null>(null)
@@ -72,33 +82,46 @@ export default function StudioPage() {
   }), [token])
 
   /**
-   * The archive as the server sees it, used only to name the post this publish is
-   * editing.
+   * The archive as the server sees it, with where it came from.
    *
-   * A title cannot do that job on its own: `data/blogs.json` holds two different
-   * posts with the same title, and a route that picks the first match for a
-   * title-only publish rewrites one post's body with another's content. So the
-   * studio resolves the slug itself when the title identifies exactly one post.
-   * Re-read on every publish (not once on mount) so a post published a moment ago
-   * is in the list.
+   * A title cannot identify a post on its own: `data/blogs.json` holds two
+   * different posts with the same title, and a route that picks the first match
+   * for a title-only publish rewrites one post's body with another's content. So
+   * the studio resolves the slug itself when the title identifies exactly one
+   * post. Re-read on every publish (not once on mount) so a post published a
+   * moment ago is in the list.
    *
-   * `[]` on any failure: then no slug is sent and the route decides — a 409 with
-   * the candidates is the honest answer, and it is better than a guess.
+   * The `X-Blog-Source` header matters: when the route served the *deployed
+   * snapshot* (the repository was unreadable), this list may name a post that no
+   * longer exists. Sending that slug back would ask the route to "edit" a
+   * missing post — which it would do by creating one, resurrecting a deleted
+   * post at a stale URL. `fromSnapshot` tells the caller not to use the index at
+   * all; the route has the same guard for clients that ignore it.
+   *
+   * `posts: []` on any failure: then no slug is sent and the route decides — a
+   * 409 with the candidates is the honest answer, and it is better than a guess.
    */
-  const loadArchiveIndex = useCallback(async (): Promise<Array<{ slug: string; title: string }>> => {
-    if (!token) return []
+  const loadArchiveIndex = useCallback(async (): Promise<{
+    posts: Array<{ slug: string; title: string }>
+    fromSnapshot: boolean
+  }> => {
+    if (!token) return { posts: [], fromSnapshot: false }
     try {
       const res = await fetch('/api/blogs', { headers: authHeaders(), cache: 'no-store' })
-      if (!res.ok) return []
+      if (!res.ok) return { posts: [], fromSnapshot: false }
+      const fromSnapshot = res.headers.get('X-Blog-Source') === 'snapshot'
       const list = await res.json()
-      if (!Array.isArray(list)) return []
-      return list.flatMap((post) =>
-        post && typeof post.slug === 'string'
-          ? [{ slug: post.slug, title: typeof post.title === 'string' ? post.title : '' }]
-          : []
-      )
+      if (!Array.isArray(list)) return { posts: [], fromSnapshot }
+      return {
+        posts: list.flatMap((post) =>
+          post && typeof post.slug === 'string'
+            ? [{ slug: post.slug, title: typeof post.title === 'string' ? post.title : '' }]
+            : []
+        ),
+        fromSnapshot,
+      }
     } catch {
-      return []
+      return { posts: [], fromSnapshot: false }
     }
   }, [token, authHeaders])
 
@@ -224,8 +247,21 @@ export default function StudioPage() {
       // with this title means "this is that post"; zero means "a new post"; more
       // than one means nothing is sent and the route answers 409 with the
       // candidates rather than picking for us.
-      const matches = findPostsByTitle(await loadArchiveIndex(), result.title)
-      if (matches.length === 1) payload.slug = matches[0].slug
+      //
+      // The index is not used when the route had to serve the deployed snapshot:
+      // that list can name a post that has since been deleted, and naming its slug
+      // would have the route create the post again at a stale URL.
+      const index = await loadArchiveIndex()
+      if (!index.fromSnapshot) {
+        const matches = findPostsByTitle(index.posts, result.title)
+        if (matches.length === 1) {
+          payload.slug = matches[0].slug
+          // Tells the route this slug was read from an archive listing, not typed
+          // by the user: if it is gone from the live archive by the time the write
+          // lands, the publish is refused instead of becoming a create.
+          payload.resolvedFrom = 'archive-index'
+        }
+      }
 
       if (imageData) {
         payload.imageData = imageData
@@ -244,6 +280,7 @@ export default function StudioPage() {
 
       const data = await res.json()
       if (res.ok) {
+        setAmbiguousSlugs([])
         // A generated hero that did not reach the repository is not something to
         // report as a clean publish: the post is live with the *previous* hero,
         // and the one the user just generated exists only in this browser.
@@ -269,7 +306,19 @@ export default function StudioPage() {
               }
         )
         setTimeout(() => router.push(`/blogs/${data.slug || slug}`), imageDropped ? 6000 : 2000)
+      } else if (data.code === 'ambiguous-title' && Array.isArray(data.candidates)) {
+        // Not a dead end: the route refuses because the title does not identify a
+        // single post, and the studio has no slug field. Offer the one surface that
+        // can act on it.
+        setAmbiguousSlugs(data.candidates.filter((slug: unknown): slug is string => typeof slug === 'string'))
+        setMessage({
+          text:
+            `${data.candidates.length} archived posts share this title, so nothing was written. ` +
+            `Open one of them in the admin panel (below) to edit it, or change the title and publish again.`,
+          type: 'error',
+        })
       } else {
+        setAmbiguousSlugs([])
         setMessage({ text: data.error || 'Publish failed. Try copying the content instead.', type: 'error' })
       }
     } catch {
@@ -330,6 +379,20 @@ export default function StudioPage() {
                 : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
           }`}>
             {message.text}
+            {ambiguousSlugs.length > 0 && (
+              <div className="mt-2 text-xs">
+                Candidates: <span className="font-mono">{ambiguousSlugs.join(", ")}</span> —{" "}
+                <Link
+                  href="/blogs/admin"
+                  className="inline-flex items-center gap-1 underline underline-offset-2 hover:no-underline"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  open the admin panel
+                </Link>{" "}
+                to edit one of them. (The panel has the slug each URL is served under; this
+                screen does not, which is why the publish is refused rather than guessed.)
+              </div>
+            )}
           </div>
         )}
 
