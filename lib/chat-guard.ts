@@ -103,7 +103,11 @@ export function buildChatMessages(body: unknown): ChatValidation {
           "Invalid request: every history entry must be { role: 'user' | 'assistant', content: string }.",
       }
     }
-    turns = history as ChatTurn[]
+    // Rebuild each turn instead of forwarding the parsed object: a caller can
+    // smuggle extra fields (`tool_calls`, `function_call`, `__proto__`, …) past
+    // the role/content check, and the forwarded payload must contain exactly
+    // role + content, nothing else.
+    turns = (history as ChatTurn[]).map((turn) => ({ role: turn.role, content: turn.content }))
   }
 
   const messages: ChatTurn[] = [...turns, { role: "user", content: message }]

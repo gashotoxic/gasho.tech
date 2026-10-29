@@ -1,13 +1,19 @@
 import { NextResponse } from 'next/server';
 import { buildChatMessages } from '@/lib/chat-guard';
-import { clientKey, consumeChatRequest } from '@/lib/rate-limit';
+import {
+  clientKey,
+  consumeChatRequest,
+  consumeChatUpstreamBudget,
+} from '@/lib/rate-limit';
 
 const UPSTREAM_URL = 'https://chutes.ai/api/v1/chat/completions';
 
 /**
  * Largest body this endpoint will parse. The caps in `lib/chat-guard.ts` bound
- * what reaches the upstream model; this bounds what reaches `request.json()`, so
- * a single request cannot make the server buffer megabytes it will only reject.
+ * what reaches the upstream model; this bounds what reaches `JSON.parse`, so a
+ * single request cannot make the server buffer megabytes it will only reject.
+ * Enforced against the declared content-length AND the buffered text length (a
+ * chunked body can arrive with no content-length at all).
  */
 const MAX_BODY_BYTES = 64 * 1024;
 
@@ -123,8 +129,8 @@ function reply(body: Record<string, unknown>, status: number, headers: Record<st
  * 1. Fail closed when `GT_ASSIST_API_KEY` is missing. There is no fallback
  *    credential: without a key the endpoint answers 503 and never calls
  *    upstream. (It used to fall back to a literal `|| 'gasho'`.)
- * 2. Per-IP token bucket before any work is done: anonymous callers cannot use
- *    the endpoint as an unbounded LLM pipe.
+ * 2. Per-IP token bucket before any work is done, plus a per-instance upstream
+ *    budget: anonymous callers cannot use the endpoint as an unbounded LLM pipe.
  * 3. `history` is validated and capped (`lib/chat-guard.ts`): entry count,
  *    per-message length, allowed roles, and total prompt tokens. Over-cap is a
  *    400 with zero upstream calls.
@@ -132,8 +138,9 @@ function reply(body: Record<string, unknown>, status: number, headers: Record<st
  *    reply or a generic message, never the upstream status body.
  */
 export async function POST(request: Request) {
-  // Fail closed: no configured key means no upstream call, ever.
-  const apiKey = process.env.GT_ASSIST_API_KEY;
+  // Fail closed: no configured key means no upstream call, ever. `trim()` so a
+  // whitespace-only value is treated as missing rather than sent as `Bearer `.
+  const apiKey = process.env.GT_ASSIST_API_KEY?.trim();
   if (!apiKey) {
     console.error('Chat proxy refused: GT_ASSIST_API_KEY is not set; no upstream call made');
     return reply({ reply: 'Chat is temporarily unavailable. Please try again later.' }, 503);
@@ -149,14 +156,27 @@ export async function POST(request: Request) {
     );
   }
 
+  // Early reject on the declared length; the read below enforces the real one.
   const declaredLength = Number(request.headers.get('content-length') ?? Number.NaN);
   if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
     return reply({ reply: 'Invalid request: body is too large.' }, 413);
   }
 
+  let raw: string;
+  try {
+    raw = await request.text();
+  } catch {
+    return reply({ reply: 'Invalid request: body could not be read.' }, 400);
+  }
+  // Do not trust content-length: a chunked body can arrive without one, so the
+  // ceiling is enforced on the bytes actually buffered.
+  if (raw.length > MAX_BODY_BYTES) {
+    return reply({ reply: 'Invalid request: body is too large.' }, 413);
+  }
+
   let body: unknown;
   try {
-    body = await request.json();
+    body = JSON.parse(raw);
   } catch {
     return reply({ reply: 'Invalid request: body must be JSON.' }, 400);
   }
@@ -164,6 +184,13 @@ export async function POST(request: Request) {
   const validation = buildChatMessages(body);
   if (!validation.ok) {
     return reply({ reply: validation.error }, 400);
+  }
+
+  // Per-instance backstop against IP rotation: when the upstream budget is
+  // spent the visitor still gets an answer, but no paid call is made.
+  if (!consumeChatUpstreamBudget()) {
+    console.warn('Chat upstream budget for this instance is spent; using rule-based reply');
+    return reply({ reply: ruleBasedReply(validation.message) }, 200);
   }
 
   try {
@@ -195,8 +222,9 @@ export async function POST(request: Request) {
     }
 
     // Status only: the upstream body stays in the server log, never in the
-    // response. The visitor still gets a useful answer from the fallback below.
+    // response. Drain it so the socket is released promptly.
     console.warn(`Chat upstream returned status ${response.status}; using rule-based reply`);
+    await response.body?.cancel().catch(() => undefined);
   } catch (apiError) {
     console.error('Chat upstream request failed:', apiError);
   }
