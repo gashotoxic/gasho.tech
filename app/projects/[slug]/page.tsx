@@ -9,6 +9,7 @@ import {
   isPublicProject,
   isShareGated,
   projectLinks,
+  projectLinksTo,
   verifyShareKey,
   type Project,
 } from "@/data/projects"
@@ -51,23 +52,6 @@ async function resolveProject(props: Props): Promise<Project | null> {
     return null
   }
   return project
-}
-
-/**
- * True when a link resolves to exactly `path` (`https://x/tenders?q=1` → true). Used to
- * collapse the tender CTA into the live-link slot: the two must never both point at /tenders,
- * or the hero carries two links to one page one block apart. Matching on PATH AND HOST is
- * deliberately not required — GashoTech serves /tenders from more than one of its own domains
- * (gashotech.com, gasho.tech), and a host-pinned check would let the duplicate CTA reappear
- * the day the tender `liveUrl` moves to the other domain. The cost of path-only matching is
- * a hypothetical missing CTA if this URL ever pointed at a different site's /tenders.
- */
-function targetsPath(url: string, path: string): boolean {
-  try {
-    return new URL(url).pathname.replace(/\/+$/, "") === path
-  } catch {
-    return false
-  }
 }
 
 export async function generateMetadata(props: Props): Promise<Metadata> {
@@ -152,15 +136,14 @@ export default async function ProjectPage(props: Props) {
     ],
   }
 
-  // One projection for both the hero row and the CTA decision below, so the two cannot
-  // disagree about where the live slot points.
+  // One projection for the hero row; the CTA decision asks `projectLinksTo()` about that same
+  // projected live slot, so the two cannot disagree about where the live slot points.
   const links = projectLinks(project)
-  const liveLink = links.find((link) => link.kind === "live")
   // One destination, one link: the tender entry's `liveUrl` IS /tenders, so the hero slot
   // already opens the dashboard and the pre-existing CTA would be a second link to the same
   // page in the same block. The CTA survives only when the live slot is absent or elsewhere.
   const showTenderCta =
-    project.slug === "tender-rfq-finder" && !(liveLink && targetsPath(liveLink.href, "/tenders"))
+    project.slug === "tender-rfq-finder" && !projectLinksTo(project, "/tenders")
 
   return (
     <div className="pt-16">

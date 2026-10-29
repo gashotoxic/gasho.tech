@@ -203,15 +203,20 @@ const LINK_ARIA: Record<ProjectLinkKind, (title: string, label: string) => strin
  * dead one. Credentials in the authority (`https://user:pass@host`) are refused: they would
  * hand a password to anyone who clicks, and nothing here ever needs them. `<`, `>`, `"`, the
  * bidi controls (U+061C, U+200E/F, U+202A–E, U+2066–9), zero-width and other invisible
- * formatting characters (U+200B, U+0085), ASCII control characters and the backslash are
- * refused too, so a URL-shaped string can never smuggle markup into a sink that does not
- * escape (JSON-LD is serialized via `toJsonLd()` as well) and cannot be read as a different
- * URL than the one written — browsers normalize `\` to `/`.
+ * formatting characters (U+200B–D, U+2060, U+FEFF, U+180E, U+0085), ASCII control characters
+ * and the backslash are refused too, so a URL-shaped string can never smuggle markup into a
+ * sink that does not escape (JSON-LD is serialized via `toJsonLd()` as well) and cannot be
+ * read as a different URL than the one written — browsers normalize `\` to `/`.
+ *
+ * Refusing U+200C/U+200D also refuses the legitimate uses of ZWNJ/ZWJ in IDN paths (Persian,
+ * Indic). That is a deliberate trade: no shipped URL needs them, and a rejected value fails
+ * the build loudly rather than rendering a URL nobody can verify. If such a URL ever lands,
+ * relax this gate for post-parse values instead of deleting the character from the set.
  */
 export function isRenderableUrl(raw: string | undefined): boolean {
   const value = (raw ?? "").trim();
   if (!/^https?:\/\/\S+\.\S+$/i.test(value)) return false;
-  if (/[<>"\\\u0000-\u001f\u007f\u0085\u061c\u200b\u200e\u200f\u202a-\u202e\u2066-\u2069]/.test(value)) return false;
+  if (/[<>"\\\u0000-\u001f\u007f\u0085\u061c\u200b\u200c\u200d\u200e\u200f\u202a-\u202e\u2060\u2066-\u2069\u180e\ufeff]/.test(value)) return false;
   const authority = value.replace(/^https?:\/\//i, "").split(/[/?#]/, 1)[0];
   return !authority.includes("@");
 }
@@ -267,6 +272,52 @@ export function projectLinks(
 /** Two hrefs that differ only by trailing slashes are the same destination. */
 function normalizeHref(href: string): string {
   return href.replace(/\/+$/, "") || href;
+}
+
+/**
+ * True when a link resolves to exactly `path` (`https://x/tenders?q=1` → true for "/tenders").
+ * Used to collapse the tender CTA into the live-link slot: the two must never both point at
+ * /tenders, or the hero carries two links to one page one block apart.
+ *
+ * Matching on PATH AND HOST is deliberately not required — GashoTech serves /tenders from
+ * more than one of its own domains (gashotech.com, gasho.tech), and a host-pinned check would
+ * let the duplicate CTA reappear the day the tender `liveUrl` moves to the other domain. The
+ * cost of path-only matching is a hypothetical missing CTA if this URL ever pointed at a
+ * different site's /tenders.
+ *
+ * Trailing slashes are ignored on both sides, so the answer cannot be silently falsified by
+ * writing the path in the other form; the pathname is percent-decoded, so `/%74enders` (which
+ * a browser, and therefore the server, reads as /tenders) still matches. A URL that does not
+ * parse is never a match.
+ */
+export function linksToPath(href: string, path: string): boolean {
+  let pathname: string;
+  try {
+    pathname = new URL(href).pathname;
+  } catch {
+    return false;
+  }
+  try {
+    pathname = decodeURIComponent(pathname);
+  } catch {
+    // Malformed escape (e.g. "%zz"): compare the raw pathname rather than throwing.
+  }
+  return pathname.replace(/\/+$/, "") === path.replace(/\/+$/, "");
+}
+
+/**
+ * True when the project's live slot — the link the hero row renders first — opens exactly
+ * `path`. The CTA that would duplicate that destination is hidden on this answer.
+ *
+ * Deliberately lives here beside `projectLinks()` rather than in the page: the projection and
+ * the decision are then one module apart and cannot drift, so a slug rename or a moved
+ * `liveUrl` changes this predicate and its tests together instead of silently restoring the
+ * duplicate tender CTA. Only the live slot counts: a README or hosting link elsewhere does
+ * not make the hero's call to action redundant.
+ */
+export function projectLinksTo(project: Project, path: string): boolean {
+  const live = projectLinks(project).find((link) => link.kind === "live");
+  return live !== undefined && linksToPath(live.href, path);
 }
 
 // ---------------------------------------------------------------------------

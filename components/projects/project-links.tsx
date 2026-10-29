@@ -37,12 +37,14 @@ interface ProjectLinksProps {
 /**
  * The demo links for one project, rendered from `projectLinks()`.
  *
- * The wrapper is ALWAYS rendered and reserves one line (`min-h-7` = 28px, above a `text-sm`
- * line at the 1.8 line-height, 25.2px), so a card with no links yet and a card with one sit
- * in the same box — nothing jumps as the data fills in. A link whose URL is missing is
- * simply not in `links`, so there is no empty button and no dead href. Every anchor opens in
- * a new tab with `rel="noopener noreferrer"` and carries an accessible name naming the
- * project, the destination and the new-tab behaviour.
+ * The wrapper is ALWAYS rendered and reserves one line: `min-h-7` = 28px, comfortably above
+ * the 20px line box a link actually occupies, because Tailwind v4's `text-sm` carries its own
+ * 1.25rem line-height and so overrides the body's 1.8 (every variant ends up `text-sm` — the
+ * hero sets it per link, the card passes it in). A card with no links yet and a card with one
+ * therefore sit in the same box — nothing jumps as the data fills in. A link whose URL is
+ * missing is simply not in `links`, so there is no empty button and no dead href. Every anchor
+ * opens in a new tab with `rel="noopener noreferrer"` and carries an accessible name naming
+ * the project, the destination and the new-tab behaviour.
  */
 export function ProjectLinks({ links, variant = "card", className }: ProjectLinksProps) {
   const styles = VARIANTS[variant]

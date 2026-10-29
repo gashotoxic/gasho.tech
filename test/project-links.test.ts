@@ -6,7 +6,9 @@ import {
   PROJECT_LINK_KINDS,
   TIER1_CHECKS,
   isRenderableUrl,
+  linksToPath,
   projectLinks,
+  projectLinksTo,
   projects,
   type Project,
 } from "../data/projects.ts"
@@ -247,15 +249,113 @@ test("control characters and backslashes are never renderable", () => {
   }
 })
 
-test("invisible directional and zero-width characters are never renderable", () => {
-  const refused = [
-    "https://example.com/\u061cgnp", // ALM
-    "https://example.com/\u200egnp", // LRM
-    "https://example.com/\u200fgnp", // RLM
-    "https://example.com/\u200bgnp", // zero-width space
-    "https://example.com/a\u0085b", // NEL
-  ]
-  for (const value of refused) {
-    assert.equal(isRenderableUrl(value), false, `${JSON.stringify(value)} must be refused`)
+/**
+ * Every invisible / formatting character the URL gate refuses, by name and codepoint. The
+ * table is the regression guard: deleting a codepoint from `isRenderableUrl()` while it is
+ * still listed here fails the run, so the blocklist cannot silently shrink (review R-PR39).
+ */
+const INVISIBLE_BLOCKLIST: ReadonlyArray<readonly [string, string]> = [
+  ["\u0085", "NEL (U+0085)"],
+  ["\u061c", "ARABIC LETTER MARK (U+061C)"],
+  ["\u180e", "MONGOLIAN VOWEL SEPARATOR (U+180E)"],
+  ["\u200b", "ZERO WIDTH SPACE (U+200B)"],
+  ["\u200c", "ZERO WIDTH NON-JOINER (U+200C)"],
+  ["\u200d", "ZERO WIDTH JOINER (U+200D)"],
+  ["\u200e", "LEFT-TO-RIGHT MARK (U+200E)"],
+  ["\u200f", "RIGHT-TO-LEFT MARK (U+200F)"],
+  ["\u202a", "LEFT-TO-RIGHT EMBEDDING (U+202A)"],
+  ["\u202b", "RIGHT-TO-LEFT EMBEDDING (U+202B)"],
+  ["\u202c", "POP DIRECTIONAL FORMATTING (U+202C)"],
+  ["\u202d", "LEFT-TO-RIGHT OVERRIDE (U+202D)"],
+  ["\u202e", "RIGHT-TO-LEFT OVERRIDE (U+202E)"],
+  ["\u2060", "WORD JOINER (U+2060)"],
+  ["\u2066", "LEFT-TO-RIGHT ISOLATE (U+2066)"],
+  ["\u2067", "RIGHT-TO-LEFT ISOLATE (U+2067)"],
+  ["\u2068", "FIRST STRONG ISOLATE (U+2068)"],
+  ["\u2069", "POP DIRECTIONAL ISOLATE (U+2069)"],
+  ["\ufeff", "ZERO WIDTH NO-BREAK SPACE / BOM (U+FEFF)"],
+]
+
+test("every invisible directional, zero-width and joiner character is never renderable", () => {
+  // The untainted URL is renderable — so a failure below is about the character, not the shape.
+  assert.equal(isRenderableUrl("https://example.com/gnp"), true)
+  for (const [character, name] of INVISIBLE_BLOCKLIST) {
+    const smuggled = `https://example.com/${character}gnp`
+    const midline = `https://example.com/a${character}b`
+    assert.equal(isRenderableUrl(smuggled), false, `${name} must be refused at the path start`)
+    assert.equal(isRenderableUrl(midline), false, `${name} must be refused mid-path`)
   }
+})
+
+test("refusing invisible characters does not over-block ordinary URLs", () => {
+  const accepted = [
+    "https://example.com/tenders",
+    "https://gashotech.com/projects/tender-rfq-finder",
+    "https://example.com/caf%C3%A9",
+    "https://example.com/a?b=c#d",
+  ]
+  for (const value of accepted) {
+    assert.equal(isRenderableUrl(value), true, `${value} must stay renderable`)
+  }
+})
+
+// ---------------------------------------------------------------------------
+// One destination, one link — the tender CTA predicate (review R-PR39 LOW / item 9)
+// ---------------------------------------------------------------------------
+
+test("linksToPath compares the URL path only — host, query and hash are irrelevant", () => {
+  assert.equal(linksToPath("https://gashotech.com/tenders", "/tenders"), true)
+  assert.equal(linksToPath("https://gasho.tech/tenders", "/tenders"), true)
+  assert.equal(linksToPath("https://tenders.gashotech.com/tenders", "/tenders"), true)
+  assert.equal(linksToPath("https://gashotech.com/tenders?q=1#top", "/tenders"), true)
+  assert.equal(linksToPath("https://gashotech.com/tenders/", "/tenders"), true)
+  assert.equal(linksToPath("https://gashotech.com/tenders", "/tenders/"), true)
+  assert.equal(
+    linksToPath("https://gashotech.com/%74enders", "/tenders"),
+    true,
+    "a percent-encoded path is the same page to a browser — it must not resurrect the CTA",
+  )
+  assert.equal(linksToPath("https://gashotech.com/%zz", "/tenders"), false, "a malformed escape must not throw")
+  assert.equal(linksToPath("https://gashotech.com/tenders-old", "/tenders"), false)
+  assert.equal(linksToPath("https://gashotech.com/tender", "/tenders"), false)
+  assert.equal(linksToPath("https://gashotech.com/", "/tenders"), false)
+  assert.equal(linksToPath("/tenders", "/tenders"), false, "a bare path is not a URL")
+  assert.equal(linksToPath("", "/tenders"), false)
+})
+
+test("a live slot that already opens /tenders suppresses the duplicate CTA, on any GashoTech host", () => {
+  for (const origin of ["https://gashotech.com", "https://gasho.tech"]) {
+    assert.equal(
+      projectLinksTo(fixture({ liveUrl: `${origin}/tenders` }), "/tenders"),
+      true,
+      `${origin}: moving the tender liveUrl between our own domains must not restore the CTA`,
+    )
+  }
+})
+
+test("the CTA survives when the live slot is absent or points elsewhere", () => {
+  assert.equal(projectLinksTo(fixture({ liveUrl: "https://demo.example.com" }), "/tenders"), false)
+  assert.equal(projectLinksTo(fixture({ demoVideoUrl: VIDEO }), "/tenders"), false, "no live slot at all")
+  assert.equal(projectLinksTo(fixture(), "/tenders"), false, "no links at all")
+})
+
+test("only the live slot counts — another slot at /tenders does not hide the CTA", () => {
+  const project = fixture({
+    liveUrl: "https://demo.example.com",
+    hostingUrl: "https://demo.example.com/tenders",
+  })
+  assert.equal(projectLinksTo(project, "/tenders"), false)
+})
+
+test("the shipped tender entry's live slot is /tenders, so its detail page renders one link not two", () => {
+  const tender = projects.find((project) => project.slug === "tender-rfq-finder")
+  assert.ok(tender, "tender-rfq-finder must exist in the shipped data")
+  assert.equal(
+    projectLinksTo(tender, "/tenders"),
+    true,
+    "if this flips to false the hero renders the dashboard twice — fix the data, not the test",
+  )
+  const live = projectLinks(tender).filter((link) => link.kind === "live")
+  assert.equal(live.length, 1)
+  assert.equal(linksToPath(live[0].href, "/tenders"), true)
 })
