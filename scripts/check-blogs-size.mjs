@@ -1,20 +1,30 @@
 #!/usr/bin/env node
 /**
- * How much of GitHub's size ceiling `data/blogs.json` is using.
+ * How much of the archive's size budget `data/blogs.json` is using.
  *
  * Why this exists: past 1 MB the GitHub *contents* API stops returning a file's
- * body (metadata only, `content: ""`), and past 100 MB it refuses the file
- * outright. The read path (`lib/github.ts`) now handles the 1–100 MB range by
- * fetching the body from the Git blobs endpoint, and fails loudly above 100 MB —
- * but the honest answer to "are we close?" should be available *before* a publish
- * returns 500, which is what this prints.
+ * body (metadata only, `content: ""`), so every read becomes two requests; past
+ * `BLOG_FILE_MAX_BYTES` (20 MB — what a 1 GB serverless function can decode
+ * without OOMing, not GitHub's 100 MB hard limit) this app refuses to read the
+ * file at all and every blog write fails.
  *
- * Exit 0 below 80% of the ceiling, 0 with a WARN line at/above 80%, 1 past the
- * ceiling (where writes cannot work at all). Run: `npm run check:blogs-size`.
+ * The read path (`lib/github.ts`) handles the 1–20 MB range by fetching the body
+ * from the Git blobs endpoint with a size-derived timeout, and fails loudly
+ * above the ceiling — but the honest answer to "are we close?" should be
+ * available *before* a publish returns 500, which is what this prints.
+ *
+ * Exit 0 below the ceiling, 0 with a WARN line at either edge (the 1 MB
+ * two-request edge, or 80% of the ceiling), 1 past the ceiling (where nothing
+ * can be read or written). Run: `npm run check:blogs-size`.
  */
 
 import { readFileSync } from "node:fs"
-import { BLOG_FILE_MAX_BYTES, BLOG_FILE_WARN_BYTES } from "../lib/github.ts"
+import {
+  BLOG_FILE_CONTENTS_INLINE_MAX_BYTES,
+  BLOG_FILE_MAX_BYTES,
+  BLOG_FILE_WARN_BYTES,
+  BLOG_FILE_CEILING_WARN_BYTES,
+} from "../lib/github.ts"
 
 const FILE = new URL("../data/blogs.json", import.meta.url)
 
@@ -46,19 +56,33 @@ const postsUntilCeiling = average > 0 ? Math.floor(headroom / average) : 0
 
 console.log(`data/blogs.json: ${bytes.toLocaleString()} bytes (${mb(bytes)}) in ${posts.length} posts`)
 console.log(`  average per post: ${Math.round(average).toLocaleString()} bytes`)
-console.log(`  ceiling: ${mb(BLOG_FILE_MAX_BYTES)} — used ${used.toFixed(2)}%, ~${postsUntilCeiling} more posts of headroom`)
+console.log(
+  `  inline ceiling (one request): ${mb(BLOG_FILE_CONTENTS_INLINE_MAX_BYTES)} — ` +
+    (bytes > BLOG_FILE_CONTENTS_INLINE_MAX_BYTES ? "exceeded, every read is two requests" : "under")
+)
+console.log(
+  `  read ceiling (this app): ${mb(BLOG_FILE_MAX_BYTES)} — used ${used.toFixed(2)}%, ` +
+    `~${postsUntilCeiling} more posts of headroom`
+)
 
 if (bytes > BLOG_FILE_MAX_BYTES) {
   console.error(
-    `FAIL: past GitHub's ${mb(BLOG_FILE_MAX_BYTES)} ceiling — the contents and blobs APIs cannot read it, ` +
-      `so every blog write fails. Split the archive into data/blogs/<slug>.json.`
+    `FAIL: past the ${mb(BLOG_FILE_MAX_BYTES)} read ceiling — this app refuses to decode a file that large ` +
+      `(and GitHub stops serving bodies past 100 MB outright), so every blog read and write fails. ` +
+      `Split the archive into data/blogs/<slug>.json.`
   )
   process.exit(1)
 }
 
-if (bytes >= BLOG_FILE_WARN_BYTES) {
+if (bytes >= BLOG_FILE_CEILING_WARN_BYTES) {
   console.warn(
-    `WARN: at ${used.toFixed(1)}% of the ceiling (~${postsUntilCeiling} posts left). ` +
-      `Plan the per-post split (data/blogs/<slug>.json) before it is urgent.`
+    `WARN: at ${used.toFixed(1)}% of the ${mb(BLOG_FILE_MAX_BYTES)} ceiling (~${postsUntilCeiling} posts left). ` +
+      `Split the archive into data/blogs/<slug>.json now, not after it stops.`
+  )
+} else if (bytes >= BLOG_FILE_WARN_BYTES) {
+  console.warn(
+    `WARN: ${mb(bytes)} — past the ${mb(BLOG_FILE_CONTENTS_INLINE_MAX_BYTES)} inline ceiling, so every public ` +
+      `read is two requests (contents metadata + git blob). Nothing is broken; schedule the per-post split ` +
+      `(data/blogs/<slug>.json) while it is still cheap.`
   )
 }

@@ -308,7 +308,7 @@ test("an archive past the ceiling fails loudly, names the remedy, and spends no 
   try {
     await assert.rejects(readBlogFile(), (error: unknown) => {
       assert.ok(error instanceof BlogFileTooLargeError, "the failure must be the named one")
-      assert.match(error.message, /over GitHub's 100\.0 MB ceiling/)
+      assert.match(error.message, /over this app's 20\.0 MB ceiling/)
       assert.match(error.message, /data\/blogs\/<slug>\.json/, "the message must name the remedy")
       return true
     })
@@ -353,24 +353,32 @@ test("a write over 1 MB still pins the sha the read reported", async () => {
   }
 })
 
-test("the archive-size warning fires once at 80% of the ceiling", async () => {
-  const { readBlogFile, BLOG_FILE_WARN_BYTES } = await import("../lib/github.ts")
-  // `size` alone decides the warning, so the fixture only has to report it. An 80 MB
-  // body would be pointless weight — and this body is deliberately not that size,
-  // which also exercises the inline size check: a body that is not `size` bytes is
-  // refused rather than parsed.
-  const stub = stubFetch([
-    [
-      CONTENTS_URL,
-      () =>
-        jsonResponse({
-          sha: gitBlobSha(SMALL_ARCHIVE),
-          size: BLOG_FILE_WARN_BYTES,
-          encoding: "base64",
-          content: Buffer.from(SMALL_ARCHIVE, "utf-8").toString("base64"),
-        }),
-    ],
-  ])
+/* ------------------------------------------------------- size-edge warnings ---- */
+
+/** Report `size` on the contents response while sending a body of another size. */
+function misreportedInline(size: number) {
+  return () =>
+    jsonResponse({
+      sha: gitBlobSha(SMALL_ARCHIVE),
+      size,
+      encoding: "base64",
+      content: Buffer.from(SMALL_ARCHIVE, "utf-8").toString("base64"),
+    })
+}
+
+/**
+ * The warning is module-level state, so it is only assertable through the
+ * exported reset — without one, the first suite to trip it silences every later
+ * suite, and a test that passes depends on file order.
+ */
+test("the two-request edge warns once per process, and the reset clears it", async () => {
+  const { readBlogFile, resetArchiveSizeWarnings, BLOG_FILE_WARN_BYTES } = await import(
+    "../lib/github.ts"
+  )
+  resetArchiveSizeWarnings()
+  // The reported size is what the threshold reads; the body is deliberately not
+  // that size, so the size check refuses it and nothing is parsed.
+  const stub = stubFetch([[CONTENTS_URL, misreportedInline(BLOG_FILE_WARN_BYTES)]])
 
   const warnings: string[] = []
   const originalWarn = console.warn
@@ -379,12 +387,137 @@ test("the archive-size warning fires once at 80% of the ceiling", async () => {
   }
 
   try {
-    await assert.rejects(readBlogFile(), /read as \d+ bytes but GitHub reported 83886080/)
+    await assert.rejects(readBlogFile(), /read as \d+ bytes but GitHub reported 2097152/)
     await assert.rejects(readBlogFile())
-    assert.equal(warnings.length, 1, "a per-request warn above 80% would bury the one that matters")
-    assert.match(warnings[0], /80% of the 100\.0 MB ceiling/)
+    assert.equal(warnings.length, 1, "a per-request warn would bury the one that carries the signal")
+    assert.match(warnings[0], /past GitHub's 1\.0 MB inline ceiling/)
+    assert.match(warnings[0], /two\s+requests/)
+
+    resetArchiveSizeWarnings()
+    await assert.rejects(readBlogFile())
+    assert.equal(warnings.length, 2, "the exported reset has to re-arm the warning")
   } finally {
     console.warn = originalWarn
     stub.restore()
+    resetArchiveSizeWarnings()
   }
 })
+
+test("the ceiling edge has its own warning, and both fire on a huge archive", async () => {
+  const { readBlogFile, resetArchiveSizeWarnings, BLOG_FILE_CEILING_WARN_BYTES } = await import(
+    "../lib/github.ts"
+  )
+  resetArchiveSizeWarnings()
+  const stub = stubFetch([[CONTENTS_URL, misreportedInline(BLOG_FILE_CEILING_WARN_BYTES)]])
+
+  const warnings: string[] = []
+  const originalWarn = console.warn
+  console.warn = (...args: unknown[]) => {
+    warnings.push(args.join(" "))
+  }
+
+  try {
+    await assert.rejects(readBlogFile())
+    assert.equal(warnings.length, 2, "80% of the ceiling is past both edges")
+    assert.equal(
+      warnings.filter((line) => line.includes("of the 20.0 MB ceiling")).length,
+      1,
+      "the ceiling edge names the read ceiling, not the inline one"
+    )
+    assert.equal(
+      warnings.filter((line) => line.includes("inline ceiling")).length,
+      1,
+      "the two-request edge is reported separately"
+    )
+  } finally {
+    console.warn = originalWarn
+    stub.restore()
+    resetArchiveSizeWarnings()
+  }
+})
+
+/* ------------------------------------------------------- named failure modes ---- */
+
+test("a 0-byte archive is named as an empty file, not as a missing GitHub body", async () => {
+  const { readBlogFile, BlogFileEmptyError } = await import("../lib/github.ts")
+  const emptySha = gitBlobSha("")
+  const stub = stubFetch([
+    [CONTENTS_URL, () => jsonResponse(metadataOnly(emptySha, 0))],
+  ])
+
+  try {
+    await assert.rejects(readBlogFile(), (error: unknown) => {
+      assert.ok(error instanceof BlogFileEmptyError, "an empty file is its own condition")
+      assert.match(error.message, /empty \(0 bytes\)/)
+      return true
+    })
+    assert.equal(stub.calls.length, 1, "an empty file is not worth a second request")
+  } finally {
+    stub.restore()
+  }
+})
+
+test("an inline body with no reported size is refused like the blob branch", async () => {
+  const { readBlogFile } = await import("../lib/github.ts")
+  const stub = stubFetch([
+    [
+      CONTENTS_URL,
+      () =>
+        jsonResponse({
+          sha: gitBlobSha(SMALL_ARCHIVE),
+          encoding: "base64",
+          content: Buffer.from(SMALL_ARCHIVE, "utf-8").toString("base64"),
+        }),
+    ],
+  ])
+
+  try {
+    await assert.rejects(readBlogFile(), /read from the inline body without a reported size/)
+  } finally {
+    stub.restore()
+  }
+})
+
+test("a blob fetch that runs out of budget is a named failure, not a bare abort", async () => {
+  const { readBlogFile, BlogFileFetchTimeoutError, blobFetchBudgetMs } = await import(
+    "../lib/github.ts"
+  )
+  const archive = bigArchive()
+  const size = Buffer.byteLength(archive, "utf-8")
+  const sha = gitBlobSha(archive)
+  // What `AbortSignal.timeout` produces in Node, raised from the stub: the read
+  // has to translate it, because every caller treats an unknown error as a
+  // transient outage and falls back to the snapshot.
+  const timingOut = () => {
+    throw Object.assign(new Error("The operation was aborted due to timeout"), {
+      name: "TimeoutError",
+    })
+  }
+  const stub = stubFetch([
+    [CONTENTS_URL, () => jsonResponse(metadataOnly(sha, size))],
+    [`${BLOBS_URL}/${sha}`, timingOut],
+  ])
+
+  try {
+    await assert.rejects(readBlogFile(), (error: unknown) => {
+      assert.ok(error instanceof BlogFileFetchTimeoutError, "the failure must be the named one")
+      assert.match(error.message, /did not finish downloading within \d+s/)
+      assert.match(error.message, /data\/blogs\/<slug>\.json/, "the message must name the remedy")
+      return true
+    })
+    // The budget the fetch was given must be the one it reports.
+    assert.ok(blobFetchBudgetMs(size) > 8000, "a >1 MB body gets more than the flat 8 s")
+  } finally {
+    stub.restore()
+  }
+})
+
+test("the blob budget scales with the file and is capped", async () => {
+  const { blobFetchBudgetMs } = await import("../lib/github.ts")
+  // A flat 8 s is what made a >10 MB read abort before the guard could fire.
+  assert.equal(blobFetchBudgetMs(2 * 1024 * 1024), 8000 + 2000, "2 MB adds its own transfer time")
+  assert.equal(blobFetchBudgetMs(20 * 1024 * 1024), 8000 + 20_000, "20 MB gets ~28 s")
+  assert.equal(blobFetchBudgetMs(200 * 1024 * 1024), 30_000, "the cap holds for anything huge")
+  assert.equal(blobFetchBudgetMs(0), 8000, "a missing size falls back to the flat bound")
+})
+

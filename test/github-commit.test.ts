@@ -136,12 +136,16 @@ test("a rejected read is reported, and no write follows", async () => {
 test("a read that carries no blob sha cannot be written over", async () => {
   const { readBlogFileForWrite } = await import("../lib/github.ts")
   const stub = stubFetch([
-    () =>
-      jsonResponse({
-        // A 200 without a sha: nothing to pin a commit to.
+    () => {
+      const body = JSON.stringify({ posts: [] })
+      return jsonResponse({
+        // A 200 without a sha: nothing to pin a commit to. The body still carries
+        // its size, which the inline branch requires before it will parse.
+        size: Buffer.byteLength(body, "utf-8"),
         encoding: "base64",
-        content: Buffer.from(JSON.stringify({ posts: [] }), "utf-8").toString("base64"),
-      }),
+        content: Buffer.from(body, "utf-8").toString("base64"),
+      })
+    },
   ])
 
   try {
@@ -181,9 +185,16 @@ test("readBlogFile reports a missing file instead of failing a first publish", a
 test("readBlogFile throws rather than inventing an empty archive", async () => {
   const { readBlogFile } = await import("../lib/github.ts")
 
+  const noPostList = '{"posts": "nope"}'
   for (const response of [
     () => new Response("upstream down", { status: 502 }),
-    () => jsonResponse({ sha: "x", content: Buffer.from('{"posts": "nope"}').toString("base64"), encoding: "base64" }),
+    () =>
+      jsonResponse({
+        sha: "x",
+        size: Buffer.byteLength(noPostList, "utf-8"),
+        content: Buffer.from(noPostList).toString("base64"),
+        encoding: "base64",
+      }),
   ]) {
     const stub = stubFetch([response])
     try {
