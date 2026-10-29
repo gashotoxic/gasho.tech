@@ -91,8 +91,32 @@ function archivedPosts() {
       tags: ["policy", "kenya"],
       readTime: 7,
     },
+    {
+      // The common shape in the real archive: the stored slug is NOT the
+      // slugified title (64 of 73 posts), so a title-derived publish used to
+      // append a duplicate instead of editing this post.
+      slug: "opens-public-consultation-draft-ai-emerging",
+      title: "Kenya Opens Public Consultation on Draft AI and Emerging Technologies Policy",
+      excerpt: "Consultation details.",
+      content: "original consultation body",
+      author: "GashoTech",
+      category: "Policy",
+      date: "2025-09-02",
+      image: "/images/opens-public-consultation-draft-ai-emerging.webp",
+      published: true,
+      tags: ["policy"],
+      readTime: 5,
+    },
     ...archived,
   ]
+}
+
+/** Title-to-slug exactly as the studio and the route derive it. */
+function slugFromTitle(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
 }
 
 function blogRead(posts: unknown[], sha = "read-sha"): Response {
@@ -213,6 +237,291 @@ test("re-publishing an archived slug keeps its date, hero image and byline", asy
     assert.deepEqual(stored.tags, target.tags, "re-publishing blanked the tags")
     assert.equal(stored.readTime, target.readTime, "re-publishing blanked the read time")
     assert.match(String(put.body?.message), /update/, "a replace must say so in the commit")
+  } finally {
+    stub.restore()
+  }
+})
+
+test("a publish shaped exactly like the studio's does not reset an archived hero", async () => {
+  // The studio always sent `imagePath` — `/images/AI.webp` when no image was
+  // generated — and the route read any path it was given as an explicit
+  // override, so re-generating nothing and re-publishing reset the hero to the
+  // house default with a 200 and no warning. This is the payload the shipped
+  // client builds, so a browser holding the cached bundle keeps sending it.
+  const archived = archivedPosts()
+  const target = archived[0]
+  const stub = stubFetch((call) => {
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") return blogRead(archived)
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "PUT") {
+      return jsonResponse({ content: { sha: "new-sha" }, commit: { sha: "c0ffee" } })
+    }
+    throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+  })
+
+  try {
+    const { response, payload } = await publishRequest({
+      title: target.title,
+      excerpt: "a freshly generated excerpt",
+      content: "rewritten body",
+      category: target.category,
+      author: "GashoTech Team",
+      imageData: "",
+      imagePath: "/images/AI.webp",
+      published: true,
+    })
+
+    assert.equal(response.status, 200)
+    assert.equal(payload.created, false, "an existing slug must be reported as a replace")
+
+    const posts = committedPosts(stub.calls.find((call) => call.method === "PUT")!)
+    assert.equal(posts.length, archived.length, "a re-publish must not add a post")
+
+    const stored = posts.find(
+      (post) => post.slug === target.slug
+    ) as Record<string, unknown>
+    assert.ok(stored)
+    assert.equal(
+      stored.image,
+      target.image,
+      "the studio's house-default imagePath clobbered the archived hero image"
+    )
+  } finally {
+    stub.restore()
+  }
+})
+
+test("a client that names the stored slug updates it even when the title slugifies differently", async () => {
+  const archived = archivedPosts()
+  const target = archived.find(
+    (post) => post.slug === "opens-public-consultation-draft-ai-emerging"
+  )!
+  assert.notEqual(
+    slugFromTitle(target.title),
+    target.slug,
+    "fixture must reproduce the mismatched-slug shape the real archive has"
+  )
+
+  const stub = stubFetch((call) => {
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") return blogRead(archived)
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "PUT") {
+      return jsonResponse({ content: { sha: "new-sha" }, commit: { sha: "c0ffee" } })
+    }
+    throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+  })
+
+  try {
+    const { response, payload } = await publishRequest({
+      slug: target.slug,
+      title: target.title,
+      content: "rewritten consultation body",
+      published: true,
+    })
+
+    assert.equal(response.status, 200)
+    assert.equal(payload.created, false, "the named slug exists — this is an edit")
+    assert.equal(payload.slug, target.slug)
+
+    const posts = committedPosts(stub.calls.find((call) => call.method === "PUT")!)
+    assert.equal(posts.length, archived.length, "an edit must not append a post")
+    const stored = posts.find((post) => post.slug === target.slug) as Record<string, unknown>
+    assert.equal(stored.content, "rewritten consultation body")
+    assert.equal(stored.date, target.date, "an edit must keep the publish date")
+    assert.equal(stored.image, target.image, "an edit must keep the hero image")
+  } finally {
+    stub.restore()
+  }
+})
+
+test("a re-publish with no slug finds the archived post by title, not by a derived slug", async () => {
+  const archived = archivedPosts()
+  const target = archived.find(
+    (post) => post.slug === "opens-public-consultation-draft-ai-emerging"
+  )!
+  assert.notEqual(
+    slugFromTitle(target.title),
+    target.slug,
+    "fixture must reproduce the mismatched-slug shape the real archive has"
+  )
+
+  const stub = stubFetch((call) => {
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") return blogRead(archived)
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "PUT") {
+      return jsonResponse({ content: { sha: "new-sha" }, commit: { sha: "c0ffee" } })
+    }
+    throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+  })
+
+  try {
+    // What the studio sends: a title and a body, no slug. The derived slug does
+    // not exist in the archive, so before this the publish APPENDED a second copy
+    // of the post and reported created: true ("Published successfully!").
+    const { response, payload } = await publishRequest({
+      title: target.title,
+      content: "rewritten consultation body",
+      published: true,
+    })
+
+    assert.equal(response.status, 200)
+    assert.equal(payload.created, false, "the title already exists — this is an edit, not a new post")
+    assert.equal(payload.slug, target.slug, "the stored slug is the post's URL and must be kept")
+
+    const posts = committedPosts(stub.calls.find((call) => call.method === "PUT")!)
+    assert.equal(posts.length, archived.length, "the publish appended a duplicate post")
+    const stored = posts.find((post) => post.slug === target.slug) as Record<string, unknown>
+    assert.equal(stored.content, "rewritten consultation body")
+    assert.match(
+      String(stub.calls.find((call) => call.method === "PUT")?.body?.message),
+      /update/
+    )
+  } finally {
+    stub.restore()
+  }
+})
+
+test("an explicit slug for a title that exists publishes a separate post", async () => {
+  const archived = archivedPosts()
+  const target = archived.find(
+    (post) => post.slug === "opens-public-consultation-draft-ai-emerging"
+  )!
+
+  const stub = stubFetch((call) => {
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") return blogRead(archived)
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "PUT") {
+      return jsonResponse({ content: { sha: "new-sha" }, commit: { sha: "c0ffee" } })
+    }
+    throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+  })
+
+  try {
+    // Deliberate: the caller named a URL of its own, so it gets a new post rather
+    // than silently rewriting the same-titled one.
+    const { response, payload } = await publishRequest({
+      slug: "Consultation Copy For Mombasa",
+      title: target.title,
+      content: "a regional variant",
+      published: true,
+    })
+
+    assert.equal(response.status, 200)
+    assert.equal(payload.slug, "consultation-copy-for-mombasa")
+    assert.equal(payload.created, true)
+
+    const posts = committedPosts(stub.calls.find((call) => call.method === "PUT")!)
+    assert.equal(posts.length, archived.length + 1)
+  } finally {
+    stub.restore()
+  }
+})
+
+test("an unusable explicit slug is refused instead of silently falling back to the title", async () => {
+  // Falling back to the derived slug would publish *over* whatever post the title
+  // matches — a typo'd slug must fail loudly.
+  const stub = stubFetch(() => {
+    throw new Error("the route must not touch GitHub for a slug it cannot use")
+  })
+
+  try {
+    const { response, payload } = await publishRequest({
+      slug: "!!!",
+      title: "Kenya AI Policy Recap",
+      content: "body",
+      published: true,
+    })
+
+    assert.equal(response.status, 400)
+    assert.equal(payload.code, "invalid-slug")
+    assert.equal(stub.calls.length, 0)
+  } finally {
+    stub.restore()
+  }
+})
+
+test("a house-default imagePath with a cache-buster is still not an override", async () => {
+  const archived = archivedPosts()
+  const target = archived[0]
+  const stub = stubFetch((call) => {
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") return blogRead(archived)
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "PUT") {
+      return jsonResponse({ content: { sha: "new-sha" }, commit: { sha: "c0ffee" } })
+    }
+    throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+  })
+
+  try {
+    const { response } = await publishRequest({
+      title: target.title,
+      content: "rewritten body",
+      imagePath: "/images/AI.webp?v=2",
+      published: true,
+    })
+
+    assert.equal(response.status, 200)
+    const posts = committedPosts(
+      stub.calls.find((call) => call.url.includes(BLOG_CONTENTS) && call.method === "PUT")!
+    )
+    const stored = posts.find((post) => post.slug === target.slug) as Record<string, unknown>
+    assert.equal(stored.image, target.image, "the house default must not reset an archived hero")
+  } finally {
+    stub.restore()
+  }
+})
+
+test("an over-long title is refused as too long, not as an invalid title", async () => {
+  // No fetch at all: the title is rejected before the archive is read.
+  const stub = stubFetch(() => {
+    throw new Error("the route must not touch GitHub for a title it cannot slugify")
+  })
+
+  try {
+    const { response, payload } = await publishRequest({
+      title: "Long ".repeat(30),
+      content: "body",
+      published: true,
+    })
+
+    assert.equal(response.status, 400)
+    assert.equal(payload.code, "title-too-long")
+    assert.match(String(payload.error), /120/)
+    assert.doesNotMatch(String(payload.error), /^Invalid title$/)
+    assert.equal(stub.calls.length, 0)
+  } finally {
+    stub.restore()
+  }
+})
+
+test("a re-publish that regenerates its image moves the hero to the new file", async () => {
+  const archived = archivedPosts()
+  const target = archived[0]
+  const stub = stubFetch((call) => {
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") return blogRead(archived)
+    if (call.url.includes(IMAGE_CONTENTS) && call.method === "GET") {
+      return new Response("not found", { status: 404 })
+    }
+    if (call.url.includes(IMAGE_CONTENTS) && call.method === "PUT") {
+      return jsonResponse({ content: { sha: "image-sha" }, commit: { sha: "1mage" } })
+    }
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "PUT") {
+      return jsonResponse({ content: { sha: "new-sha" }, commit: { sha: "c0ffee" } })
+    }
+    throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+  })
+
+  try {
+    const { response, payload } = await publishRequest({
+      title: target.title,
+      content: "rewritten body",
+      imageData: Buffer.from("fake-webp").toString("base64"),
+      published: true,
+    })
+
+    assert.equal(response.status, 200)
+    assert.equal(payload.imageCommitted, true)
+
+    const posts = committedPosts(
+      stub.calls.find((call) => call.url.includes(BLOG_CONTENTS) && call.method === "PUT")!
+    )
+    const stored = posts.find((post) => post.slug === target.slug) as Record<string, unknown>
+    assert.equal(stored.image, "/images/blog/kenya-ai-policy-recap.webp")
   } finally {
     stub.restore()
   }
@@ -346,7 +655,10 @@ test("a rejected post write undoes the image commit it preceded", async () => {
 })
 
 test("a rejected post write leaves the ARCHIVED post's image alone", async () => {
+  // The archived post's hero IS the file this publish rewrote
+  // (`/images/blog/<slug>.webp`), so deleting it would break the live page.
   const archived = archivedPosts()
+  archived[0] = { ...archived[0], image: "/images/blog/kenya-ai-policy-recap.webp" }
   const stub = stubFetch((call) => {
     if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") return blogRead(archived)
     if (call.url.includes(IMAGE_CONTENTS) && call.method === "GET") {
@@ -374,6 +686,196 @@ test("a rejected post write leaves the ARCHIVED post's image alone", async () =>
       stub.calls.filter((call) => call.method === "DELETE").length,
       0,
       "the live post still points at that image — deleting it would break the page"
+    )
+  } finally {
+    stub.restore()
+  }
+})
+
+test("a rejected re-publish removes the image it committed when the archive does not use it", async () => {
+  // Re-publish of an archived post whose hero is a *different* file: the new
+  // blob is referenced by nothing, so leaving it behind is an orphan on main.
+  const archived = archivedPosts()
+  const target = archived[0]
+  assert.notEqual(target.image, "/images/blog/kenya-ai-policy-recap.webp")
+
+  const stub = stubFetch((call) => {
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") return blogRead(archived)
+    if (call.url.includes(IMAGE_CONTENTS) && call.method === "GET") {
+      return new Response("not found", { status: 404 })
+    }
+    if (call.url.includes(IMAGE_CONTENTS) && call.method === "PUT") {
+      return jsonResponse({ content: { sha: "image-sha" }, commit: { sha: "1mage" } })
+    }
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "PUT") {
+      return new Response("upstream exploded", { status: 500 })
+    }
+    if (call.url.includes(IMAGE_CONTENTS) && call.method === "DELETE") {
+      return jsonResponse({ commit: { sha: "c1eanup" } })
+    }
+    throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+  })
+
+  try {
+    const { response } = await publishRequest({
+      title: target.title,
+      content: "body",
+      imageData: Buffer.from("fake-webp").toString("base64"),
+      published: true,
+    })
+
+    assert.equal(response.status, 500)
+    const deletion = stub.calls.find((call) => call.method === "DELETE")
+    assert.ok(deletion, "the orphaned image commit was left behind on main")
+    assert.match(deletion.url, /images\/blog\/kenya-ai-policy-recap\.webp$/)
+    assert.equal(deletion.body?.sha, "image-sha", "the delete must pin the blob it wrote")
+  } finally {
+    stub.restore()
+  }
+})
+
+test("a rejected write never deletes an image another archived post already uses", async () => {
+  // Image paths used to be derived from titles while stored slugs were not, so
+  // two posts can share a hero path. Checking only the post being edited would
+  // delete a file a *different* live post still renders.
+  const archived = archivedPosts()
+  archived.push({
+    ...archived[2],
+    slug: "another-post-with-the-same-hero",
+    title: "Another Post With The Same Hero",
+    image: "/images/blog/orphan-image-post.webp",
+  })
+
+  const stub = stubFetch((call) => {
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") return blogRead(archived)
+    if (call.url.includes(IMAGE_CONTENTS) && call.method === "GET") {
+      return new Response("not found", { status: 404 })
+    }
+    if (call.url.includes(IMAGE_CONTENTS) && call.method === "PUT") {
+      return jsonResponse({ content: { sha: "image-sha" }, commit: { sha: "1mage" } })
+    }
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "PUT") {
+      return new Response("upstream exploded", { status: 500 })
+    }
+    throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+  })
+
+  try {
+    const { response } = await publishRequest({
+      title: "Orphan Image Post",
+      content: "body",
+      imageData: Buffer.from("fake-webp").toString("base64"),
+      published: true,
+    })
+
+    assert.equal(response.status, 500)
+    assert.equal(
+      stub.calls.filter((call) => call.method === "DELETE").length,
+      0,
+      "another post renders that file — deleting it would break the page"
+    )
+  } finally {
+    stub.restore()
+  }
+})
+
+test("a 409 cleanup keeps an image the concurrent winner now references", async () => {
+  // The image path is deterministic per slug, so a writer that committed between
+  // our read and our write may be pointing at the very blob we are about to
+  // delete (identical bytes commit to the same sha, so pinning the sha alone is
+  // not enough). The route re-reads the archive and keeps the file.
+  const archived = archivedPosts()
+  let blogReads = 0
+  const stub = stubFetch((call) => {
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") {
+      blogReads += 1
+      if (blogReads === 1) return blogRead(archived)
+      return blogRead([
+        ...archived,
+        {
+          ...archived[2],
+          slug: "someones-other-post",
+          title: "Someone Else's Post",
+          image: "/images/blog/orphan-image-post.webp",
+        },
+      ])
+    }
+    if (call.url.includes(IMAGE_CONTENTS) && call.method === "GET") {
+      return new Response("not found", { status: 404 })
+    }
+    if (call.url.includes(IMAGE_CONTENTS) && call.method === "PUT") {
+      return jsonResponse({ content: { sha: "image-sha" }, commit: { sha: "1mage" } })
+    }
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "PUT") {
+      return new Response('{"message":"sha does not match"}', { status: 409 })
+    }
+    if (call.url.includes(IMAGE_CONTENTS) && call.method === "DELETE") {
+      return jsonResponse({ commit: { sha: "c1eanup" } })
+    }
+    throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+  })
+
+  try {
+    const { response } = await publishRequest({
+      title: "Orphan Image Post",
+      content: "body",
+      imageData: Buffer.from("fake-webp").toString("base64"),
+      published: true,
+    })
+
+    assert.equal(response.status, 409)
+    assert.equal(blogReads, 2, "the route must re-read the archive before deleting")
+    assert.equal(
+      stub.calls.filter((call) => call.method === "DELETE").length,
+      0,
+      "the winner's post now points at that file — deleting it would break the page"
+    )
+  } finally {
+    stub.restore()
+  }
+})
+
+test("a 409 cleanup still removes the image when nothing references it", async () => {
+  const archived = archivedPosts()
+  let blogReads = 0
+  const stub = stubFetch((call) => {
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") {
+      blogReads += 1
+      if (blogReads === 1) return blogRead(archived)
+      // The winner committed a different post and did not touch our image.
+      return blogRead([
+        ...archived,
+        { ...archived[2], slug: "someones-other-post", title: "Someone Else's Post" },
+      ])
+    }
+    if (call.url.includes(IMAGE_CONTENTS) && call.method === "GET") {
+      return new Response("not found", { status: 404 })
+    }
+    if (call.url.includes(IMAGE_CONTENTS) && call.method === "PUT") {
+      return jsonResponse({ content: { sha: "image-sha" }, commit: { sha: "1mage" } })
+    }
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "PUT") {
+      return new Response('{"message":"sha does not match"}', { status: 409 })
+    }
+    if (call.url.includes(IMAGE_CONTENTS) && call.method === "DELETE") {
+      return jsonResponse({ commit: { sha: "c1eanup" } })
+    }
+    throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+  })
+
+  try {
+    const { response } = await publishRequest({
+      title: "Orphan Image Post",
+      content: "body",
+      imageData: Buffer.from("fake-webp").toString("base64"),
+      published: true,
+    })
+
+    assert.equal(response.status, 409)
+    assert.equal(
+      stub.calls.filter((call) => call.method === "DELETE").length,
+      1,
+      "nothing references the blob, so it must not be left on main"
     )
   } finally {
     stub.restore()
@@ -439,6 +941,7 @@ test("isSafeImagePath rejects traversals and accepts stored image paths", async 
   for (const unsafe of [
     "/images/../../etc/passwd",
     "/images/../secret.webp",
+    "/images/../secret.webp?v=3",
     "/images//etc/passwd",
     "https://evil.example/x.webp",
     "data:image/png;base64,AAAA",
@@ -448,7 +951,14 @@ test("isSafeImagePath rejects traversals and accepts stored image paths", async 
     assert.equal(isSafeImagePath(unsafe), false, `${unsafe} must be rejected`)
   }
 
-  for (const safe of ["/images/AI.webp", "/images/blog/post-1.webp", "/images/uuid_2-3.webp"]) {
+  for (const safe of [
+    "/images/AI.webp",
+    "/images/blog/post-1.webp",
+    "/images/uuid_2-3.webp",
+    // Five archived posts store a cache-buster on their hero. Rejecting those
+    // would make any prefill rewrite them to the house default.
+    "/images/legacy-hero.webp?v=3",
+  ]) {
     assert.equal(isSafeImagePath(safe), true, `${safe} must be accepted`)
   }
 })
