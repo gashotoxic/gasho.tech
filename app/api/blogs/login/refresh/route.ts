@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { SESSION_TTL_SECONDS, readSession, refreshSessionToken } from "@/lib/auth"
+import { SESSION_TTL_SECONDS, readAdminToken, readSession, refreshSessionToken } from "@/lib/auth"
 
 // Extends a still-valid admin session without re-entering the password.
 // Refresh is capped by the session's absolute lifetime (see lib/auth.ts).
@@ -17,12 +17,13 @@ function reply(body: Record<string, unknown>, status: number) {
 }
 
 export async function POST(request: Request) {
-  const authHeader = request.headers.get("authorization")
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  // One shared reader for the admin state: this route used to hand-parse
+  // `Authorization`, the third copy of that logic in the app.
+  const current = readAdminToken(request)
+  if (!current) {
     return reply({ error: "Unauthorized" }, 401)
   }
 
-  const current = authHeader.slice(7)
   const session = readSession(current)
   if (!session) {
     return reply({ error: "Unauthorized" }, 401)

@@ -10,11 +10,16 @@ const BRANCH = "main"
 const FILE_PATH = "data/blogs.json"
 
 /**
- * Upper bound on a GitHub API call. The blog read sits on a public page render
- * and the writes sit behind an admin action, so a hung upstream must fail loudly
- * instead of holding a request open until the platform kills it.
+ * Upper bound on a GitHub API call.
+ *
+ * The blog read sits on a public page render, so a hung upstream must fail (and
+ * fall back to the deployed snapshot) instead of holding the request open until
+ * the platform kills it. Writes get their own, longer bound: they are behind an
+ * admin action and carry the whole archive or a hero image, so 8 seconds is too
+ * tight — but unbounded was the bug, and every write call below names a signal.
  */
 const REQUEST_TIMEOUT_MS = 8000
+const WRITE_TIMEOUT_MS = 30000
 
 interface GitHubCommitResult {
   success: boolean
@@ -74,7 +79,7 @@ export async function readBlogFile(): Promise<BlogFileSnapshot> {
     },
     // The read path is on a public page render, so a hung upstream must fail
     // (and fall back) instead of holding the request open until the platform
-    // times it out. Writes get the same bound and report the failure honestly.
+    // times it out.
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   })
 
@@ -168,6 +173,9 @@ export async function commitBlogChanges(
         sha: expectedSha,
         branch: BRANCH,
       }),
+      // A write is an admin action, not a page render: it gets a longer bound,
+      // never no bound.
+      signal: AbortSignal.timeout(WRITE_TIMEOUT_MS),
     })
 
     if (!commitRes.ok) {
@@ -252,6 +260,7 @@ export async function deleteImage(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ message: commitMessage, sha, branch: BRANCH }),
+      signal: AbortSignal.timeout(WRITE_TIMEOUT_MS),
     })
 
     if (!deleteRes.ok) {
@@ -300,6 +309,7 @@ export async function commitImage(
         Authorization: `Bearer ${GITHUB_TOKEN}`,
         Accept: "application/vnd.github.v3+json",
       },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
 
     let currentSha: string
@@ -327,6 +337,7 @@ export async function commitImage(
         "Content-Type": "application/json",
       },
       body: JSON.stringify(commitData),
+      signal: AbortSignal.timeout(WRITE_TIMEOUT_MS),
     })
 
     if (!commitRes.ok) {

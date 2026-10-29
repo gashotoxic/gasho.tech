@@ -223,6 +223,23 @@ export function readAdminAuth(request: Request, now: number = Date.now()): Admin
   return verifyToken(token, now) ? "admin" : "invalid"
 }
 
+/**
+ * The caller's raw bearer token, but only when it verifies.
+ *
+ * A *validated* token, for the one caller that needs the token itself (the
+ * refresh route re-signs it). Everything else wants `readAdminAuth`, which also
+ * distinguishes "no header" from "a header that does not verify". This lives here
+ * so the `Bearer ` prefix is parsed in exactly one module: this is the third hand
+ * -rolled copy the routes had drifted between.
+ */
+export function readAdminToken(request: Request, now: number = Date.now()): string | null {
+  const header = request.headers.get("authorization")
+  if (header === null || !header.startsWith("Bearer ")) return null
+  const token = header.slice("Bearer ".length).trim()
+  if (!token) return null
+  return verifyToken(token, now) ? token : null
+}
+
 /** True only for a valid admin session (an invalid header is not a caller). */
 export function isAuthorizedRequest(request: Request, now: number = Date.now()): boolean {
   return readAdminAuth(request, now) === "admin"

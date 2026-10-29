@@ -44,7 +44,10 @@ export default function BlogAdminPage() {
   const [editingSlug, setEditingSlug] = useState<string | null>(null)
   const [form, setForm] = useState<BlogForm>(emptyForm)
   const [saving, setSaving] = useState(false)
-  const [message, setMessage] = useState({ text: "", type: "success" as "success" | "error" })
+  const [message, setMessage] = useState({
+    text: "",
+    type: "success" as "success" | "error" | "warning",
+  })
 
   // Restore a saved session on mount, extending it while it is still valid.
   useEffect(() => {
@@ -160,8 +163,20 @@ export default function BlogAdminPage() {
         } else if (reload.ok) {
           const freshPosts = await reload.json()
           if (Array.isArray(freshPosts)) setPosts(freshPosts)
+          setTimeout(() => setMessage({ text: "", type: "success" }), 4000)
+        } else {
+          // 503 (the archive could not be read) or any other failure. The save went
+          // through, but the list on screen is now stale — say so instead of
+          // leaving it there as if it were current.
+          setMessage({
+            text:
+              reload.status === 503
+                ? "Saved, but the post list could not be reloaded — the archive is temporarily unavailable. Reload the page in a minute to see it."
+                : `Saved, but the post list could not be reloaded (${reload.status}). Reload the page to see it.`,
+            type: "warning",
+          })
+          setTimeout(() => setMessage({ text: "", type: "warning" }), 8000)
         }
-        setTimeout(() => setMessage({ text: "", type: "success" }), 4000)
       } else {
         setMessage({ text: data.error || "Something went wrong", type: "error" })
       }
@@ -311,7 +326,9 @@ export default function BlogAdminPage() {
           <div className={`mb-6 p-4 rounded-lg text-sm border ${
             message.type === "success"
               ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300"
-              : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300"
+              : message.type === "warning"
+                ? "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300"
+                : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300"
           }`}>
             {message.text}
           </div>
