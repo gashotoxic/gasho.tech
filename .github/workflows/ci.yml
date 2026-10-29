@@ -27,6 +27,14 @@ jobs:
       - name: Unit tests (auth + rate limiting)
         run: npm test
 
+      # The archive's size is a live risk with two named edges — 1 MB (every read
+      # becomes two requests) and the 20 MB decode ceiling (nothing can be read or
+      # written). `npm run check:blogs-size` printed both but ran nowhere, so a
+      # drift between deploys went unseen until a publish 500'd. It runs on Node 22
+      # because it imports lib/github.ts through --experimental-strip-types.
+      - name: Blog archive size
+        run: npm run check:blogs-size
+
   lint-and-build:
     runs-on: ubuntu-latest
 
