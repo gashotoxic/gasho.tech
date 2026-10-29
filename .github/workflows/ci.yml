@@ -1,10 +1,13 @@
 name: CI
 
+# Every branch, not only PRs into main: the stacked-PR train (#40 → #41 → #42 →
+# #43 …) targets other feature branches, so `branches: [main, master]` meant the
+# unit suite never ran for the PRs that most needed it.
 on:
   push:
-    branches: [main, master]
+    branches: ["**"]
   pull_request:
-    branches: [main, master]
+    branches: ["**"]
 
 jobs:
   unit-tests:
@@ -51,3 +54,31 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # The unit suite walks the module graph, so it can only see import-chain
+  # leaks. It cannot see a server component that reads the archive and passes
+  # draft posts as props to a client component: no import edge exists and the
+  # draft bodies ship inside the RSC payload of a prerendered page.
+  #
+  # This job builds with a canary draft (a marker string in the body) and greps
+  # everything a browser can fetch — `.next/static/**` and the prerendered
+  # `.html`/`.rsc` payloads under `.next/server/app/**` — failing on any match.
+  # `scripts/check-client-bundles.mjs` always restores data/blogs.json.
+  bundle-canary:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # This job builds the app, so it stays on Node 20 for Vercel parity.
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build with a canary draft and scan client-fetchable artifacts
+        run: node scripts/check-client-bundles.mjs
