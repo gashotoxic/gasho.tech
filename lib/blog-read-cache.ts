@@ -34,17 +34,33 @@ export const READ_CACHE_TTL_MS = 30_000
  */
 export const MISSING_CACHE_TTL_MS = 5_000
 
+/**
+ * How long a *failed* read (thrown: no token, network, GitHub 5xx, the 8s bound)
+ * is remembered before it is retried.
+ *
+ * The failure mode is the same burn as a 404, one level worse: during a GitHub
+ * outage every render misses the memo (nothing was cached), so each one spends an
+ * authenticated contents call — two per post page — chasing an upstream that is
+ * already failing. Enough traffic and the shared GH_TOKEN budget is gone, and the
+ * publish path (which needs the same token) fails too: a read outage becomes
+ * "cannot publish".
+ *
+ * 5 seconds keeps the fallback honest: the blog starts using the archive again
+ * within one negative TTL of GitHub recovering, and the error is *re-thrown*, so
+ * the caller still sees the failure and still falls back to its snapshot.
+ */
+export const FAILURE_CACHE_TTL_MS = 5_000
+
 let cached: { at: number; snapshot: BlogFileSnapshot } | null = null
+let failed: { at: number; error: unknown } | null = null
 
 /**
- * Read the live archive, reusing a read younger than its TTL: `READ_CACHE_TTL_MS`
- * for a list, `MISSING_CACHE_TTL_MS` for a 404 (`{ posts: [], missing: true }`).
+ * Read the live archive, reusing a read younger than its TTL:
  *
- * A read that *throws* is not memoised — that is a request-level failure (no
- * token, network, GitHub 5xx), and pinning "unreadable" in place for even a few
- * seconds would keep the blog on its snapshot fallback after the repository is
- * readable again. The cheap, common, repeated failure is the 404, and that one is
- * cached.
+ * - a list: `READ_CACHE_TTL_MS`
+ * - a 404 (`{ posts: [], missing: true }`): `MISSING_CACHE_TTL_MS`
+ * - a thrown failure: `FAILURE_CACHE_TTL_MS`, re-thrown so the caller still
+ *   treats it as a failed read and falls back
  */
 export async function readBlogFileCached(now: number = Date.now()): Promise<BlogFileSnapshot> {
   if (cached) {
@@ -52,12 +68,21 @@ export async function readBlogFileCached(now: number = Date.now()): Promise<Blog
     if (now - cached.at < ttl) return cached.snapshot
   }
 
-  const snapshot = await readBlogFile()
-  cached = { at: now, snapshot }
-  return snapshot
+  if (failed && now - failed.at < FAILURE_CACHE_TTL_MS) throw failed.error
+
+  try {
+    const snapshot = await readBlogFile()
+    cached = { at: now, snapshot }
+    failed = null
+    return snapshot
+  } catch (error) {
+    failed = { at: now, error }
+    throw error
+  }
 }
 
 /** Drop the memo — for tests, and for a writer inside this process. */
 export function clearBlogReadCache(): void {
   cached = null
+  failed = null
 }

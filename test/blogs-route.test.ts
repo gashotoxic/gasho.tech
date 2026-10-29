@@ -782,6 +782,38 @@ test("a persistent 404 costs one authenticated read per negative TTL, not one pe
   })
 })
 
+test("a failing upstream costs one authenticated read per failure TTL, not one per render", async () => {
+  // The same burn as the 404, one level worse: a thrown read was never memoised
+  // either, so during a GitHub outage every anonymous render (two per post page)
+  // spent an authenticated contents call chasing an upstream that was already
+  // failing — enough traffic and the shared token budget is gone, which also stops
+  // publishing.
+  await withSnapshotAge(0, async () => {
+    let reads = 0
+    const stub = stubFetch((call) => {
+      if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") {
+        reads += 1
+        return new Response('{"message":"upstream down"}', { status: 502 })
+      }
+      throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+    })
+
+    try {
+      const { GET } = await loadRoute()
+      for (let i = 0; i < 3; i += 1) {
+        const response = await GET(new Request("http://localhost/api/blogs"))
+        // Still a failure, still the snapshot fallback — the memo only bounds the
+        // cost, it does not turn a broken read into a served list.
+        assert.equal(response.status, 200)
+        assert.equal(response.headers.get("x-blog-source"), "snapshot")
+      }
+      assert.equal(reads, 1, "a failing read must be remembered for the failure TTL")
+    } finally {
+      stub.restore()
+    }
+  })
+})
+
 test("an invalid Authorization header is a 401, not the anonymous list", async () => {
   // GET used to answer 200 with the published projection for any header that did
   // not verify. That made the admin panel's `reload.status === 401` branch dead
