@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-strip-types --no-warnings --test test/auth.test.ts test/rate-limit.test.ts test/blog-post-update.test.ts",
+    "test": "node --experimental-strip-types --no-warnings --test test/auth.test.ts test/rate-limit.test.ts test/blog-post-update.test.ts test/project-links.test.ts test/json-ld.test.ts",
     "check:tier1-gate": "node scripts/check-tier1-gate.mjs"
   },
   "dependencies": {

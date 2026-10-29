@@ -4,6 +4,7 @@ import "./globals.css";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { ThemeProvider } from "@/components/theme-provider";
+import { toJsonLd } from "@/lib/json-ld";
 
 const lato = Lato({
   variable: "--font-sans",
@@ -83,7 +84,7 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
+            __html: toJsonLd({
               "@context": "https://schema.org",
               "@type": "Organization",
               name: "GashoTech",
@@ -110,7 +111,7 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
+            __html: toJsonLd({
               "@context": "https://schema.org",
               "@type": "LocalBusiness",
               name: "GashoTech",
@@ -127,7 +128,7 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
+            __html: toJsonLd({
               "@context": "https://schema.org",
               "@type": "WebSite",
               name: "GashoTech",
@@ -138,7 +139,7 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
+            __html: toJsonLd({
               "@context": "https://schema.org",
               "@type": "BreadcrumbList",
               itemListElement: [

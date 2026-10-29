@@ -1,9 +1,18 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { FileText, Globe, Server, Video } from "lucide-react"
-import { GithubIcon } from "@/components/social-icons"
-import { getProject, isLiveProject, isPublicProject, isShareGated, verifyShareKey, type Project } from "@/data/projects"
+import { ProjectLinks } from "@/components/projects/project-links"
+import { toJsonLd } from "@/lib/json-ld"
+import {
+  getProject,
+  isLiveProject,
+  isPublicProject,
+  isShareGated,
+  projectLinks,
+  projectLinksTo,
+  verifyShareKey,
+  type Project,
+} from "@/data/projects"
 
 // The share-link gate reads `?k=` at request time (Release Format v1.1 §2 rule 1), so this
 // route renders per request instead of via generateStaticParams.
@@ -127,15 +136,24 @@ export default async function ProjectPage(props: Props) {
     ],
   }
 
+  // One projection for the hero row; the CTA decision asks `projectLinksTo()` about that same
+  // projected live slot, so the two cannot disagree about where the live slot points.
+  const links = projectLinks(project)
+  // One destination, one link: the tender entry's `liveUrl` IS /tenders, so the hero slot
+  // already opens the dashboard and the pre-existing CTA would be a second link to the same
+  // page in the same block. The CTA survives only when the live slot is absent or elsewhere.
+  const showTenderCta =
+    project.slug === "tender-rfq-finder" && !projectLinksTo(project, "/tenders")
+
   return (
     <div className="pt-16">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(projectSchema) }}
+        dangerouslySetInnerHTML={{ __html: toJsonLd(projectSchema) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+        dangerouslySetInnerHTML={{ __html: toJsonLd(breadcrumbSchema) }}
       />
 
       {/* Breadcrumb */}
@@ -169,67 +187,18 @@ export default async function ProjectPage(props: Props) {
           </p>
         )}
 
-        {/* Links */}
-        <div className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-3 text-sm font-medium">
-          {project.liveUrl && (
-            <a
-              href={project.liveUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-white hover:text-[#094d3e] transition-colors"
-            >
-              <Globe className="w-4 h-4" />
-              Live demo
-            </a>
-          )}
-          {project.hosting.url && (
-            <a
-              href={project.hosting.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-white hover:text-[#094d3e] transition-colors"
-            >
-              <Server className="w-4 h-4" />
-              Hosting
-            </a>
-          )}
-          {project.githubUrl && (
-            <a
-              href={project.githubUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-white hover:text-[#094d3e] transition-colors"
-            >
-              <GithubIcon className="w-4 h-4" />
-              GitHub
-            </a>
-          )}
-          {project.readmeUrl && (
-            <a
-              href={project.readmeUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-white hover:text-[#094d3e] transition-colors"
-            >
-              <FileText className="w-4 h-4" />
-              README
-            </a>
-          )}
-          {project.demoVideoUrl && (
-            <a
-              href={project.demoVideoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-white hover:text-[#094d3e] transition-colors"
-            >
-              <Video className="w-4 h-4" />
-              60s demo
-            </a>
-          )}
-        </div>
+        {/* Demo links — live demo first, then the video demo, GitHub, README and hosting.
+            Anything missing is simply absent instead of a dead link (`projectLinks()`), and
+            the row keeps its reserved height either way, so the hero does not jump. */}
+        <ProjectLinks
+          links={links}
+          variant="hero"
+          className="mt-8 justify-center gap-x-6 gap-y-3"
+        />
 
-        {/* Tender dashboard CTA — only the Tender / RFQ Finder entry points at /tenders. */}
-        {project.slug === "tender-rfq-finder" && (
+        {/* Tender dashboard CTA — only the Tender / RFQ Finder entry, and only when its live
+            slot does not already open /tenders (otherwise: two links, one destination). */}
+        {showTenderCta && (
           <div className="mt-8">
             <Link
               href="/tenders"

@@ -4,6 +4,7 @@ import Link from "next/link"
 import Image from "next/image"
 import type { BlogPost } from "@/lib/blogs"
 import { renderMarkdown } from "@/lib/studio-api"
+import { toJsonLd } from "@/lib/json-ld"
 import { Calendar, Tag, ArrowLeft } from "lucide-react"
 
 interface Props {
@@ -76,7 +77,7 @@ export default async function BlogPostPage({ params }: Props) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: toJsonLd({
             "@context": "https://schema.org",
             "@type": "Article",
             headline: post.title,

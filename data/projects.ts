@@ -28,6 +28,17 @@
  *   (`isShareGated()` / `verifyShareKey()`). `preview` entries keep a clean public teaser +
  *   detail page but stay out of the sitemap and llms.txt until they go `live`.
  *
+ * Public links follow the same "complete or absent" rule (user directive 2026-10-28).
+ * `liveUrl`, `demoVideoUrl`, `githubUrl`, `readmeUrl` and `hosting.url` are each either a
+ * real absolute http(s) URL or the empty string, and the empty string renders as NOTHING —
+ * never an empty button, never a dead href. `projectLinks()` is the single ordered
+ * projection that both the card grid and the detail page render: live demo first, then the
+ * video demo, then the repo. That ordering IS the fallback — a project that is not hosted
+ * still shows its explainer video in the same place, and a project with a private repo
+ * simply has no GitHub link. `validateProjects()` rejects any non-empty value that is not a
+ * real URL, for every state, so a placeholder like "n/a" fails `npm run build` instead of
+ * shipping.
+ *
  * Tier 1 flags are set from VERIFIED evidence, never from intent. If a check cannot be
  * demonstrated, it is `false` even when the platform "probably" does it — the gate exists
  * to keep unverified claims out of the showcase. `tier1Notes` records which checks are
@@ -68,11 +79,23 @@ interface ProjectBase {
     memory: string; // how state persists
     routing: string; // easy→small / hard→reasoning
   };
-  liveUrl: string; // working demo anyone can try
+  /**
+   * The demo links (user directive 2026-10-28). Every slot is either a real absolute
+   * http(s) URL or `""` — and `""` renders as nothing at all. Never store "n/a", "TODO" or
+   * a bare path here: `validateProjects()` fails the build on any non-empty non-URL value.
+   */
+  liveUrl: string; // the live page anyone can try; "" when the project is not hosted publicly
   hosting: { provider: string; plan: string; region: string; url: string };
-  githubUrl: string; // public repo
+  githubUrl: string; // the repo, ONLY while it is public — "" for a private repo (a link nobody can open helps nobody)
   readmeUrl: string; // 5-minute architecture README
-  demoVideoUrl: string; // 60-second demo recording
+  demoVideoUrl: string; // explainer / demo video (YouTube, X, or a self-hosted mp4); the fallback demo when nothing is hosted
+  /**
+   * Optional visible-label override per slot, for a destination whose honest name is not the
+   * generic one — e.g. a `liveUrl` that is a dashboard, not a demo. The accessible name is
+   * built from the resolved label, so an override keeps WCAG 2.5.3 (label in name) intact.
+   * Read only by `projectLinks()`; the defaults live in `LINK_LABELS`.
+   */
+  linkLabels?: Partial<Record<ProjectLinkKind, string>>;
   /**
    * Optional per-check note. Only set for checks that are `false`, and only to say WHY —
    * "missing" (does not exist yet) vs "unverified" (exists but not demonstrated). Never
@@ -116,6 +139,186 @@ export type Project = LiveProject | PendingProject;
 
 /** The four states of Release Format v1.1. */
 export type ProjectStatus = "draft" | "internal" | "preview" | "live";
+
+// ---------------------------------------------------------------------------
+// Demo links — one ordered projection, rendered by every surface (2026-10-28)
+// ---------------------------------------------------------------------------
+
+/** The five link slots a project can expose. The array order IS the render order. */
+export const PROJECT_LINK_KINDS = ["live", "video", "repo", "readme", "hosting"] as const;
+
+export type ProjectLinkKind = (typeof PROJECT_LINK_KINDS)[number];
+
+/**
+ * What a project card shows: the three the user asked for, in this order. The detail page
+ * renders all five. Both go through `projectLinks()`, so the ordering rule — live demo
+ * first, video demo second, repo third — cannot drift between the surfaces.
+ */
+export const CARD_LINK_KINDS: readonly ProjectLinkKind[] = ["live", "video", "repo"];
+
+/** A link the UI is allowed to render. `href` is always a trimmed absolute http(s) URL. */
+export interface ProjectLink {
+  kind: ProjectLinkKind;
+  label: string; // visible text
+  href: string;
+  ariaLabel: string; // accessible name: project, destination and the new-tab behaviour
+}
+
+const LINK_LABELS: Record<ProjectLinkKind, string> = {
+  live: "Live demo",
+  video: "Video demo",
+  repo: "GitHub",
+  readme: "README",
+  hosting: "Hosting",
+};
+
+/** The stored field behind each slot — validation errors name the FIELD, so they grep. */
+const LINK_FIELDS: Record<ProjectLinkKind, string> = {
+  live: "liveUrl",
+  video: "demoVideoUrl",
+  repo: "githubUrl",
+  readme: "readmeUrl",
+  hosting: "hosting.url",
+};
+
+/**
+ * Accessible name per slot. The resolved visible label is interpolated VERBATIM into the
+ * name, so WCAG 2.5.3 (label in name) holds for the defaults AND for a project that overrides
+ * one — an accessible name that does not contain the visible text breaks voice control
+ * ("click Tender dashboard").
+ */
+const LINK_ARIA: Record<ProjectLinkKind, (title: string, label: string) => string> = {
+  live: (title, label) => `${title} — ${label} (opens in a new tab)`,
+  video: (title, label) => `${title} — ${label} (opens in a new tab)`,
+  repo: (title, label) => `${title} — ${label}: view the source code (opens in a new tab)`,
+  readme: (title, label) => `${title} — ${label}: read the architecture (opens in a new tab)`,
+  hosting: (title, label) => `${title} — ${label}: open the hosting page (opens in a new tab)`,
+};
+
+/**
+ * A real, absolute, clickable http(s) URL. Everything else — `""`, whitespace, "n/a",
+ * "TODO", "https://", "javascript:…", a bare path — means "no link" and stays hidden.
+ * This is the only place the question is answered for hrefs: `validateProjects()` uses it to
+ * fail the build on a placeholder, and the UI uses it to drop a link instead of rendering a
+ * dead one. Credentials in the authority (`https://user:pass@host`) are refused: they would
+ * hand a password to anyone who clicks, and nothing here ever needs them. `<`, `>`, `"`, the
+ * bidi controls (U+061C, U+200E/F, U+202A–E, U+2066–9), zero-width and other invisible
+ * formatting characters (U+200B–D, U+2060, U+FEFF, U+180E, U+0085), ASCII control characters
+ * and the backslash are refused too, so a URL-shaped string can never smuggle markup into a
+ * sink that does not escape (JSON-LD is serialized via `toJsonLd()` as well) and cannot be
+ * read as a different URL than the one written — browsers normalize `\` to `/`.
+ *
+ * Refusing U+200C/U+200D also refuses the legitimate uses of ZWNJ/ZWJ in IDN paths (Persian,
+ * Indic). That is a deliberate trade: no shipped URL needs them, and a rejected value fails
+ * the build loudly rather than rendering a URL nobody can verify. If such a URL ever lands,
+ * relax this gate for post-parse values instead of deleting the character from the set.
+ */
+export function isRenderableUrl(raw: string | undefined): boolean {
+  const value = (raw ?? "").trim();
+  if (!/^https?:\/\/\S+\.\S+$/i.test(value)) return false;
+  if (/[<>"\\\u0000-\u001f\u007f\u0085\u061c\u200b\u200c\u200d\u200e\u200f\u202a-\u202e\u2060\u2066-\u2069\u180e\ufeff]/.test(value)) return false;
+  const authority = value.replace(/^https?:\/\//i, "").split(/[/?#]/, 1)[0];
+  return !authority.includes("@");
+}
+
+/** The link slots in render order, with the raw stored values. */
+function linkSlots(
+  project: Project,
+): ReadonlyArray<readonly [ProjectLinkKind, string | undefined]> {
+  return [
+    ["live", project.liveUrl],
+    ["video", project.demoVideoUrl],
+    ["repo", project.githubUrl],
+    ["readme", project.readmeUrl],
+    ["hosting", project.hosting?.url],
+  ];
+}
+
+/**
+ * The links to render, in order, with missing ones simply absent.
+ *
+ * This is the fallback rule in one place: because the list is filtered rather than
+ * branched, a project that is not hosted shows its video demo exactly where the live demo
+ * would have been, a project with both shows both (live first), and a project with neither
+ * yields an empty list — which the component renders as reserved whitespace, not a button.
+ * Identical destinations collapse to the first (highest-priority) slot — compared with the
+ * trailing slash normalized away, so `hosting.url` pointing at `…/tenders/` while `liveUrl`
+ * points at `…/tenders` does not produce two links to one page.
+ */
+export function projectLinks(
+  project: Project,
+  kinds: readonly ProjectLinkKind[] = PROJECT_LINK_KINDS,
+): ProjectLink[] {
+  const wanted = new Set<ProjectLinkKind>(kinds);
+  const seen = new Set<string>();
+  const links: ProjectLink[] = [];
+  for (const [kind, raw] of linkSlots(project)) {
+    if (!wanted.has(kind) || !isRenderableUrl(raw)) continue;
+    const href = (raw as string).trim();
+    const destination = normalizeHref(href);
+    if (seen.has(destination)) continue;
+    seen.add(destination);
+    const label = project.linkLabels?.[kind]?.trim() || LINK_LABELS[kind];
+    links.push({
+      kind,
+      label,
+      href,
+      ariaLabel: LINK_ARIA[kind](project.title, label),
+    });
+  }
+  return links;
+}
+
+/** Two hrefs that differ only by trailing slashes are the same destination. */
+function normalizeHref(href: string): string {
+  return href.replace(/\/+$/, "") || href;
+}
+
+/**
+ * True when a link resolves to exactly `path` (`https://x/tenders?q=1` → true for "/tenders").
+ * Used to collapse the tender CTA into the live-link slot: the two must never both point at
+ * /tenders, or the hero carries two links to one page one block apart.
+ *
+ * Matching on PATH AND HOST is deliberately not required — GashoTech serves /tenders from
+ * more than one of its own domains (gashotech.com, gasho.tech), and a host-pinned check would
+ * let the duplicate CTA reappear the day the tender `liveUrl` moves to the other domain. The
+ * cost of path-only matching is a hypothetical missing CTA if this URL ever pointed at a
+ * different site's /tenders.
+ *
+ * Trailing slashes are ignored on both sides, so the answer cannot be silently falsified by
+ * writing the path in the other form; the pathname is percent-decoded, so `/%74enders` (which
+ * a browser, and therefore the server, reads as /tenders) still matches. A URL that does not
+ * parse is never a match.
+ */
+export function linksToPath(href: string, path: string): boolean {
+  let pathname: string;
+  try {
+    pathname = new URL(href).pathname;
+  } catch {
+    return false;
+  }
+  try {
+    pathname = decodeURIComponent(pathname);
+  } catch {
+    // Malformed escape (e.g. "%zz"): compare the raw pathname rather than throwing.
+  }
+  return pathname.replace(/\/+$/, "") === path.replace(/\/+$/, "");
+}
+
+/**
+ * True when the project's live slot — the link the hero row renders first — opens exactly
+ * `path`. The CTA that would duplicate that destination is hidden on this answer.
+ *
+ * Deliberately lives here beside `projectLinks()` rather than in the page: the projection and
+ * the decision are then one module apart and cannot drift, so a slug rename or a moved
+ * `liveUrl` changes this predicate and its tests together instead of silently restoring the
+ * duplicate tender CTA. Only the live slot counts: a README or hosting link elsewhere does
+ * not make the hero's call to action redundant.
+ */
+export function projectLinksTo(project: Project, path: string): boolean {
+  const live = projectLinks(project).find((link) => link.kind === "live");
+  return live !== undefined && linksToPath(live.href, path);
+}
 
 // ---------------------------------------------------------------------------
 // Code gate — spec §3.2 / §6 / Release Format v1.1 §2
@@ -217,13 +420,26 @@ export function validateProjects(entries: readonly Project[]): void {
       ];
       for (const [field, raw] of links) {
         const v = (raw ?? "").trim();
-        if (!/^https?:\/\/\S+\.\S+/.test(v)) {
+        if (!isRenderableUrl(v)) {
           throw new Error(
             `projects.ts: "${label}" declares status "live" but ${field} is not a real http(s) url ` +
               `(${JSON.stringify(raw ?? "")}) — a live entry must link its demo, repo, README, ` +
               `demo video and hosting with real URLs.`,
           );
         }
+      }
+    }
+    // Every link slot, in EVERY state, is either empty (renders as nothing) or a real
+    // absolute http(s) URL (user directive 2026-10-28). A "n/a", a "TODO", a bare path or a
+    // half-typed "https://" is a dead href on a public card, so it fails the build here
+    // rather than being silently dropped by the renderer.
+    for (const [kind, raw] of linkSlots(entry)) {
+      const value = (raw ?? "").trim();
+      if (value !== "" && !isRenderableUrl(value)) {
+        throw new Error(
+          `projects.ts: "${label}" — ${LINK_FIELDS[kind]} must be empty or a real absolute http(s) url ` +
+            `(got ${JSON.stringify(raw ?? "")}) — a missing link is hidden, never faked.`,
+        );
       }
     }
     // Share links exist only for the `internal` state (§2 rule 1): an internal entry must
@@ -387,10 +603,22 @@ export const projects: Project[] = [
       memory: "24h fetch cache + per-run report history",
       routing: "One command: fetch → parse → score → ranked report + bid drafts",
     },
-    liveUrl: "",
+    // Live surface: the pipeline's ranked tender dashboard is published on this site and
+    // renders publicly, so it is linked as the live slot — labelled "Tender dashboard", not
+    // "Live demo", because the snapshot behind it is refreshed by a separate cron and its
+    // `lastRefreshed` can be days old. Calling it a demo would export a freshness claim this
+    // page cannot back (the stale-snapshot repair is tracked outside this repo).
+    liveUrl: "https://gashotech.com/tenders",
+    linkLabels: { live: "Tender dashboard" },
     hosting: { provider: "Self-hosted script", plan: "n/a", region: "n/a", url: "" },
+    // Repo is not public: a link nobody can open helps nobody, so it stays empty and hidden
+    // until the repo is actually made public.
     githubUrl: "",
+    // The architecture README lives inside that repo: nothing public to link yet.
     readmeUrl: "",
+    // Explainer video still pending. Empty renders as nothing; dropping the URL in here is a
+    // data-only edit — no code change needed. It sits in the slot right after the live demo,
+    // so it shows whenever this project is not hosted.
     demoVideoUrl: "",
     status: "preview",
     tier1: {

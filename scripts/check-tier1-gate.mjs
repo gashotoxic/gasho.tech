@@ -246,7 +246,10 @@ try {
 
   console.log("── 4. WIRING: every public-visibility surface routes through the gate ──");
   const consumers = [
-    ["app/projects/page.tsx (grid)", "app/projects/page.tsx", ["publicProjects", "isLiveProject"]],
+    ["app/projects/page.tsx (grid)", "app/projects/page.tsx", ["publicProjects"]],
+    // The grid's per-entry status decision lives in the card component since 2026-10-28
+    // (the card markup was extracted so the list and the fixture proof share one renderer).
+    ["components/projects/project-card.tsx (card status)", "components/projects/project-card.tsx", ["isLiveProject"]],
     ["app/projects/[slug]/page.tsx (detail route)", "app/projects/[slug]/page.tsx", ["getProject", "isPublicProject", "isShareGated", "verifyShareKey", "isLiveProject"]],
     ["app/sitemap.ts (sitemap)", "app/sitemap.ts", ["liveProjects"]],
     ["app/llms.txt/route.ts (llms.txt)", "app/llms.txt/route.ts", ["liveProjects"]],
