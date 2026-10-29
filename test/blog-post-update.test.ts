@@ -2,9 +2,12 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 
 import {
+  HOUSE_IMAGE_PATH,
+  MAX_SLUG_LENGTH,
   applyPostUpdate,
   buildNewPost,
   normalizeSlug,
+  slugify,
   type BlogPostShape,
 } from "../lib/blog-post-update.ts"
 
@@ -73,6 +76,49 @@ test("readTime and tags can be set explicitly", () => {
   const saved = applyPostUpdate(EXISTING, { readTime: 9, tags: ["x"] })
   assert.equal(saved.readTime, 9)
   assert.deepEqual(saved.tags, ["x"])
+})
+
+test("an optional field is cleared by an explicit empty string", () => {
+  // Key-absent means "keep what is stored"; '' means "clear it". The old
+  // truthiness check collapsed the two, so the studio could never remove an
+  // excerpt, a byline, a category or a hero image.
+  const saved = applyPostUpdate(EXISTING, {
+    excerpt: "",
+    author: "",
+    category: "",
+    image: "",
+  })
+
+  assert.equal(saved.excerpt, "")
+  assert.equal(saved.author, "")
+  assert.equal(saved.category, "")
+  assert.equal(saved.image, "")
+  // Everything else still survives.
+  assert.equal(saved.content, EXISTING.content)
+  assert.equal(saved.title, EXISTING.title)
+})
+
+test("an explicit undefined is the same as not sending the field", () => {
+  const saved = applyPostUpdate(EXISTING, {
+    excerpt: undefined,
+    image: undefined,
+    author: undefined,
+  })
+
+  assert.equal(saved.excerpt, EXISTING.excerpt)
+  assert.equal(saved.image, EXISTING.image)
+  assert.equal(saved.author, EXISTING.author)
+})
+
+test("a required field cannot be cleared, only rewritten", () => {
+  const saved = applyPostUpdate(EXISTING, { title: "", content: "   " })
+  assert.equal(saved.title, EXISTING.title)
+  assert.equal(saved.content, EXISTING.content)
+})
+
+test("an updated title is stored trimmed", () => {
+  const saved = applyPostUpdate(EXISTING, { title: "  Spaced Title  " })
+  assert.equal(saved.title, "Spaced Title")
 })
 
 test("a create builds a complete post from the body alone", () => {
@@ -161,6 +207,54 @@ test("an explicit field on a re-publish still wins over the archived one", () =>
   assert.equal(rebuilt.readTime, 3)
   assert.equal(rebuilt.published, false)
   assert.equal(rebuilt.date, ARCHIVED.date, "the date is never rewritten by a re-publish")
+})
+
+test("a re-publish can clear an optional field with an explicit empty string", () => {
+  const rebuilt = buildNewPost(
+    { title: "Archived post", content: "new body", excerpt: "", image: "" },
+    "archived-post",
+    ARCHIVED
+  )
+
+  assert.ok(rebuilt)
+  assert.equal(rebuilt.excerpt, "", "an explicit '' must clear the archived excerpt")
+  assert.equal(rebuilt.image, "", "an explicit '' must clear the archived hero")
+  assert.equal(rebuilt.author, ARCHIVED.author, "fields that were not sent keep their value")
+})
+
+test("a re-publish that sends undefined keeps the archived value", () => {
+  const rebuilt = buildNewPost(
+    { title: "Archived post", content: "new body", image: undefined, excerpt: undefined },
+    "archived-post",
+    ARCHIVED
+  )
+
+  assert.ok(rebuilt)
+  assert.equal(rebuilt.image, ARCHIVED.image)
+  assert.equal(rebuilt.excerpt, ARCHIVED.excerpt)
+})
+
+test("a stored title is trimmed", () => {
+  const rebuilt = buildNewPost({ title: "  Padded Title  ", content: "body" }, "padded-title")
+  assert.ok(rebuilt)
+  assert.equal(rebuilt.title, "Padded Title")
+})
+
+test("the house hero is the documented fallback", () => {
+  const created = buildNewPost({ title: "No Image", content: "body" }, "no-image")
+  assert.ok(created)
+  assert.equal(created.image, HOUSE_IMAGE_PATH)
+})
+
+test("slugify is exported so a caller can explain a refused slug", () => {
+  assert.equal(slugify("Hello, World!"), "hello-world")
+  assert.equal(slugify("!!!"), "")
+  // `normalizeSlug` bounds the length; `slugify` does not, which is what lets the
+  // route say "this title becomes a 149-character URL".
+  const long = "x".repeat(MAX_SLUG_LENGTH + 1)
+  assert.equal(slugify(long).length, MAX_SLUG_LENGTH + 1)
+  assert.equal(normalizeSlug(long, ""), null)
+  assert.equal(normalizeSlug("x".repeat(MAX_SLUG_LENGTH), ""), "x".repeat(MAX_SLUG_LENGTH))
 })
 
 test("slugs are normalised and bounded", () => {
