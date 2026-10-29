@@ -10,7 +10,9 @@ import type { Metadata } from "next"
  * export `metadata`, so the noindex directive lives in this segment layout.
  */
 export const metadata: Metadata = {
-  title: "Blog Admin | GashoTech",
+  // The root layout's title template appends " | GashoTech", so this segment's
+  // title is only the page name.
+  title: "Blog Admin",
   robots: {
     index: false,
     follow: false,
