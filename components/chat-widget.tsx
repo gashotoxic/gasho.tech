@@ -1,5 +1,19 @@
 "use client"
 
+/*
+ * MOCK chat widget — it never calls `/api/chat`.
+ *
+ * Every reply comes from `getBotResponse` below, which is a local `if` chain over
+ * static site copy. Nothing here touches the network, so the hardened proxy in
+ * `app/api/chat/route.ts` has no in-repo caller.
+ *
+ * If this is ever wired to the real endpoint, fix the sink first: bot bubbles are
+ * rendered with `dangerouslySetInnerHTML` (to support the `<strong>`/`<br>` in the
+ * canned copy above), so model output — which is attacker-influenced prose —
+ * would be injected as HTML. Render model text as text, or sanitise it
+ * (e.g. DOMPurify) before it reaches that prop.
+ */
+
 import { useEffect, useRef, useState, useCallback } from "react"
 import { MessageCircle, X, Send, Bot, User, Sparkles } from "lucide-react"
 
