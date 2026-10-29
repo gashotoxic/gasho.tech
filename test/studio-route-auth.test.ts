@@ -203,6 +203,57 @@ test("a valid session still reaches the paid image endpoint (image)", async () =
   }
 })
 
+test("a valid session still reaches the paid providers (research)", async () => {
+  const { createSessionToken } = await import("../lib/auth.ts")
+  const token = createSessionToken()
+  assert.ok(token, "a test session could not be issued")
+
+  const stub = stubFetch((call) => {
+    if (call.url.includes("duckduckgo.com")) {
+      return new Response(
+        `<a class="result__a" href="https://example.com/kenya-ai">Kenya AI policy</a>
+         <a class="result__snippet">A snippet about AI policy in Kenya.</a>`,
+        { status: 200, headers: { "content-type": "text/html" } }
+      )
+    }
+    const document = {
+      title: "AI Policy in Kenya",
+      excerpt: "What the new policy means.",
+      topics: ["policy", "ai"],
+      category: "AI",
+    }
+    return jsonResponse({ choices: [{ message: { content: JSON.stringify(document) } }] })
+  })
+
+  try {
+    const response = await ROUTES.research(requestFor("research", { authorization: `Bearer ${token}` }))
+    assert.equal(response.status, 200)
+    assert.equal(stub.calls.length, 2, "expected exactly one search call and one completion")
+  } finally {
+    stub.restore()
+  }
+})
+
+test("a valid session still reaches the paid provider (write)", async () => {
+  const { createSessionToken } = await import("../lib/auth.ts")
+  const token = createSessionToken()
+  assert.ok(token, "a test session could not be issued")
+
+  const stub = stubFetch(() =>
+    jsonResponse({ choices: [{ message: { content: "## Heading\n\nA generated body." } }] })
+  )
+
+  try {
+    const response = await ROUTES.write(requestFor("write", { authorization: `Bearer ${token}` }))
+    assert.equal(response.status, 200)
+    const payload = (await response.json()) as { content?: string }
+    assert.match(payload.content ?? "", /A generated body/)
+    assert.equal(stub.calls.length, 1)
+  } finally {
+    stub.restore()
+  }
+})
+
 test("a valid session can list the models", async () => {
   const { createSessionToken } = await import("../lib/auth.ts")
   const token = createSessionToken()

@@ -26,6 +26,15 @@
  * `.next/server/chunks/**` is deliberately NOT scanned: server bundles embed the
  * archive by design, and grepping them would fail every build.
  *
+ * Coverage limits, stated so nobody reads a green run as more than it is:
+ * this proves what the BUILT output contains. Routes that render at request
+ * time (`/blogs` and `/blogs/[slug]` are `force-dynamic`; the RSS/llms
+ * handlers read the archive and render per request) never produce a scanned
+ * file, so a leak that only appears at request time is not visible here. Those
+ * surfaces are covered by their own tests (`test/feed.test.ts`,
+ * `test/blogs-route.test.ts`) and by the `published === true` filter each of
+ * them applies.
+ *
  * Usage:
  *   node scripts/check-client-bundles.mjs              # full check (builds)
  *   node scripts/check-client-bundles.mjs --skip-build # scan an existing .next
@@ -46,8 +55,16 @@ export const REPO_ROOT = path.resolve(SCRIPT_DIR, "..")
 /** File types a browser can fetch from `/_next/static`. */
 const STATIC_EXTENSIONS = new Set([".js", ".mjs", ".cjs", ".json", ".txt", ".css", ".html", ".map"])
 
-/** Prerendered page output and RSC flight payloads (the render-leak surface). */
-const PRERENDER_EXTENSIONS = [".html", ".rsc", ".rsc.txt"]
+/**
+ * Prerendered page output, RSC flight payloads and statically generated route
+ * handler bodies (the render-leak surface).
+ *
+ * `.body` is the response body of a route handler that Next rendered at build
+ * time — `sitemap.xml.body`, `robots.txt.body` and friends already exist in a
+ * normal build, and a route handler that reads the archive and becomes static
+ * would put every post body there.
+ */
+const PRERENDER_EXTENSIONS = [".html", ".rsc", ".rsc.txt", ".body"]
 
 /** A draft post that must never reach a browser: `published: false` hides it. */
 export function canaryPost(marker = CANARY_MARKER) {
@@ -125,22 +142,47 @@ function parseArgs(argv) {
   return args
 }
 
+/**
+ * A leftover backup means a previous run died between writing the canary and
+ * restoring it (SIGKILL, a killed CI job). Recover before anything else: the
+ * alternative is a canary draft committed to the archive by the next person who
+ * runs `git add -A`.
+ */
+export function recoverLeftoverBackup(dataPath) {
+  const backupPath = `${dataPath}.canary-backup`
+  if (!existsSync(backupPath)) return false
+  writeFileSync(dataPath, readFileSync(backupPath, "utf8"), "utf8")
+  rmSync(backupPath, { force: true })
+  return true
+}
+
 export function plantCanary(dataPath, marker) {
   const original = readFileSync(dataPath, "utf8")
   const backupPath = `${dataPath}.canary-backup`
   writeFileSync(backupPath, original, "utf8")
 
-  const parsed = JSON.parse(original)
-  if (!Array.isArray(parsed.posts)) throw new Error(`${dataPath} has no posts array`)
-  parsed.posts.push(canaryPost(marker))
-  writeFileSync(dataPath, JSON.stringify(parsed, null, 2), "utf8")
-
-  return {
-    restore() {
-      writeFileSync(dataPath, readFileSync(backupPath, "utf8"), "utf8")
-      rmSync(backupPath, { force: true })
-    },
+  const restore = () => {
+    writeFileSync(dataPath, readFileSync(backupPath, "utf8"), "utf8")
+    rmSync(backupPath, { force: true })
   }
+
+  try {
+    const parsed = JSON.parse(original)
+    if (!Array.isArray(parsed.posts)) throw new Error(`${dataPath} has no posts array`)
+    parsed.posts.push(canaryPost(marker))
+    writeFileSync(dataPath, JSON.stringify(parsed, null, 2), "utf8")
+  } catch (error) {
+    // Never leave a half-written or un-backup-able archive behind: this throws
+    // before `main` has anything to restore with.
+    try {
+      restore()
+    } catch {
+      // The backup file is still on disk; `recoverLeftoverBackup` handles it next run.
+    }
+    throw error
+  }
+
+  return { restore }
 }
 
 export async function main(argv = process.argv.slice(2)) {
@@ -156,6 +198,10 @@ export async function main(argv = process.argv.slice(2)) {
   const dataPath = path.join(REPO_ROOT, "data", "blogs.json")
   const nextDir = path.resolve(REPO_ROOT, args.nextDir)
 
+  if (recoverLeftoverBackup(dataPath)) {
+    console.log(`[canary] recovered data/blogs.json from a previous run's backup`)
+  }
+
   let planted
   if (!args.skipBuild) {
     // A stale `.next` is worse than no build at all: it was produced by older
@@ -163,6 +209,22 @@ export async function main(argv = process.argv.slice(2)) {
     rmSync(nextDir, { recursive: true, force: true })
     planted = plantCanary(dataPath, args.marker)
     console.log(`[canary] planted a draft post in ${path.relative(REPO_ROOT, dataPath)}`)
+  }
+
+  // Ctrl-C or a cancelled CI job during the multi-minute build must not leave the
+  // canary draft in the archive for someone to commit.
+  const restoreNow = () => {
+    if (!planted) return false
+    planted.restore()
+    planted = null
+    return true
+  }
+  for (const signal of ["SIGINT", "SIGTERM"]) {
+    process.once(signal, () => {
+      const restored = restoreNow()
+      console.error(`[canary] interrupted by ${signal}${restored ? "; data/blogs.json restored" : ""}`)
+      process.exit(130)
+    })
   }
 
   try {
@@ -195,8 +257,7 @@ export async function main(argv = process.argv.slice(2)) {
     console.log("[canary] clean: no draft body in any client-fetchable artifact")
     return 0
   } finally {
-    if (planted) {
-      planted.restore()
+    if (restoreNow()) {
       console.log(`[canary] restored ${path.relative(REPO_ROOT, dataPath)}`)
     }
   }

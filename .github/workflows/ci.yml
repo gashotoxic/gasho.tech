@@ -9,6 +9,13 @@ on:
   pull_request:
     branches: ["**"]
 
+# One run per ref. The trigger above fires on both `push` and `pull_request`, so
+# without this a branch with an open PR runs the whole suite — three builds,
+# including the canary's — twice for every push.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   unit-tests:
     runs-on: ubuntu-latest
