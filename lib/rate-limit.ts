@@ -1,5 +1,8 @@
 /**
- * Login rate limiting and lockout for the blog admin endpoint.
+ * Per-client rate limiting for the two public endpoints that cost something.
+ *
+ * 1. Login lockout for the blog admin endpoint (below).
+ * 2. Token bucket for the public chat proxy (`consumeChatRequest`).
  *
  * Scope: per client IP, per server instance, in memory. Vercel sets
  * x-forwarded-for on every request, so the key is trustworthy there; on other
@@ -170,7 +173,129 @@ export function recordLoginSuccess(key: string): void {
   buckets.delete(key)
 }
 
+/* ------------------------------------------------------------------------- *
+ * Public chat proxy: per-IP token bucket.
+ *
+ * The chat endpoint is unauthenticated and forwards to a paid LLM key, so the
+ * only thing standing between an anonymous caller and unbounded spend is this
+ * bucket. Tuned to keep normal conversations working: ~10 requests per minute
+ * sustained, with a small burst so a visitor typing a few quick follow-ups is
+ * never throttled.
+ *
+ * A request costs one token; tokens refill continuously at
+ * CHAT_REQUESTS_PER_MINUTE / 60000 per millisecond. A denied request costs
+ * nothing (only allowed requests are debited), and the 429 carries an honest
+ * Retry-After computed from the actual refill rate.
+ *
+ * The tracker is bounded to MAX_TRACKED_CHAT_KEYS. When it is full, fully
+ * refilled buckets are swept first (a refilled bucket is indistinguishable from
+ * a fresh one). If every bucket still holds a live allowance, the least-used
+ * one is evicted — losing at most one request of history for a client that has
+ * not been throttled. If every tracked client is currently throttled, the
+ * request is REFUSED (fail closed): saturation then costs the attacker one
+ * request per distinct IP and never hands out unlimited spend, which is the one
+ * thing this bucket exists to prevent.
+ * ------------------------------------------------------------------------- */
+
+export const CHAT_REQUESTS_PER_MINUTE = 10
+export const CHAT_BURST = 2
+export const CHAT_BUCKET_CAPACITY = CHAT_REQUESTS_PER_MINUTE + CHAT_BURST
+export const MAX_TRACKED_CHAT_KEYS = 10000
+
+const CHAT_REFILL_TOKENS_PER_MS = CHAT_REQUESTS_PER_MINUTE / 60_000
+
+interface ChatBucket {
+  tokens: number
+  updatedAt: number
+}
+
+const chatBuckets = new Map<string, ChatBucket>()
+
+function freshChatBucket(now: number): ChatBucket {
+  return { tokens: CHAT_BUCKET_CAPACITY, updatedAt: now }
+}
+
+function refillChatBucket(bucket: ChatBucket, now: number): void {
+  const elapsed = Math.max(0, now - bucket.updatedAt)
+  if (elapsed === 0) return
+  bucket.tokens = Math.min(
+    CHAT_BUCKET_CAPACITY,
+    bucket.tokens + elapsed * CHAT_REFILL_TOKENS_PER_MS
+  )
+  bucket.updatedAt = now
+}
+
+/** Drop buckets that have refilled to capacity: they carry no live state. */
+function sweepChatBuckets(now: number): void {
+  for (const [key, bucket] of chatBuckets) {
+    refillChatBucket(bucket, now)
+    if (bucket.tokens >= CHAT_BUCKET_CAPACITY) chatBuckets.delete(key)
+  }
+}
+
+function retryAfterSecondsFor(tokens: number): number {
+  const missing = Math.max(1 - tokens, 0)
+  return Math.max(1, Math.ceil(missing / CHAT_REFILL_TOKENS_PER_MS / 1000))
+}
+
+/**
+ * May this client send one chat request right now? Consumes a token when it
+ * says yes, so call it exactly once per request.
+ */
+export function consumeChatRequest(key: string, now: number = Date.now()): Gate {
+  let bucket = chatBuckets.get(key)
+
+  if (!bucket) {
+    if (chatBuckets.size >= MAX_TRACKED_CHAT_KEYS) {
+      sweepChatBuckets(now)
+
+      if (chatBuckets.size >= MAX_TRACKED_CHAT_KEYS) {
+        // Evict the least-used bucket (the most tokens left). Never evict a
+        // bucket that is currently out of tokens: that would hand a throttled
+        // client a fresh allowance.
+        let victim: string | null = null
+        let victimTokens = Number.NEGATIVE_INFINITY
+        for (const [candidate, state] of chatBuckets) {
+          if (state.tokens > victimTokens) {
+            victim = candidate
+            victimTokens = state.tokens
+          }
+        }
+        if (victim === null) {
+          // Defensive: cannot happen while the map is at capacity, but never
+          // let an undefined victim surface as a non-finite Retry-After.
+          return { allowed: false, retryAfterSeconds: 60 }
+        }
+        if (victimTokens < 1) {
+          // Saturated with throttled clients: fail closed, and say honestly
+          // when the least-throttled one will be able to go again.
+          return { allowed: false, retryAfterSeconds: retryAfterSecondsFor(victimTokens) }
+        }
+        chatBuckets.delete(victim)
+      }
+    }
+
+    bucket = freshChatBucket(now)
+    chatBuckets.set(key, bucket)
+  }
+
+  refillChatBucket(bucket, now)
+
+  if (bucket.tokens < 1) {
+    return { allowed: false, retryAfterSeconds: retryAfterSecondsFor(bucket.tokens) }
+  }
+
+  bucket.tokens -= 1
+  return { allowed: true, retryAfterSeconds: 0 }
+}
+
 /** Test hook: drop all in-memory state. */
 export function resetRateLimiter(): void {
   buckets.clear()
+  chatBuckets.clear()
+}
+
+/** Test hook: drop chat bucket state only. */
+export function resetChatRateLimiter(): void {
+  chatBuckets.clear()
 }

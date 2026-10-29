@@ -1,14 +1,23 @@
 import { NextResponse } from 'next/server';
+import { buildChatMessages } from '@/lib/chat-guard';
+import { clientKey, consumeChatRequest } from '@/lib/rate-limit';
 
-interface ChatMessage {
-  role: string;
-  content: string;
-}
+const UPSTREAM_URL = 'https://chutes.ai/api/v1/chat/completions';
 
-interface ChatRequest {
-  message: string;
-  history: ChatMessage[];
-}
+/**
+ * Largest body this endpoint will parse. The caps in `lib/chat-guard.ts` bound
+ * what reaches the upstream model; this bounds what reaches `request.json()`, so
+ * a single request cannot make the server buffer megabytes it will only reject.
+ */
+const MAX_BODY_BYTES = 64 * 1024;
+
+/**
+ * A hung upstream must not hold a function instance open until the platform
+ * kills it: the caller falls back to the rule-based reply after this long.
+ */
+const UPSTREAM_TIMEOUT_MS = 15_000;
+
+const NO_STORE = { 'Cache-Control': 'no-store' };
 
 const services = [
   'Web & Mobile App Development',
@@ -101,62 +110,96 @@ function ruleBasedReply(message: string): string {
   );
 }
 
+function reply(body: Record<string, unknown>, status: number, headers: Record<string, string> = {}) {
+  return NextResponse.json(body, { status, headers: { ...NO_STORE, ...headers } });
+}
+
+/**
+ * Public chat proxy.
+ *
+ * This endpoint is unauthenticated and spends a paid upstream key, so it is
+ * treated as hostile input:
+ *
+ * 1. Fail closed when `GT_ASSIST_API_KEY` is missing. There is no fallback
+ *    credential: without a key the endpoint answers 503 and never calls
+ *    upstream. (It used to fall back to a literal `|| 'gasho'`.)
+ * 2. Per-IP token bucket before any work is done: anonymous callers cannot use
+ *    the endpoint as an unbounded LLM pipe.
+ * 3. `history` is validated and capped (`lib/chat-guard.ts`): entry count,
+ *    per-message length, allowed roles, and total prompt tokens. Over-cap is a
+ *    400 with zero upstream calls.
+ * 4. Upstream failures are logged server-side only. Callers get the rule-based
+ *    reply or a generic message, never the upstream status body.
+ */
 export async function POST(request: Request) {
-  try {
-    const body: ChatRequest = await request.json();
-    const { message, history } = body;
+  // Fail closed: no configured key means no upstream call, ever.
+  const apiKey = process.env.GT_ASSIST_API_KEY;
+  if (!apiKey) {
+    console.error('Chat proxy refused: GT_ASSIST_API_KEY is not set; no upstream call made');
+    return reply({ reply: 'Chat is temporarily unavailable. Please try again later.' }, 503);
+  }
 
-    if (!message || typeof message !== 'string') {
-      return NextResponse.json(
-        { reply: 'Invalid request: message is required and must be a string.' },
-        { status: 400 }
-      );
-    }
-
-    // Try the chutes.ai API first
-    try {
-      const apiKey = process.env.GT_ASSIST_API_KEY || 'gasho';
-      const messages = [
-        ...(Array.isArray(history) ? history : []),
-        { role: 'user', content: message },
-      ];
-
-      const response = await fetch('https://chutes.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: 'gasho/AIx',
-          messages,
-          max_tokens: 512,
-          temperature: 0.7,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const reply =
-          data?.choices?.[0]?.message?.content?.trim() ||
-          'I received your message but could not generate a response.';
-        return NextResponse.json({ reply });
-      }
-
-      // If API returned non-ok status, fall through to rule-based
-      console.warn(`Chutes API returned status ${response.status}, falling back to rule-based`);
-    } catch (apiError) {
-      console.warn('Chutes API request failed, falling back to rule-based:', apiError);
-    }
-
-    // Fallback: rule-based chatbot
-    const reply = ruleBasedReply(message);
-    return NextResponse.json({ reply });
-  } catch (error) {
-    console.error('Chat API error:', error);
-    return NextResponse.json(
-      { reply: 'Sorry, an internal error occurred while processing your request.' },
-      { status: 500 }
+  const key = clientKey(request);
+  const gate = consumeChatRequest(key);
+  if (!gate.allowed) {
+    return reply(
+      { reply: 'Too many messages. Please wait a moment and try again.' },
+      429,
+      { 'Retry-After': String(gate.retryAfterSeconds) }
     );
   }
+
+  const declaredLength = Number(request.headers.get('content-length') ?? Number.NaN);
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
+    return reply({ reply: 'Invalid request: body is too large.' }, 413);
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return reply({ reply: 'Invalid request: body must be JSON.' }, 400);
+  }
+
+  const validation = buildChatMessages(body);
+  if (!validation.ok) {
+    return reply({ reply: validation.error }, 400);
+  }
+
+  try {
+    const response = await fetch(UPSTREAM_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gasho/AIx',
+        messages: validation.messages,
+        max_tokens: 512,
+        temperature: 0.7,
+      }),
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+    });
+
+    if (response.ok) {
+      const data = (await response.json()) as {
+        choices?: Array<{ message?: { content?: string } }>;
+      };
+      const generated = data?.choices?.[0]?.message?.content;
+      const replyText =
+        typeof generated === 'string' && generated.trim().length > 0
+          ? generated.trim()
+          : 'I received your message but could not generate a response.';
+      return reply({ reply: replyText }, 200);
+    }
+
+    // Status only: the upstream body stays in the server log, never in the
+    // response. The visitor still gets a useful answer from the fallback below.
+    console.warn(`Chat upstream returned status ${response.status}; using rule-based reply`);
+  } catch (apiError) {
+    console.error('Chat upstream request failed:', apiError);
+  }
+
+  return reply({ reply: ruleBasedReply(validation.message) }, 200);
 }
