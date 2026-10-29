@@ -52,6 +52,38 @@ export function normalizeSlug(input: unknown, fallback: string): string | null {
 }
 
 /**
+ * A title as it is compared against the archive: case and whitespace collapsed.
+ *
+ * The archive is hand-maintained and titles differ by spacing and capitalisation
+ * between the studio's output and what was committed, so an exact string compare
+ * finds nothing.
+ */
+export function normalizeTitle(title: unknown): string {
+  return typeof title === "string" ? title.trim().replace(/\s+/g, " ").toLowerCase() : ""
+}
+
+/**
+ * Every archived post whose title normalises to `title` — all of them, never the
+ * first one.
+ *
+ * `data/blogs.json` really does hold a duplicate-title pair (two different posts,
+ * two different slugs, the same title) from the old append bug, so a title alone
+ * cannot always identify one post. A caller that picks the first match rewrites
+ * one post's body with another's content and leaves the second URL serving stale
+ * text — a silent destruction where the old behaviour appended a harmless
+ * duplicate. Callers must therefore treat `length > 1` as "I cannot tell which
+ * post this means" and refuse, or name the slug explicitly.
+ */
+export function findPostsByTitle<T extends { title?: unknown }>(
+  posts: readonly T[],
+  title: unknown
+): T[] {
+  const wanted = normalizeTitle(title)
+  if (!wanted) return []
+  return posts.filter((post) => normalizeTitle(post.title) === wanted)
+}
+
+/**
  * A post title as it may appear inside a commit message.
  *
  * Commit messages are line-oriented, and the title is caller-supplied: a title

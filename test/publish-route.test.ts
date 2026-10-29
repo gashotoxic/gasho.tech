@@ -96,7 +96,8 @@ function archivedPosts() {
       // slugified title (64 of 73 posts), so a title-derived publish used to
       // append a duplicate instead of editing this post.
       slug: "opens-public-consultation-draft-ai-emerging",
-      title: "Kenya Opens Public Consultation on Draft AI and Emerging Technologies Policy",
+      title:
+        "Kenya Opens Public Consultation on Draft AI and Emerging Technologies Policy — 4 August Deadline",
       excerpt: "Consultation details.",
       content: "original consultation body",
       author: "GashoTech",
@@ -107,9 +108,49 @@ function archivedPosts() {
       tags: ["policy"],
       readTime: 5,
     },
+    {
+      // The duplicate-title pair, exactly as `data/blogs.json` holds it: index 40
+      // and index 41 are two different posts (different slugs, 4,581 vs 5,078
+      // byte bodies) under one title. A title-only publish that takes the first
+      // match rewrites one of these bodies with the other's content.
+      slug: "kenya-opens-public-consultation-draft",
+      title:
+        "Kenya Opens Public Consultation on Draft AI and Emerging Technologies Policy — 4 August Deadline",
+      excerpt: "The earlier write-up of the same consultation.",
+      content: "the other consultation body",
+      author: "GashoTech",
+      category: "Policy",
+      date: "2025-08-20",
+      image: "/images/kenya-opens-public-consultation-draft.webp",
+      published: true,
+      tags: ["policy"],
+      readTime: 4,
+    },
+    {
+      // A unique title the title-match path is tested against: the title lookup
+      // is for posts whose slug is not the slugified title, and this one is not
+      // part of the duplicate pair.
+      slug: "kenya-ai-policy-draft-recap",
+      title: "Kenya's Draft AI Policy: What the Recap Missed",
+      excerpt: "A unique title, and a slug the title does not slugify to.",
+      content: "recap body",
+      author: "GashoTech",
+      category: "Policy",
+      date: "2025-07-11",
+      image: "/images/kenya-ai-policy-draft-recap.webp",
+      published: true,
+      tags: ["policy"],
+      readTime: 6,
+    },
     ...archived,
   ]
 }
+
+/** The second half of the real duplicate-title pair, by slug. */
+const DUPLICATE_TITLE_PAIR = [
+  "opens-public-consultation-draft-ai-emerging",
+  "kenya-opens-public-consultation-draft",
+] as const
 
 /** Title-to-slug exactly as the studio and the route derive it. */
 function slugFromTitle(title: string): string {
@@ -334,9 +375,7 @@ test("a client that names the stored slug updates it even when the title slugifi
 
 test("a re-publish with no slug finds the archived post by title, not by a derived slug", async () => {
   const archived = archivedPosts()
-  const target = archived.find(
-    (post) => post.slug === "opens-public-consultation-draft-ai-emerging"
-  )!
+  const target = archived.find((post) => post.slug === "kenya-ai-policy-draft-recap")!
   assert.notEqual(
     slugFromTitle(target.title),
     target.slug,
@@ -373,6 +412,92 @@ test("a re-publish with no slug finds the archived post by title, not by a deriv
       String(stub.calls.find((call) => call.method === "PUT")?.body?.message),
       /update/
     )
+  } finally {
+    stub.restore()
+  }
+})
+
+test("a title the archive holds twice is refused, never resolved to the first match", async () => {
+  // The regression this test exists for. `data/blogs.json` index 40 and 41 are two
+  // different posts under one title, so "find the archived post by title" has no
+  // single answer. Taking the first match rewrote 40's body with 41's content and
+  // left 41's URL serving stale text — the old append was wrong, this was
+  // destructive.
+  const archived = archivedPosts()
+  const stub = stubFetch((call) => {
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") return blogRead(archived)
+    throw new Error(`an ambiguous title must not write anything: ${call.method} ${call.url}`)
+  })
+
+  try {
+    const [first, second] = DUPLICATE_TITLE_PAIR.map(
+      (slug) => archived.find((post) => post.slug === slug)!
+    )
+    assert.equal(first.title, second.title, "fixture must reproduce the duplicate-title pair")
+    assert.notEqual(first.content, second.content, "the pair must be two different posts")
+
+    const { response, payload } = await publishRequest({
+      title: first.title,
+      content: "a body that must not land on either post",
+      published: true,
+    })
+
+    assert.equal(response.status, 409)
+    assert.equal(payload.code, "ambiguous-title")
+    assert.deepEqual(
+      payload.candidates,
+      [...DUPLICATE_TITLE_PAIR],
+      "the caller must be told which slugs it can choose between"
+    )
+    assert.equal(
+      stub.calls.filter((call) => call.method === "PUT" || call.method === "DELETE").length,
+      0,
+      "nothing may be committed when the title is ambiguous"
+    )
+  } finally {
+    stub.restore()
+  }
+})
+
+test("naming the slug edits one post of a duplicate-title pair and leaves its sibling alone", async () => {
+  // What the studio sends: the slug of the post it is editing, resolved from the
+  // archive it loaded. A duplicate title is then not ambiguous at all — the slug
+  // says exactly which post is meant.
+  const archived = archivedPosts()
+  const [first, second] = DUPLICATE_TITLE_PAIR.map(
+    (slug) => archived.find((post) => post.slug === slug)!
+  )
+
+  const stub = stubFetch((call) => {
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") return blogRead(archived)
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "PUT") {
+      return jsonResponse({ content: { sha: "new-sha" }, commit: { sha: "c0ffee" } })
+    }
+    throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+  })
+
+  try {
+    const { response, payload } = await publishRequest({
+      slug: second.slug,
+      title: second.title,
+      content: "the second post, rewritten",
+      published: true,
+    })
+
+    assert.equal(response.status, 200)
+    assert.equal(payload.slug, second.slug)
+    assert.equal(payload.created, false)
+
+    const posts = committedPosts(stub.calls.find((call) => call.method === "PUT")!)
+    assert.equal(posts.length, archived.length, "an edit must not append a duplicate")
+
+    const edited = posts.find((post) => post.slug === second.slug) as Record<string, unknown>
+    assert.equal(edited.content, "the second post, rewritten")
+
+    const sibling = posts.find((post) => post.slug === first.slug) as Record<string, unknown>
+    assert.equal(sibling.content, first.content, "the same-titled sibling must not be touched")
+    assert.equal(sibling.excerpt, first.excerpt)
+    assert.equal(sibling.image, first.image)
   } finally {
     stub.restore()
   }

@@ -13,6 +13,7 @@ import {
   MAX_SLUG_LENGTH,
   buildNewPost,
   commitTitle,
+  findPostsByTitle,
   normalizeSlug,
   slugify,
   type BlogPostShape,
@@ -71,28 +72,30 @@ export function isSafeImagePath(value: unknown): boolean {
   return query === undefined || SAFE_IMAGE_QUERY.test(`?${query}`)
 }
 
-/** Titles are matched to the archive after collapsing whitespace and case. */
-function normalizeTitle(title: string): string {
-  return title.trim().replace(/\s+/g, ' ').toLowerCase()
-}
-
 /**
- * Find the archived post a caller means when they send no slug.
+ * The archived post a caller means when they send no slug, or a refusal when the
+ * title cannot identify one.
  *
  * 64 of the 73 posts in `data/blogs.json` have a slug that is *not* the slugified
  * title (they were written before the studio derived slugs from titles), so
- * deriving the slug alone appended a duplicate instead of editing the post.
+ * deriving the slug alone appended a duplicate instead of editing the post — hence
+ * the title lookup.
  *
- * The first match wins. The archive already holds one deliberate duplicate-title
- * pair from the old append bug; picking the earliest keeps the choice stable
- * rather than "whichever is found first today".
+ * But the archive also holds a real duplicate-title pair: index 40
+ * (`kenya-opens-public-consultation-draft`, 4,581-byte body) and index 41
+ * (`opens-public-consultation-draft-ai-emerging`, 5,078-byte body) carry the same
+ * title. "First match wins" rewrote 40's body with 41's content and left 41's URL
+ * serving stale text — silently destructive, where the old append was merely
+ * wrong. So a title that matches more than one post is answered as ambiguous and
+ * nothing is written; the caller has to name the slug (the studio does).
  */
-function findArchivedByTitle(
+function resolveArchivedByTitle(
   posts: readonly BlogPostShape[],
   title: string
-): BlogPostShape | undefined {
-  const wanted = normalizeTitle(title)
-  return posts.find((post) => typeof post.title === 'string' && normalizeTitle(post.title) === wanted)
+): { post?: BlogPostShape; ambiguous: BlogPostShape[] } {
+  const matches = findPostsByTitle(posts, title)
+  if (matches.length === 1) return { post: matches[0], ambiguous: [] }
+  return { post: undefined, ambiguous: matches }
 }
 
 export interface PublishRequest {
@@ -213,12 +216,38 @@ export async function POST(request: Request) {
       )
     }
 
-    const archived =
-      snapshot.posts.find((candidate) => candidate.slug === slug) ??
-      // Only when the slug was derived from the title: an explicit slug is a
-      // request for that URL, and the caller may be publishing a second post that
-      // shares a title (a regional copy, a follow-up).
-      (explicitSlug ? undefined : findArchivedByTitle(snapshot.posts, body.title))
+    // Slug/title resolution, in one place:
+    //
+    // 1. the slug the caller named, or the one derived from the title;
+    // 2. failing that, an archived post with the same title — but ONLY when the
+    //    title identifies exactly one (an explicit slug is a request for that URL,
+    //    and the caller may be publishing a second post that shares a title: a
+    //    regional copy, a follow-up).
+    let archived = snapshot.posts.find((candidate) => candidate.slug === slug)
+    if (!archived && !explicitSlug) {
+      const resolved = resolveArchivedByTitle(snapshot.posts, body.title)
+      if (resolved.ambiguous.length > 1) {
+        // More than one archived post carries this title, so the title does not say
+        // which one this publish means. Guessing *here* is the destructive move: it
+        // rewrites the first post's body with this one's content and leaves the
+        // other URL serving stale text. Nothing has been written yet (the image
+        // commit is below), so this is a clean 409 — retryable the moment the
+        // caller names a slug.
+        const candidates = resolved.ambiguous.map((post) => post.slug)
+        console.warn(
+          `Refusing an ambiguous title: ${candidates.length} archived posts are titled "${body.title}" (${candidates.join(', ')})`
+        )
+        return NextResponse.json(
+          {
+            error: `${candidates.length} archived posts share this title (${candidates.join(', ')}), so nothing was written. Publish from the admin panel, or send the "slug" of the post you mean.`,
+            code: 'ambiguous-title',
+            candidates,
+          },
+          { status: 409 }
+        )
+      }
+      archived = resolved.post
+    }
 
     // The archived slug is the post's URL, so an edit lands on it even when the
     // title slugifies differently. Without this the post was appended as a
