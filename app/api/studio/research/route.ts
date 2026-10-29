@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { readAdminAuth } from '@/lib/auth'
+import { enforceStudioThrottle } from '@/lib/studio-throttle'
 import { webSearch, callLLM } from '@/lib/studio-api'
 
 const SYSTEM_PROMPT = `You are the content strategist for GashoTech (AI, Automation, Cybersecurity in Nairobi, Kenya).
@@ -22,11 +22,11 @@ export interface ResearchRequest {
 
 export async function POST(request: Request) {
   try {
-    // Auth gate before the body is read: this route runs a web search and an LLM
-    // completion, both billed to the Chutes key.
-    if (readAdminAuth(request) !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    // Gate before the body is read: this route runs a web search and an LLM
+    // completion, both billed to the Chutes key. 401 without a valid session,
+    // 429 when this session has spent its token budget.
+    const denied = enforceStudioThrottle(request, 'research')
+    if (denied) return denied
 
     const body: ResearchRequest = await request.json()
 

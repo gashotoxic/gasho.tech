@@ -3,8 +3,10 @@
 // hook; it must be imported before any route module.
 import "./support/alias-hook.mjs"
 
-import { test } from "node:test"
+import { beforeEach, test } from "node:test"
 import assert from "node:assert/strict"
+
+import { resetStudioRateLimiter } from "../lib/rate-limit.ts"
 
 /**
  * Route-layer tests for the `/api/studio/*` auth gate.
@@ -30,6 +32,12 @@ import assert from "node:assert/strict"
 process.env.BLOG_ADMIN_PASSWORD = "test-password"
 process.env.BLOG_SESSION_SECRET = "test-session-secret-that-is-long-enough"
 process.env.CHUTES_API_KEY = "test-chutes-key"
+
+// The paid routes also charge a per-session spend bucket (lib/rate-limit.ts), and
+// these tests all act as one session. Start every test with a full bucket so a
+// positive control can never be refused by a previous test's spend. The bucket
+// arithmetic and the 429 path have their own suite: test/studio-spend-limit.test.ts.
+beforeEach(() => resetStudioRateLimiter())
 
 interface Call {
   url: string

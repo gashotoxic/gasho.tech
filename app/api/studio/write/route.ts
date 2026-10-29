@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { readAdminAuth } from '@/lib/auth'
+import { enforceStudioThrottle } from '@/lib/studio-throttle'
 import { callLLM } from '@/lib/studio-api'
 
 const SYSTEM_PROMPT = `You are a professional blog writer for GashoTech — an AI, Automation, and Cybersecurity company based in Nairobi, Kenya.
@@ -39,11 +39,11 @@ export interface WriteRequest {
 
 export async function POST(request: Request) {
   try {
-    // Auth gate before the body is read: a 4k-token LLM completion billed to the
-    // Chutes key is the whole body of this route.
-    if (readAdminAuth(request) !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    // Gate before the body is read: a 4k-token LLM completion billed to the
+    // Chutes key is the whole body of this route. 401 without a valid session,
+    // 429 when this session has spent its token budget.
+    const denied = enforceStudioThrottle(request, 'write')
+    if (denied) return denied
 
     const body: WriteRequest = await request.json()
 

@@ -246,6 +246,25 @@ export function isAuthorizedRequest(request: Request, now: number = Date.now()):
 }
 
 /**
+ * A stable identity for the caller's session, for per-session accounting (the
+ * studio spend limiter).
+ *
+ * This is the session's *start time*, not the token: `refreshSessionToken` issues
+ * a new token on every refresh, so a token-keyed bucket could be reset by
+ * refreshing before each paid call and would limit nothing. `sess` survives
+ * refreshes and is itself bounded by SESSION_ABSOLUTE_TTL_SECONDS.
+ *
+ * Returns null when there is no verifying session — a caller that cannot prove a
+ * session gets no identity and no budget.
+ */
+export function readAdminSessionKey(request: Request, now: number = Date.now()): string | null {
+  const token = readAdminToken(request, now)
+  if (!token) return null
+  const session = readSession(token, now)
+  return session ? `admin:${session.sessionStartedAt}` : null
+}
+
+/**
  * Extend a still-valid session: new `iat`/`exp`, same `sess`, so the absolute
  * cap keeps applying. Returns null when the token is invalid or already capped.
  */
