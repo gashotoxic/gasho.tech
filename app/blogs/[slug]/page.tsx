@@ -4,6 +4,7 @@ import Link from "next/link"
 import Image from "next/image"
 import type { BlogPost } from "@/lib/blogs"
 import { renderMarkdown } from "@/lib/studio-api"
+import { safeJsonLd } from "@/lib/escape"
 import { Calendar, Tag, ArrowLeft } from "lucide-react"
 
 interface Props {
@@ -54,6 +55,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
+/**
+ * JSON-LD is injected into a `<script>` element, so it goes through the shared
+ * escaper in `lib/escape.ts` (`<` -> `\u003c`) — `JSON.stringify` alone leaves a
+ * stored `</script>` able to close the element and turn post text into markup.
+ */
+
 function formatContent(content: string): string {
   return renderMarkdown(content)
     .replace(/<h1>/g, '<h1 class="text-3xl font-bold mt-8 mb-4">')
@@ -76,7 +83,7 @@ export default async function BlogPostPage({ params }: Props) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: safeJsonLd({
             "@context": "https://schema.org",
             "@type": "Article",
             headline: post.title,

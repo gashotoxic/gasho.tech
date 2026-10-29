@@ -1,40 +1,14 @@
 import { NextResponse } from "next/server";
 import blogsData from "@/data/blogs.json";
+import { buildRssFeed } from "@/lib/feed";
 
+/**
+ * RSS feed. The document itself is built by `lib/feed.ts` so the XML escaping
+ * (CDATA splitting, entity escaping) can be unit-tested against hostile post
+ * text — this route only picks the Content-Type.
+ */
 export async function GET() {
-  const siteTitle = "GashoTech Blog";
-  const siteDescription =
-    "Insights, news, and updates on AI, automation, cybersecurity, and technology";
-  const siteUrl = "https://gashotech.com";
-
-  const items = blogsData.posts
-    .filter((post) => post.published)
-    .map(
-      (post) => `
-    <item>
-      <title><![CDATA[${post.title}]]></title>
-      <link>${siteUrl}/blogs/${post.slug}</link>
-      <guid>${siteUrl}/blogs/${post.slug}</guid>
-      <description><![CDATA[${post.excerpt}]]></description>
-      <pubDate>${new Date(post.date).toUTCString()}</pubDate>
-      <author>${post.author}</author>
-      <category>${post.category}</category>
-    </item>`
-    )
-    .join("");
-
-  const rss = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-  <channel>
-    <title>${siteTitle}</title>
-    <link>${siteUrl}</link>
-    <description>${siteDescription}</description>
-    <language>en-us</language>
-    <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
-    <atom:link href="${siteUrl}/feed.xml" rel="self" type="application/rss+xml"/>
-    ${items}
-  </channel>
-</rss>`;
+  const rss = buildRssFeed(blogsData.posts);
 
   return new NextResponse(rss, {
     headers: { "Content-Type": "application/xml" },

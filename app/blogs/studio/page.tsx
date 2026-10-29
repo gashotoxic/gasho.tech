@@ -172,49 +172,47 @@ export default function StudioPage() {
 
     try {
       const slug = result.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-      const imagePath = imageData
-        ? `/images/blog/${slug}.webp`
-        : '/images/AI.webp'
 
-      // If we have image data, commit it first
+      // `imagePath` is sent only when this publish actually has a hero image to
+      // name. The route reads any path it is given as an explicit override, so
+      // the old unconditional `imageData ? … : '/images/AI.webp'` reset an
+      // existing post's hero to the house default on every re-publish.
+      const payload: Record<string, unknown> = {
+        title: result.title,
+        excerpt: result.excerpt,
+        content: result.content,
+        category: result.category,
+        author: publishAuthor,
+        published: publishPublished,
+      }
       if (imageData) {
-        await fetch('/api/studio/publish', {
-          method: 'POST',
-          headers: authHeaders(),
-          body: JSON.stringify({
-            title: result.title,
-            excerpt: result.excerpt,
-            content: result.content,
-            category: result.category,
-            author: publishAuthor,
-            imageData,
-            imagePath,
-            published: publishPublished,
-          }),
-        }).then(r => r.json())
+        payload.imageData = imageData
+        payload.imagePath = `/images/blog/${slug}.webp`
       }
 
-      // Commit blog post
-      const res = await fetch('/api/blogs', {
+      // /api/studio/publish is the only write path: it commits the image (when
+      // there is one) and upserts the post into the full post list. There is
+      // deliberately no fallback — falling back to /api/blogs on failure would
+      // write the post from a stale build snapshot and defeat the merge.
+      const res = await fetch('/api/studio/publish', {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({
-          slug,
-          title: result.title,
-          excerpt: result.excerpt,
-          content: result.content,
-          category: result.category,
-          author: publishAuthor,
-          image: imagePath,
-          date: new Date().toISOString().split('T')[0],
-          published: publishPublished,
-        }),
+        body: JSON.stringify(payload),
       })
 
       const data = await res.json()
-      if (res.ok || res.status === 201) {
-        setMessage({ text: 'Published successfully!', type: 'success' })
-        setTimeout(() => router.push(`/blogs/${slug}`), 2000)
+      if (res.ok) {
+        // `created === false` means this slug already existed and the publish
+        // replaced it. The /api/blogs POST path refuses that with a 409, so this
+        // path says so too instead of claiming a fresh publish.
+        setMessage({
+          text:
+            data.created === false
+              ? 'Replaced the existing post for this slug — the archive entry was updated, not duplicated.'
+              : 'Published successfully!',
+          type: 'success',
+        })
+        setTimeout(() => router.push(`/blogs/${data.slug || slug}`), 2000)
       } else {
         setMessage({ text: data.error || 'Publish failed. Try copying the content instead.', type: 'error' })
       }
@@ -621,7 +619,7 @@ export default function StudioPage() {
                       </Link>
                     </div>
                     <div className="mt-3 text-xs text-muted-foreground space-y-1">
-                      <p>💡 <strong>Pro tip:</strong> Generate multiple image variations by tweaking the prompt on create.gashotech.com's Media tab. You can also create animations, product mockups, and social media visuals.</p>
+                      <p>💡 <strong>Pro tip:</strong> Generate multiple image variations by tweaking the prompt on create.gashotech.com&apos;s Media tab. You can also create animations, product mockups, and social media visuals.</p>
                     </div>
                   </div>
                 </div>
