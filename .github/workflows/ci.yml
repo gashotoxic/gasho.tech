@@ -12,11 +12,15 @@ on:
   pull_request:
     branches: ["**"]
 
-# Superseded runs of the same PR are cancelled: three builds per run, and only
-# the newest commit's result is the one anyone reads.
+# Superseded runs are collapsed, but a push to the default branch is never
+# cancelled: two merges landing minutes apart each need their own green run, and
+# cancelling the first leaves that commit marked "cancelled" rather than tested —
+# exactly the commit that is now serving traffic. Keying the group on the event
+# type as well keeps a PR run and a push run of the same branch from evicting each
+# other (they mean different things: "does this PR pass?" vs "is main green?").
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
+  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 jobs:
   unit-tests:
