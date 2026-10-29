@@ -120,21 +120,80 @@ function getBucket(key: string, now: number): Bucket {
 /**
  * Identify the caller.
  *
- * Takes the LAST x-forwarded-for hop: that is the entry appended by the proxy
- * closest to us. Vercel either overwrites the header with the client IP or
- * appends it, and in both shapes the last hop is the real client — the first
- * hop is whatever the caller chose to send.
+ * Order of preference:
+ *
+ * 1. `x-vercel-forwarded-for` — set by the Vercel proxy on every request, and
+ *    documented as identical to `x-forwarded-for`. It is the platform's own copy,
+ *    so a caller cannot pre-seed it by sending their own `x-forwarded-for`.
+ * 2. `x-forwarded-for` — Vercel OVERWRITES this with the client IP (it does not
+ *    forward the caller's value), so on Vercel it is equally trustworthy. The
+ *    LAST hop is taken as defence for hosts that append instead of overwriting:
+ *    the entry appended by the proxy closest to us is the real client, the first
+ *    hop is whatever the caller chose to send.
+ * 3. `x-real-ip` — some other proxies set only this.
+ *
+ * Both forwarded headers go through the same hop parser and the same IP-shape
+ * check: taking a header value verbatim as the bucket key would let a caller who
+ * can seed a prefix ("1.2.3.4, <their ip>") mint a fresh bucket per request,
+ * which is a complete limiter bypass. A value that is not an IP literal is
+ * ignored, not trusted.
+ *
+ * Foot-gun: a request carrying none of them (only possible off-Vercel, in tests,
+ * or behind a misconfigured proxy) keys to the literal string "unknown" — ONE
+ * shared bucket that every header-less caller throttles for everyone else. That
+ * fails safe rather than open, but it is why this limiter is a speed bump and
+ * not the only defence: on any host that does not set these headers the key is
+ * caller-influenceable (see the module docstring).
  */
 export function clientKey(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for")
-  if (forwarded) {
-    const hops = forwarded.split(",").map((hop) => hop.trim()).filter(Boolean)
-    const last = hops[hops.length - 1]
-    if (last) return last
-  }
+  const fromVercel = lastForwardedHop(request.headers.get("x-vercel-forwarded-for"))
+  if (fromVercel) return fromVercel
+
+  const fromXff = lastForwardedHop(request.headers.get("x-forwarded-for"))
+  if (fromXff) return fromXff
+
   const realIp = request.headers.get("x-real-ip")
   if (realIp && realIp.trim()) return realIp.trim()
   return "unknown"
+}
+
+/** Longest textual form of an IP literal we will accept as a key. */
+const MAX_IP_KEY_LENGTH = 45
+
+/**
+ * Take the last hop of a forwarded-for header, but only if it is an IP literal.
+ * Anything else (a hostname, a prefix, junk) yields null so the caller falls
+ * through to the next header instead of using an attacker-chosen string as a
+ * bucket key.
+ */
+function lastForwardedHop(value: string | null): string | null {
+  if (!value) return null
+  const hops = value
+    .split(",")
+    .map((hop) => hop.trim())
+    .filter(Boolean)
+  return normalizeIpLiteral(hops[hops.length - 1])
+}
+
+/**
+ * Canonical IP literal, or null. A port suffix is dropped (some proxies append
+ * one, and a caller must not be able to mint a new bucket per source port).
+ */
+function normalizeIpLiteral(value: string | undefined): string | null {
+  if (!value || value.length === 0 || value.length > MAX_IP_KEY_LENGTH) return null
+
+  const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?::\d{1,5})?$/.exec(value)
+  if (ipv4) {
+    const octets = ipv4.slice(1, 5)
+    if (!octets.every((octet) => Number(octet) <= 255)) return null
+    return octets.join(".")
+  }
+
+  // IPv6 / IPv4-mapped IPv6, optionally bracketed: loose shape check, strict
+  // enough to reject anything that is not a literal.
+  const bare = value.replace(/^\[/, "").replace(/\]$/, "")
+  const isV6 = bare.includes(":") && /^[0-9a-f:.]+$/i.test(bare) && bare.split(":").length >= 3
+  return isV6 ? bare : null
 }
 
 /** May this key try to log in right now? */
@@ -188,20 +247,37 @@ export function recordLoginSuccess(key: string): void {
  * nothing (only allowed requests are debited), and the 429 carries an honest
  * Retry-After computed from the actual refill rate.
  *
- * The tracker is bounded to MAX_TRACKED_CHAT_KEYS. When it is full, fully
- * refilled buckets are swept first (a refilled bucket is indistinguishable from
- * a fresh one). If every bucket still holds a live allowance, the least-used
- * one is evicted — losing at most one request of history for a client that has
- * not been throttled. If every tracked client is currently throttled, the
- * request is REFUSED (fail closed): saturation then costs the attacker one
- * request per distinct IP and never hands out unlimited spend, which is the one
- * thing this bucket exists to prevent.
+ * The tracker is bounded to MAX_TRACKED_CHAT_KEYS. When it is full:
+ *
+ * - fully refilled buckets are swept first (a refilled bucket is
+ *   indistinguishable from a fresh one), at most once per CHAT_SWEEP_INTERVAL_MS
+ *   so a full map cannot turn every new-IP request into a 10k-entry scan;
+ * - otherwise the INSERTION-OLDEST bucket that still holds an allowance is
+ *   evicted (Map preserves insertion order). The oldest tracked client is the
+ *   one least likely to be mid-conversation, losing at most one request of
+ *   history for a client that was not throttled;
+ * - a throttled bucket is never evicted — that would hand that client a fresh
+ *   allowance;
+ * - if every tracked client is throttled, the request is REFUSED (fail closed)
+ *   and the verdict is cached for CHAT_SATURATION_COOLDOWN_MS, so saturation
+ *   costs the attacker one request per distinct IP instead of one 10k-entry scan
+ *   per request. Saturation never hands out unlimited spend, which is the one
+ *   thing this bucket exists to prevent.
  * ------------------------------------------------------------------------- */
 
 export const CHAT_REQUESTS_PER_MINUTE = 10
 export const CHAT_BURST = 2
 export const CHAT_BUCKET_CAPACITY = CHAT_REQUESTS_PER_MINUTE + CHAT_BURST
 export const MAX_TRACKED_CHAT_KEYS = 10000
+/** Minimum gap between full sweeps of a saturated tracker (event-loop guard). */
+export const CHAT_SWEEP_INTERVAL_MS = 1000
+/** How long a proven-saturated tracker answers from the cached verdict. */
+export const CHAT_SATURATION_COOLDOWN_MS = 1000
+/**
+ * Buckets examined per request on the eviction fast path. Beyond this the full
+ * map is scanned at most once per CHAT_SWEEP_INTERVAL_MS instead.
+ */
+export const CHAT_EVICTION_PROBE_LIMIT = 64
 
 const CHAT_REFILL_TOKENS_PER_MS = CHAT_REQUESTS_PER_MINUTE / 60_000
 
@@ -211,6 +287,10 @@ interface ChatBucket {
 }
 
 const chatBuckets = new Map<string, ChatBucket>()
+let lastChatSweepAt = 0
+let lastChatFullScanAt = 0
+let chatSaturationUntil = 0
+let chatSaturationRetryAfter = 1
 
 function freshChatBucket(now: number): ChatBucket {
   return { tokens: CHAT_BUCKET_CAPACITY, updatedAt: now }
@@ -240,6 +320,84 @@ function retryAfterSecondsFor(tokens: number): number {
 }
 
 /**
+ * Make room for a key that is not tracked yet.
+ *
+ * Returns `null` when a slot was freed (the caller may track the new key), or
+ * the denial to answer with when no slot can be freed right now.
+ *
+ * Work per request is bounded. A whole-map scan is ~1ms of event-loop blocking,
+ * so:
+ *
+ * - the sweep and the full-scan fallback each run at most once per
+ *   CHAT_SWEEP_INTERVAL_MS (measured monotonically, so a clock step cannot
+ *   re-enable per-request scans);
+ * - the common path probes only the first CHAT_EVICTION_PROBE_LIMIT buckets in
+ *   insertion order, which is where the oldest — and therefore most likely
+ *   refilled — clients are;
+ * - a proven-saturated tracker answers from a cached verdict for
+ *   CHAT_SATURATION_COOLDOWN_MS instead of rescanning.
+ *
+ * Fail-closed tradeoff, stated plainly: an attacker who spends 12 requests from
+ * each of 10k distinct addresses can leave the map full of throttled buckets, and
+ * new visitors are then refused until slots free. That is deliberate — the
+ * alternative (letting an untracked key through) is the unlimited-spend bug this
+ * bucket exists to prevent — but it is an availability cost of a fail-closed
+ * limiter, not a free lunch.
+ */
+function freeChatKeySlot(now: number): Gate | null {
+  if (now < chatSaturationUntil) {
+    return { allowed: false, retryAfterSeconds: chatSaturationRetryAfter }
+  }
+
+  if (now - lastChatSweepAt >= CHAT_SWEEP_INTERVAL_MS) {
+    lastChatSweepAt = Math.max(lastChatSweepAt, now)
+    sweepChatBuckets(now)
+    if (chatBuckets.size < MAX_TRACKED_CHAT_KEYS) return null
+  }
+
+  // Cheap probe: evict the insertion-oldest bucket holding an allowance. Map
+  // iteration is insertion order, so this is the oldest evictable client.
+  let bestTokens = Number.NEGATIVE_INFINITY
+  let probed = 0
+  for (const [candidate, state] of chatBuckets) {
+    refillChatBucket(state, now)
+    if (state.tokens >= 1) {
+      chatBuckets.delete(candidate)
+      return null
+    }
+    if (state.tokens > bestTokens) bestTokens = state.tokens
+    probed += 1
+    if (probed >= CHAT_EVICTION_PROBE_LIMIT) break
+  }
+
+  // The front of the map is all throttled. Try one full scan, rate limited so a
+  // hostile map cannot extract ~1ms of CPU per request.
+  if (now - lastChatFullScanAt >= CHAT_SWEEP_INTERVAL_MS) {
+    lastChatFullScanAt = Math.max(lastChatFullScanAt, now)
+    for (const [candidate, state] of chatBuckets) {
+      refillChatBucket(state, now)
+      if (state.tokens >= 1) {
+        chatBuckets.delete(candidate)
+        return null
+      }
+      if (state.tokens > bestTokens) bestTokens = state.tokens
+    }
+
+    // Every tracked bucket is out of tokens. Fail closed, and report honestly
+    // when the least-throttled client earns its next token (that is when a slot
+    // frees).
+    const saturatedRetryAfter = retryAfterSecondsFor(bestTokens)
+    chatSaturationUntil = now + CHAT_SATURATION_COOLDOWN_MS
+    chatSaturationRetryAfter = saturatedRetryAfter
+    return { allowed: false, retryAfterSeconds: saturatedRetryAfter }
+  }
+
+  // Full scan is rate limited: answer from the probe's best-case wait. It is a
+  // lower bound on when a slot could free, and never below one second.
+  return { allowed: false, retryAfterSeconds: retryAfterSecondsFor(bestTokens) }
+}
+
+/**
  * May this client send one chat request right now? Consumes a token when it
  * says yes, so call it exactly once per request.
  */
@@ -248,32 +406,8 @@ export function consumeChatRequest(key: string, now: number = Date.now()): Gate 
 
   if (!bucket) {
     if (chatBuckets.size >= MAX_TRACKED_CHAT_KEYS) {
-      sweepChatBuckets(now)
-
-      if (chatBuckets.size >= MAX_TRACKED_CHAT_KEYS) {
-        // Evict the least-used bucket (the most tokens left). Never evict a
-        // bucket that is currently out of tokens: that would hand a throttled
-        // client a fresh allowance.
-        let victim: string | null = null
-        let victimTokens = Number.NEGATIVE_INFINITY
-        for (const [candidate, state] of chatBuckets) {
-          if (state.tokens > victimTokens) {
-            victim = candidate
-            victimTokens = state.tokens
-          }
-        }
-        if (victim === null) {
-          // Defensive: cannot happen while the map is at capacity, but never
-          // let an undefined victim surface as a non-finite Retry-After.
-          return { allowed: false, retryAfterSeconds: 60 }
-        }
-        if (victimTokens < 1) {
-          // Saturated with throttled clients: fail closed, and say honestly
-          // when the least-throttled one will be able to go again.
-          return { allowed: false, retryAfterSeconds: retryAfterSecondsFor(victimTokens) }
-        }
-        chatBuckets.delete(victim)
-      }
+      const denied = freeChatKeySlot(now)
+      if (denied) return denied
     }
 
     bucket = freshChatBucket(now)
@@ -291,48 +425,90 @@ export function consumeChatRequest(key: string, now: number = Date.now()): Gate 
 }
 
 /**
- * Per-instance ceiling on how many requests may reach the paid upstream at all.
+ * Per-instance ceiling on how many tokens may reach the paid upstream at all.
  *
  * The per-IP bucket above is a speed bump: an attacker rotating addresses gets
- * a fresh allowance per IP. This second, global budget bounds total upstream
- * spend per server instance; once it is spent the route serves the rule-based
- * reply instead of calling upstream, so a visitor still gets an answer while the
- * bill stays bounded. It is deliberately generous relative to real traffic.
+ * a fresh allowance per IP, and this limiter is per process — a Vercel fleet runs
+ * many isolated instances, each with its own copy of this counter. So this is
+ * NOT a hard financial cap and does not pretend to be one. What it does is bound
+ * what one instance can spend in a minute, denominated in the same currency as
+ * the guard's meter (estimated prompt tokens) so the two cannot disagree:
  *
- * This is a per-instance backstop, not a hard financial cap: the real cap is a
- * spend limit on the provider key itself.
+ * - CHAT_UPSTREAM_TOKENS_PER_MINUTE caps estimated prompt tokens per window.
+ * - CHAT_UPSTREAM_CALLS_PER_MINUTE caps calls, so tiny prompts cannot turn the
+ *   spend budget into an unbounded number of round-trips.
+ *
+ * Fixed-window arithmetic: the window resets hard on the first request after it
+ * expires, so up to ~2x the nominal budget can land across a window boundary
+ * (a full budget at the end of one window plus a full budget at the start of the
+ * next). Worst case per window per instance is therefore roughly 30k ESTIMATED
+ * prompt tokens plus the 60 x 512 output reservation ≈ 60k tokens by this
+ * estimate — and real provider billing can be ~2-3x the estimate for scripts the
+ * meter over-counts or under-counts, which is why the provider spend limit, not
+ * this counter, is the money boundary.
+ *
+ * Beyond that the provider key's own spend limit is the financial cap. IP
+ * rotation cannot spend unbounded *per instance*, but nothing here bounds a
+ * fleet.
  */
-export const CHAT_UPSTREAM_PER_MINUTE = 60
+export const CHAT_UPSTREAM_CALLS_PER_MINUTE = 60
+export const CHAT_UPSTREAM_TOKENS_PER_MINUTE = 30_000
+const UPSTREAM_WINDOW_MS = 60_000
 
 let upstreamWindowStartedAt = 0
-let upstreamUsedInWindow = 0
+let upstreamCallsInWindow = 0
+let upstreamTokensInWindow = 0
 
-/** Consume one unit of the per-instance upstream budget. False when spent. */
-export function consumeChatUpstreamBudget(now: number = Date.now()): boolean {
-  if (now < upstreamWindowStartedAt || now - upstreamWindowStartedAt >= 60_000) {
+/**
+ * Consume part of the per-instance upstream budget. False when spent.
+ *
+ * `estimatedTokens` is the guard's `promptTokens`; a call always costs at least
+ * one token so an empty/1-char prompt is not free.
+ */
+export function consumeChatUpstreamBudget(
+  estimatedTokens = 0,
+  now: number = Date.now()
+): boolean {
+  if (now < upstreamWindowStartedAt || now - upstreamWindowStartedAt >= UPSTREAM_WINDOW_MS) {
     upstreamWindowStartedAt = now
-    upstreamUsedInWindow = 0
+    upstreamCallsInWindow = 0
+    upstreamTokensInWindow = 0
   }
-  if (upstreamUsedInWindow >= CHAT_UPSTREAM_PER_MINUTE) return false
-  upstreamUsedInWindow += 1
+
+  const cost = Math.max(1, Math.ceil(estimatedTokens))
+
+  if (upstreamCallsInWindow >= CHAT_UPSTREAM_CALLS_PER_MINUTE) return false
+  if (upstreamTokensInWindow + cost > CHAT_UPSTREAM_TOKENS_PER_MINUTE) return false
+
+  upstreamCallsInWindow += 1
+  upstreamTokensInWindow += cost
   return true
 }
 
 /** Test hook: drop all in-memory state. */
 export function resetRateLimiter(): void {
   buckets.clear()
-  chatBuckets.clear()
-  resetChatUpstreamBudget()
+  resetChatRateLimiter()
 }
 
 /** Test hook: drop chat bucket state only. */
 export function resetChatRateLimiter(): void {
   chatBuckets.clear()
+  lastChatSweepAt = 0
+  lastChatFullScanAt = 0
+  chatSaturationUntil = 0
+  chatSaturationRetryAfter = 1
   resetChatUpstreamBudget()
+}
+
+/** Test hook: how many chat buckets are tracked right now (bounded memory). */
+export function trackedChatKeyCount(): number {
+  return chatBuckets.size
 }
 
 /** Test hook: clear the per-instance upstream budget only. */
 export function resetChatUpstreamBudget(): void {
   upstreamWindowStartedAt = 0
-  upstreamUsedInWindow = 0
+  upstreamCallsInWindow = 0
+  upstreamTokensInWindow = 0
 }
