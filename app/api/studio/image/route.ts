@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { readAdminAuth } from '@/lib/auth'
 import { generateImage } from '@/lib/studio-api'
 
 const PROMPT_TEMPLATES = {
@@ -40,6 +41,14 @@ export async function POST(request: Request) {
   let category = ''
 
   try {
+    // Auth gate before the body is read. `generateImage` bills the Chutes image
+    // endpoint — with a retry on a second endpoint — so an anonymous caller was
+    // spending the company's image credits. Same signed-session reader as
+    // `/api/studio/publish`; fails closed when the server has no credentials.
+    if (readAdminAuth(request) !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body: ImageRequest = await request.json()
     title = body.title
     category = body.category

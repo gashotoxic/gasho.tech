@@ -160,6 +160,16 @@ export default function BlogAdminPage() {
     clearAdminToken()
     setToken(null)
     setPassword("")
+    // The panel held the live archive in React state: every post body, drafts
+    // included. Signing out on a shared browser must not leave that resident
+    // until someone reloads the tab, so the data goes with the session.
+    setPosts([])
+    setPostsStatus("ready")
+    setShowForm(false)
+    setEditingSlug(null)
+    setForm(emptyForm)
+    setMessage({ text: "", type: "success" })
+    setLoginError("")
   }
 
   const authHeaders = useCallback(() => ({
@@ -313,6 +323,12 @@ export default function BlogAdminPage() {
             <h1 className="text-3xl font-bold">Blog Admin</h1>
             <p className="text-foreground/70 dark:text-[#cccccd] text-sm">
               {posts.length} post(s) &middot; Changes auto-commit to GitHub
+            </p>
+            {/* Capability loss, stated where an author will read it: the panel
+                used to have a publish/unpublish toggle and no longer does. */}
+            <p className="text-xs text-muted-foreground mt-1">
+              No publish/unpublish control: a new post goes live the moment you save it, and a
+              stored post cannot be hidden again from this panel.
             </p>
           </div>
           <div className="flex gap-3">
@@ -515,8 +531,14 @@ export default function BlogAdminPage() {
                   <div className="flex items-center gap-2">
                     <h3 className="font-semibold truncate">{post.title}</h3>
                     {!post.published && (
-                      <span className="text-xs px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded-full">
-                        Draft
+                      // Honest label: this panel has no publish/unpublish control,
+                      // so the badge must not look like an action. "Draft" here
+                      // means "hidden from this site", never confidential.
+                      <span
+                        title="Hidden from the site — not confidential: the repository is public, so this post is still readable in data/blogs.json. Re-publishing it from this panel is not possible."
+                        className="text-xs px-2 py-0.5 rounded-full border border-border bg-muted text-foreground/70"
+                      >
+                        Hidden from site · public in repo
                       </span>
                     )}
                   </div>

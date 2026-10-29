@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { renderMarkdown } from '@/lib/studio-api'
+import { clearAdminToken, readAdminToken } from '@/lib/admin-client'
 import Link from 'next/link'
 import { 
   Search, 
@@ -52,13 +53,31 @@ export default function StudioPage() {
   const [isPublishing, setIsPublishing] = useState(false)
 
   useEffect(() => {
-    const saved = localStorage.getItem('gashotech_admin_token')
+    // `readAdminToken` also discards anything that is not a `v1.` session — the
+    // old format was the base64 of the admin password.
+    const saved = readAdminToken()
     if (saved) setToken(saved)
 
-    fetch('/api/studio/models')
-      .then(r => r.json())
+    // Every route under /api/studio now requires the admin session, the model
+    // list included, so there is nothing to ask for without a token — and the
+    // model picker only renders for a signed-in session anyway.
+    if (!saved) return
+
+    fetch('/api/studio/models', { headers: { Authorization: `Bearer ${saved}` } })
+      .then(r => {
+        // A token that no longer verifies (expired, rotated password, stale
+        // localStorage entry) must not be left in place pretending to be a
+        // session: the generate button would stay enabled and every click would
+        // 401. Drop it here and let the page show its signed-out state.
+        if (r.status === 401) {
+          clearAdminToken()
+          setToken(null)
+          return null
+        }
+        return r.json()
+      })
       .then(data => {
-        if (data.models && data.models.length > 0) {
+        if (data?.models?.length > 0) {
           setAvailableModels(data.models)
         }
       })
@@ -69,6 +88,19 @@ export default function StudioPage() {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${token}`,
   }), [token])
+
+  /**
+   * A 401 from any studio route means the stored session is gone (expired,
+   * rotated password, or a stale token in localStorage). Clear it and say so,
+   * rather than reporting it as a generation failure.
+   */
+  const handleExpiredSession = (res: Response): boolean => {
+    if (res.status !== 401) return false
+    clearAdminToken()
+    setToken(null)
+    setMessage({ text: 'Your session expired. Sign in again at /blogs/admin.', type: 'error' })
+    return true
+  }
 
   const copyToClipboard = async (field: string, text: string) => {
     try {
@@ -98,6 +130,13 @@ export default function StudioPage() {
       return
     }
 
+    // The route is gated: research + generation are paid model calls, so there
+    // is nothing to send without a session.
+    if (!token) {
+      setMessage({ text: 'Generation runs on paid models. Sign in at /blogs/admin first.', type: 'error' })
+      return
+    }
+
     setIsLoading(true)
     setMessage(null)
     setResult(null)
@@ -106,13 +145,15 @@ export default function StudioPage() {
     try {
       const res = await fetch('/api/studio/generate-all', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({
           query,
-          model: token ? selectedModel : undefined,
-          provider: token ? selectedProvider : undefined,
+          model: selectedModel,
+          provider: selectedProvider,
         }),
       })
+
+      if (handleExpiredSession(res)) return
 
       const data = await res.json()
 
@@ -144,6 +185,8 @@ export default function StudioPage() {
           style: 'futuristic',
         }),
       })
+
+      if (handleExpiredSession(res)) return
 
       const data = await res.json()
 
@@ -208,7 +251,7 @@ export default function StudioPage() {
           type: 'success',
         })
         setTimeout(() => router.push(`/blogs/${data.slug || slug}`), 2000)
-      } else {
+      } else if (!handleExpiredSession(res)) {
         setMessage({ text: data.error || 'Publish failed. Try copying the content instead.', type: 'error' })
       }
     } catch {
@@ -309,13 +352,19 @@ export default function StudioPage() {
             />
             <button
               onClick={handleGenerate}
-              disabled={isLoading || !query.trim()}
+              disabled={isLoading || !query.trim() || !token}
+              title={token ? undefined : 'Sign in at /blogs/admin to use the studio'}
               className="px-8 py-3 bg-[#1abc9c] text-white rounded-lg font-semibold hover:bg-[#16a085] transition-all duration-300 disabled:opacity-50 disabled:hover:scale-100 flex items-center gap-2 whitespace-nowrap"
             >
               {isLoading ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
                   Generating...
+                </>
+              ) : !token ? (
+                <>
+                  <Lock className="w-4 h-4" />
+                  Sign in to generate
                 </>
               ) : (
                 <>
@@ -325,7 +374,11 @@ export default function StudioPage() {
               )}
             </button>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">Press Enter to generate, Shift+Enter for new line</p>
+          <p className="text-xs text-muted-foreground mt-2">
+            {token
+              ? 'Press Enter to generate, Shift+Enter for new line'
+              : 'Generation runs on paid AI models, so it needs an admin session — sign in at /blogs/admin.'}
+          </p>
         </div>
 
         {/* Results */}
@@ -520,15 +573,26 @@ export default function StudioPage() {
                         className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-foreground focus:border-[#1abc9c] focus:ring-1 focus:ring-[#1abc9c] outline-none transition-colors"
                       />
                     </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="published"
-                        checked={publishPublished}
-                        onChange={(e) => setPublishPublished(e.target.checked)}
-                        className="rounded border-border"
-                      />
-                      <label htmlFor="published" className="text-sm">Published (visible on blog)</label>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="published"
+                          checked={publishPublished}
+                          onChange={(e) => setPublishPublished(e.target.checked)}
+                          className="rounded border-border"
+                        />
+                        <label htmlFor="published" className="text-sm">Published (shown on the blog)</label>
+                      </div>
+                      {/* Same honest framing as the admin form: "unpublished" is a
+                          visibility filter for this site, never confidentiality.
+                          The repository and data/blogs.json are public. */}
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Unchecking keeps this post off the site, not off the internet: this
+                        repository is public, so a saved post — draft or not — is readable by
+                        anyone in <code>data/blogs.json</code>. Keep confidential or unfinished
+                        writing out of this repository.
+                      </p>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

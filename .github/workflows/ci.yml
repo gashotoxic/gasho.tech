@@ -1,10 +1,22 @@
 name: CI
 
+# `pull_request` on every base branch, not only main/master: the stacked-PR
+# train (#40 → #41 → #42 → #43 …) targets other feature branches, so the unit
+# suite never ran for the PRs that most needed it.
+# `push` stays on the default branch on purpose — a push trigger on `**` would
+# run every job twice for any branch with an open PR (once for the push, once
+# for the pull_request event), including two full builds plus the canary's.
 on:
   push:
     branches: [main, master]
   pull_request:
-    branches: [main, master]
+    branches: ["**"]
+
+# Superseded runs of the same PR are cancelled: three builds per run, and only
+# the newest commit's result is the one anyone reads.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   unit-tests:
@@ -51,3 +63,31 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # The unit suite walks the module graph, so it can only see import-chain
+  # leaks. It cannot see a server component that reads the archive and passes
+  # draft posts as props to a client component: no import edge exists and the
+  # draft bodies ship inside the RSC payload of a prerendered page.
+  #
+  # This job builds with a canary draft (a marker string in the body) and greps
+  # everything a browser can fetch — `.next/static/**` and the prerendered
+  # `.html`/`.rsc` payloads under `.next/server/app/**` — failing on any match.
+  # `scripts/check-client-bundles.mjs` always restores data/blogs.json.
+  bundle-canary:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # This job builds the app, so it stays on Node 20 for Vercel parity.
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build with a canary draft and scan client-fetchable artifacts
+        run: node scripts/check-client-bundles.mjs
