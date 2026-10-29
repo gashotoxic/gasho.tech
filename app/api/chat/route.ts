@@ -52,13 +52,15 @@ const FIXED_SITE_ORIGINS = [
 ];
 
 /**
- * Origins a browser request may carry. A same-origin `fetch` sends
- * `Origin: <the page's origin>`, which is exactly the request's own origin, so
- * including `new URL(request.url).origin` keeps previews, and any future custom
- * domain, working without a code change. This relies on the platform validating
- * the Host header (Vercel routes by domain), which is what makes "the origin you
- * posted to" trustworthy; on a self-hosted box behind a loose reverse proxy,
- * drop it and keep the fixed list.
+ * Origins a browser request may carry. The fixed list and the platform-provided
+ * hostnames are the actual controls; `new URL(request.url).origin` is a safety net
+ * so a deployment on a host nobody listed still accepts its own same-origin
+ * callers instead of failing silently.
+ *
+ * This does NOT read the `Host` header on its own: Next resolves `request.url`
+ * from its configured host, and a spoofed `Host` / `x-forwarded-host` does not
+ * change it (verified against `next start`). On Vercel the platform routes by
+ * domain, so "the origin you posted to" is the real one either way.
  *
  * `GT_ASSIST_ALLOWED_ORIGINS` (comma-separated) is the escape hatch for anything
  * else, e.g. a temporary staging host.
