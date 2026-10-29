@@ -1,6 +1,7 @@
 // GitHub API utility for persisting blog data across Vercel deploys
 // Uses GH_TOKEN env var to commit changes to data/blogs.json
 
+import { createHash } from "node:crypto"
 import type { BlogPostShape } from "./blog-post-update.ts"
 
 const GITHUB_TOKEN = process.env.GH_TOKEN
@@ -177,20 +178,37 @@ export async function readBlogFile(): Promise<BlogFileSnapshot> {
  * read reported*. That is what makes the two-call read safe: a blob sha names one
  * immutable version, so the body cannot be a newer file than the sha a write
  * pins. (The `raw` media type returns the body with no sha at all, which is why
- * the body comes from the blob instead.)
+ * the body comes from the blob instead.) The sha GitHub reports for a file *is*
+ * the git blob id, so the bytes are checked against it rather than trusted.
  */
 async function readBlogFileBody(
   file: { content?: unknown; encoding?: unknown; sha?: unknown },
   size?: number
 ): Promise<string> {
   if (file.encoding === "base64" && typeof file.content === "string" && file.content.length > 0) {
-    return Buffer.from(file.content, "base64").toString("utf-8")
+    const inline = Buffer.from(file.content, "base64").toString("utf-8")
+    assertBodySize(inline, size)
+    return inline
   }
 
   // No body and no sha: nothing to fetch, and nothing a write could be pinned to.
   // Returning "" here is how an empty archive gets written over the real one.
   if (typeof file.sha !== "string" || !file.sha) {
     throw new Error("data/blogs.json was read without a body and without a blob sha")
+  }
+
+  // The sha is interpolated into the blob URL, so it has to be a sha and nothing
+  // else: `x/../../rate_limit` or `x?per_page=1` would otherwise steer a request
+  // that carries the token to a different endpoint on api.github.com.
+  if (!/^[0-9a-f]{40}$/i.test(file.sha)) {
+    throw new Error("data/blogs.json was read with a malformed blob sha")
+  }
+
+  // This branch exists because the file is large. Without the size GitHub reported
+  // there is no ceiling to hold the fetch to, so fail closed rather than pull an
+  // unbounded body through the public read path.
+  if (typeof size !== "number" || !Number.isFinite(size)) {
+    throw new Error("data/blogs.json was read without a size; refusing to fetch its body unbounded")
   }
 
   const res = await fetch(`${REPO_API}/git/blobs/${file.sha}`, {
@@ -212,19 +230,38 @@ async function readBlogFileBody(
     throw new Error("GitHub returned no body for data/blogs.json")
   }
 
-  const raw = Buffer.from(blob.content, "base64").toString("utf-8")
+  const bytes = Buffer.from(blob.content, "base64")
+  const raw = bytes.toString("utf-8")
 
-  // A truncated base64 body still decodes to *something*. Comparing it with the
-  // size the metadata reported is what stops that something being parsed as a post
-  // list and committed back.
-  if (size !== undefined) {
-    const actual = Buffer.byteLength(raw, "utf-8")
-    if (actual !== size) {
-      throw new Error(`data/blogs.json read as ${actual} bytes but GitHub reported ${size}`)
-    }
+  // A truncated base64 body still decodes to *something*.
+  assertBodySize(raw, size)
+
+  // ...and a body can echo the requested `sha` field while holding other bytes, so
+  // the content itself has to match its own address. The sha for a file is its git
+  // blob id; recomputing it is the difference between "GitHub said so" and "these
+  // are the bytes that sha names" — and a list from the former, written back with
+  // the metadata sha pinned, would overwrite the real archive.
+  if (gitBlobSha(bytes) !== file.sha.toLowerCase()) {
+    throw new Error("data/blogs.json body does not hash to the sha it was read at")
   }
 
   return raw
+}
+
+/** The git blob id of these bytes — what the contents API reports as a file's `sha`. */
+function gitBlobSha(bytes: Buffer): string {
+  return createHash("sha1")
+    .update(Buffer.concat([Buffer.from(`blob ${bytes.length}\0`, "utf-8"), bytes]))
+    .digest("hex")
+}
+
+/** Refuse a body whose decoded size is not the size GitHub reported. */
+function assertBodySize(raw: string, size?: number): void {
+  if (size === undefined) return
+  const actual = Buffer.byteLength(raw, "utf-8")
+  if (actual !== size) {
+    throw new Error(`data/blogs.json read as ${actual} bytes but GitHub reported ${size}`)
+  }
 }
 
 /**
