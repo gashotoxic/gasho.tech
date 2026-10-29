@@ -57,20 +57,39 @@ async function readPostsForRead(): Promise<BlogPost[]> {
  *
  * `read` deliberately has no cache and no snapshot fallback: writing a list the
  * server could not read is the bug that let one request resurrect a deleted post
- * and wipe everything published since the build. `write` pins the sha that
- * `read` returned, so a commit landing in between fails (409) instead of being
- * silently overwritten.
+ * and wipe everything published since the build.
+ *
+ * A 404 from the contents API is treated as a failure too, not as "the archive is
+ * empty". `readBlogFile()` offers a missing file as `{ posts: [], missing: true }`
+ * for a genuine first-ever publish, but this route edits an archive that already
+ * exists: a 404 here means a bad ref, a token without access, or an outage, and
+ * "empty" would replace 73 posts with the one being written. A transient 404 must
+ * never be able to do that.
+ *
+ * `write` pins the sha that `read` returned and refuses to send a commit without
+ * one, so a concurrent change fails (409) instead of being silently overwritten —
+ * and no future edit can reintroduce an unpinned write by dropping the argument.
  */
 function createBlogStore(): PostStore {
   let sha: string | undefined
   return {
     read: async () => {
       const snapshot = await readBlogFile()
+      if (snapshot.missing) {
+        throw new Error("data/blogs.json was not found in the repository; refusing to write")
+      }
       sha = snapshot.sha
       return snapshot.posts
     },
-    write: (posts, commitMessage) =>
-      commitBlogChanges(JSON.stringify({ posts }, null, 2), commitMessage, sha),
+    write: (posts, commitMessage) => {
+      if (!sha) {
+        return Promise.resolve({
+          success: false,
+          error: "Refusing to commit the post list without the sha it was read at",
+        })
+      }
+      return commitBlogChanges(JSON.stringify({ posts }, null, 2), commitMessage, sha)
+    },
   }
 }
 
@@ -127,7 +146,17 @@ function failureResponse(failure: StoreFailure) {
  */
 export async function GET(request: Request) {
   const posts = await readPostsForRead()
-  return NextResponse.json(checkAuth(request) ? posts : publicPosts(posts))
+  const isAdmin = checkAuth(request)
+
+  // A public read of a page that must never be cached across users: the response
+  // differs by Authorization, so say so, and let a shared cache hold only the
+  // published projection (the list is larger than the pages that need it, and
+  // every anonymous request would otherwise pull the whole file from GitHub).
+  const headers = isAdmin
+    ? { "Cache-Control": "private, no-store", Vary: "Authorization" }
+    : { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300", Vary: "Authorization" }
+
+  return NextResponse.json(isAdmin ? posts : publicPosts(posts), { headers })
 }
 
 export async function POST(request: Request) {

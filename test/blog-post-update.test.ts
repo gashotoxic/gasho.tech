@@ -173,3 +173,39 @@ test("slugs are normalised and bounded", () => {
   assert.equal(normalizeSlug("!!!", ""), null)
   assert.equal(normalizeSlug(42, ""), null)
 })
+
+test("a hero image must stay a local, non-traversing path", () => {
+  // `image` reaches `next/image` and is pasted into `og:image` as
+  // `https://gashotech.com${image}`, so an off-site or javascript: value breaks
+  // the post page and produces a nonsense share card.
+  for (const unsafe of [
+    "javascript:alert(1)",
+    "https://attacker.example/x.png",
+    "data:image/png;base64,AAAA",
+    "/images/../../etc/passwd",
+    "images/x.webp",
+    "//evil.example/x.png",
+    "",
+  ]) {
+    const updated = applyPostUpdate(EXISTING, { image: unsafe })
+    assert.equal(updated.image, EXISTING.image, `update stored the unsafe image ${unsafe}`)
+
+    const created = buildNewPost({ title: "T", content: "C", image: unsafe }, "t")
+    assert.equal(created?.image, "/images/AI.webp", `create stored the unsafe image ${unsafe}`)
+  }
+
+  const safe = applyPostUpdate(EXISTING, { image: "/images/blog/hero-2026.webp" })
+  assert.equal(safe.image, "/images/blog/hero-2026.webp", "a normal image path must be kept")
+})
+
+test("tags are bounded so a post cannot grow the committed file without limit", () => {
+  const many = Array.from({ length: 40 }, (_, i) => `tag-${i}`)
+  const updated = applyPostUpdate(EXISTING, { tags: [...many, "x".repeat(200)] })
+
+  assert.ok(updated.tags, "tags should still be set")
+  assert.equal(updated.tags.length, 10, "the tag count must be capped")
+  assert.ok(
+    updated.tags.every((tag) => tag.length <= 32),
+    "an over-long tag must be refused, not truncated into the file"
+  )
+})

@@ -151,8 +151,16 @@ export default function BlogAdminPage() {
         // Reload posts from the server. The list endpoint hands drafts to an
         // authenticated caller only, so the session token travels with it.
         const reload = await fetch("/api/blogs", { headers: authHeaders() })
-        const freshPosts = await reload.json()
-        setPosts(Array.isArray(freshPosts) ? freshPosts : blogPosts)
+        if (reload.status === 401) {
+          // Session expired between the save and the reload. Falling back to the
+          // bundled snapshot here would put deleted posts back on screen.
+          clearAdminToken()
+          setToken(null)
+          setLoginError("Your session expired. Sign in again.")
+        } else if (reload.ok) {
+          const freshPosts = await reload.json()
+          if (Array.isArray(freshPosts)) setPosts(freshPosts)
+        }
         setTimeout(() => setMessage({ text: "", type: "success" }), 4000)
       } else {
         setMessage({ text: data.error || "Something went wrong", type: "error" })

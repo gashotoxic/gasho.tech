@@ -484,3 +484,70 @@ test("every write handler refuses an unauthenticated caller before touching GitH
     stub.restore()
   }
 })
+
+test("a 404 from the contents API is a read failure, never an empty archive", async () => {
+  // `readBlogFile()` offers a missing file as `{ posts: [], missing: true }` for a
+  // genuine first-ever publish. Here that would mean "the archive is empty" and
+  // the next write would commit a one-post file over 73 posts, with no sha to
+  // protect it. A transient 404 (bad ref, token without access, outage) must fail
+  // closed instead.
+  const stub = stubFetch((call) => {
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") {
+      return new Response('{"message":"Not Found"}', { status: 404 })
+    }
+    throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+  })
+
+  try {
+    const { POST } = await loadRoute()
+    const response = await POST(
+      new Request("http://localhost/api/blogs", {
+        method: "POST",
+        headers: await authorized(),
+        body: JSON.stringify({ title: "Would Clobber The Archive", content: "body" }),
+      })
+    )
+
+    assert.equal(response.status, 500)
+    const payload = (await response.json()) as Record<string, unknown>
+    assert.equal(payload.code, "read-failed")
+    assert.equal(countWrites(stub.calls), 0, "a 404 must not authorise a blind write")
+  } finally {
+    stub.restore()
+  }
+})
+
+test("the GET response says how it may be cached, and varies on Authorization", async () => {
+  const posts = livePosts()
+  const stub = stubFetch((call) => {
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") return blogRead(posts)
+    throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+  })
+
+  try {
+    const { GET } = await loadRoute()
+
+    const anonymous = await GET(new Request("http://localhost/api/blogs"))
+    assert.equal(
+      anonymous.headers.get("vary"),
+      "Authorization",
+      "a shared cache must not reuse one caller's response for another"
+    )
+    assert.match(
+      String(anonymous.headers.get("cache-control")),
+      /s-maxage/,
+      "the published projection should be cacheable to survive anonymous traffic"
+    )
+
+    const admin = await GET(
+      new Request("http://localhost/api/blogs", { headers: await authorized() })
+    )
+    assert.match(
+      String(admin.headers.get("cache-control")),
+      /no-store/,
+      "a draft-bearing response must never be cached"
+    )
+  } finally {
+    stub.restore()
+  }
+})

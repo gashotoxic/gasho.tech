@@ -20,6 +20,23 @@ export interface BlogPostShape {
 }
 
 const MAX_SLUG_LENGTH = 120
+/** The committed file has a hard ceiling at GitHub (1 MB), so a post's metadata
+ * must not be able to grow without limit. The archive's widest post carries 8
+ * tags; 10 x 32 characters leaves headroom and still refuses runaway input. */
+const MAX_TAGS = 10
+const MAX_TAG_LENGTH = 32
+
+/**
+ * A stored hero image is a path this site serves, never a URL to somewhere else:
+ * `next/image` renders it, and `og:image` is built as
+ * `https://gashotech.com${image}`. `javascript:`, `https://evil…` and the
+ * protocol-relative `//evil…` would break the page and produce a nonsense share
+ * image, so anything that is not a rooted `/images/` path — or that tries to
+ * traverse with `..` — falls back instead. Every image in the archive is under
+ * `/images/`, which is also what the studio's own guard accepts.
+ */
+const SAFE_IMAGE_PATH = /^\/images\/(?!.*\.\.)[A-Za-z0-9._/-]+$/
+
 
 /** Slugs feed routing, so normalise and bound them instead of trusting the body. */
 export function normalizeSlug(input: unknown, fallback: string): string | null {
@@ -39,8 +56,16 @@ function asString(value: unknown, fallback: string): string {
 
 function asTags(value: unknown, fallback: string[] | undefined): string[] | undefined {
   if (!Array.isArray(value)) return fallback
-  const tags = value.filter((tag): tag is string => typeof tag === "string").map((tag) => tag.trim())
-  return tags.filter((tag) => tag.length > 0)
+  const tags = value
+    .filter((tag): tag is string => typeof tag === "string")
+    .map((tag) => tag.trim())
+    .filter((tag) => tag.length > 0 && tag.length <= MAX_TAG_LENGTH)
+  return tags.slice(0, MAX_TAGS)
+}
+
+/** Keeps a rooted, non-traversing path; anything else falls back. */
+function asImagePath(value: unknown, fallback: string): string {
+  return typeof value === "string" && SAFE_IMAGE_PATH.test(value) ? value : fallback
 }
 
 function asReadTime(value: unknown, fallback: number | undefined): number | undefined {
@@ -64,7 +89,7 @@ export function applyPostUpdate(existing: BlogPostShape, update: unknown): BlogP
     author: asString(body.author, existing.author),
     category: asString(body.category, existing.category),
     date: existing.date,
-    image: asString(body.image, existing.image),
+    image: asImagePath(body.image, existing.image),
     published:
       typeof body.published === "boolean" ? body.published : existing.published,
     tags: asTags(body.tags, existing.tags),
@@ -110,7 +135,7 @@ export function buildNewPost(
     ),
     // A re-publish keeps the archived publish date.
     date: fallbackDate,
-    image: asString(input.image, archived ? asString(archived.image, "/images/AI.webp") : "/images/AI.webp"),
+    image: asImagePath(input.image, archived ? asString(archived.image, "/images/AI.webp") : "/images/AI.webp"),
     published:
       typeof input.published === "boolean"
         ? input.published
