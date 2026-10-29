@@ -2,7 +2,10 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 
 import {
+  deletePostFromStore,
+  publicPosts,
   publishPostToStore,
+  updatePostInStore,
   upsertPost,
   type BlogPost,
   type PostStore,
@@ -224,5 +227,114 @@ test("a duplicated slug is collapsed to one post, at the first position", () => 
     merged.map((post) => post.slug),
     [EXISTING[2].slug, "twice", EXISTING[3].slug],
     "dropping the twin must not reorder the archive"
+  )
+})
+
+test("refuseExisting turns a publish into a create: an archived slug is refused, nothing written", async () => {
+  const repo = makeFileStore(EXISTING)
+  const target = EXISTING[0]
+
+  const result = await publishPostToStore(
+    repo.store,
+    { ...target, title: "Overwritten by a create", content: "should never land" },
+    undefined,
+    { refuseExisting: true }
+  )
+
+  assert.equal(result.success, false)
+  assert.equal(result.success ? "" : result.code, "exists")
+  assert.equal(repo.writtenPayloads.length, 0, "a refused create must not commit anything")
+  assert.equal(repo.postsInFile()[0].title, target.title, "the archived post was overwritten")
+})
+
+test("an update rewrites one post and carries the other 71 over untouched", async () => {
+  const repo = makeFileStore(EXISTING)
+  const target = EXISTING[5]
+
+  const result = await updatePostInStore(repo.store, target.slug, {
+    title: "New title",
+    content: "New body",
+  })
+
+  assert.equal(result.success, true)
+  const posts = repo.postsInFile()
+  assert.equal(posts.length, 72, "an update must not add or drop posts")
+  assert.equal(posts[5].slug, target.slug, "an update must not reorder the archive")
+  assert.equal(posts[5].title, "New title")
+  assert.equal(posts[5].content, "New body")
+  assert.equal(posts[5].date, target.date, "an update must not restamp the publish date")
+  assert.equal(posts[5].image, target.image, "an update must not blank untouched fields")
+})
+
+test("an update to a slug that is not archived is a 404 and writes nothing", async () => {
+  const repo = makeFileStore(EXISTING)
+
+  const result = await updatePostInStore(repo.store, "no-such-post", { title: "ghost" })
+
+  assert.equal(result.success, false)
+  assert.equal(result.success ? "" : result.code, "not-found")
+  assert.equal(repo.writtenPayloads.length, 0)
+})
+
+test("a delete removes exactly one post and keeps the rest", async () => {
+  const repo = makeFileStore(EXISTING)
+  const target = EXISTING[7]
+
+  const result = await deletePostFromStore(repo.store, target.slug)
+
+  assert.equal(result.success, true)
+  const slugs = repo.postsInFile().map((post) => post.slug)
+  assert.equal(slugs.length, 71, "a delete must remove one post, not the list")
+  assert.ok(!slugs.includes(target.slug), "the post was not removed")
+  for (const archived of EXISTING.filter((post) => post.slug !== target.slug)) {
+    assert.ok(slugs.includes(archived.slug), `delete dropped an unrelated post ${archived.slug}`)
+  }
+})
+
+test("a delete of a slug that is not archived is a 404 and writes nothing", async () => {
+  const repo = makeFileStore(EXISTING)
+
+  const result = await deletePostFromStore(repo.store, "no-such-post")
+
+  assert.equal(result.success, false)
+  assert.equal(result.success ? "" : result.code, "not-found")
+  assert.equal(repo.writtenPayloads.length, 0)
+})
+
+test("an update and a delete both refuse to write when the list cannot be read", async () => {
+  const writes: string[] = []
+  const store: PostStore = {
+    read: async () => {
+      throw new Error("GitHub read failed: 502")
+    },
+    write: async (posts, commitMessage) => {
+      writes.push(commitMessage)
+      return { success: true }
+    },
+  }
+
+  const updated = await updatePostInStore(store, "any", { title: "x" })
+  const deleted = await deletePostFromStore(store, "any")
+
+  assert.equal(updated.success, false)
+  assert.equal(updated.success ? "" : updated.code, "read-failed")
+  assert.equal(deleted.success, false)
+  assert.equal(deleted.success ? "" : deleted.code, "read-failed")
+  assert.equal(writes.length, 0, "an unreadable list must never be written over")
+})
+
+test("publicPosts drops drafts and keeps every published post", () => {
+  const published = EXISTING.slice(0, 5)
+  const drafts: BlogPost[] = [
+    { ...newPost("draft-one"), published: false },
+    { ...newPost("draft-two"), published: false },
+  ]
+
+  const visible = publicPosts([...published, ...drafts])
+
+  assert.deepEqual(
+    visible.map((post) => post.slug),
+    published.map((post) => post.slug),
+    "a draft must never reach an anonymous reader"
   )
 })

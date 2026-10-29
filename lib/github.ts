@@ -9,6 +9,13 @@ const REPO_NAME = "gasho.tech"
 const BRANCH = "main"
 const FILE_PATH = "data/blogs.json"
 
+/**
+ * Upper bound on a GitHub API call. The blog read sits on a public page render
+ * and the writes sit behind an admin action, so a hung upstream must fail loudly
+ * instead of holding a request open until the platform kills it.
+ */
+const REQUEST_TIMEOUT_MS = 8000
+
 interface GitHubCommitResult {
   success: boolean
   sha?: string
@@ -44,6 +51,10 @@ export async function readBlogFile(): Promise<BlogFileSnapshot> {
       Authorization: `Bearer ${GITHUB_TOKEN}`,
       Accept: "application/vnd.github.v3+json",
     },
+    // The read path is on a public page render, so a hung upstream must fail
+    // (and fall back) instead of holding the request open until the platform
+    // times it out. Writes get the same bound and report the failure honestly.
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   })
 
   // A missing file is a legitimate empty archive (first ever publish).
