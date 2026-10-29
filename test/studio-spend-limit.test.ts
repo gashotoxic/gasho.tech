@@ -143,12 +143,34 @@ test("refreshing the token keeps the same spend identity (so a refresh loop cann
     "the spend key must survive a refresh, or a caller could refill its bucket by refreshing"
   )
 
+  // A *different credential* is a different budget; the same password is not.
+  const { isAuthConfigured } = await import("../lib/auth.ts")
+  assert.equal(isAuthConfigured(), true, "the test environment should be configured")
+})
+
+test("signing in again keeps the same spend identity (so a re-login cannot refill the bucket)", async () => {
+  const { createSessionToken, readAdminSessionKey } = await import("../lib/auth.ts")
+
+  // Two logins, an hour apart, same password: different `sess`, different token.
   const earlier = createSessionToken(Date.now() - 60 * 60 * 1000)
-  assert.ok(earlier, "an earlier test session could not be issued")
+  const later = createSessionToken()
+  assert.ok(earlier && later)
+
+  const authorize = (value: string) =>
+    new Request("http://localhost/api/studio/generate-all", {
+      method: "POST",
+      headers: { authorization: `Bearer ${value}` },
+    })
+
   assert.notEqual(
-    readAdminSessionKey(authorize(token)),
     readAdminSessionKey(authorize(earlier!)),
-    "two different sessions must not share one budget"
+    null,
+    "the earlier session should still verify"
+  )
+  assert.equal(
+    readAdminSessionKey(authorize(earlier!)),
+    readAdminSessionKey(authorize(later!)),
+    "a fresh login must not mint a fresh budget — otherwise the limit is optional for whoever holds the password"
   )
 })
 
@@ -166,65 +188,209 @@ test("an anonymous caller has no spend identity at all", async () => {
 })
 
 /**
- * Route-level: the 429 must arrive *instead of* the paid call, not after it.
- * A refused request that still hit Chutes would leave the hole open.
+ * Route-level: the 429 must arrive *instead of* the paid call, not after it. A
+ * refused request that still hit Chutes would leave the hole open, and every
+ * metered route has to be wired — one route left ungated is the whole finding
+ * back again.
  */
-test("generate-all answers 429 with zero upstream calls once the budget is spent", async () => {
-  const { createSessionToken } = await import("../lib/auth.ts")
+interface MeteredRoute {
+  action: "generate-all" | "image" | "research" | "write"
+  body: unknown
+  /** Response for the per-call upstream fetches, in call order. */
+  respond: (url: string) => Response
+  upstreamPerCall: number
+}
+
+const METERED_ROUTES: MeteredRoute[] = [
+  {
+    action: "generate-all",
+    body: { query: "AI policy in Kenya" },
+    upstreamPerCall: 2, // web search + completion
+    respond: (url) =>
+      url.includes("duckduckgo.com")
+        ? new Response(
+            `<a class="result__a" href="https://example.com/kenya-ai">Kenya AI policy</a>
+         <a class="result__snippet">A snippet about AI policy in Kenya.</a>`,
+            { status: 200, headers: { "content-type": "text/html" } }
+          )
+        : new Response(
+            JSON.stringify({
+              choices: [
+                {
+                  message: {
+                    content: JSON.stringify({
+                      title: "AI Policy in Kenya",
+                      excerpt: "What the new policy means.",
+                      topics: ["policy", "ai"],
+                      category: "AI",
+                      content: "## Heading\n\nThe body text.",
+                      imagePrompt: "A dark, turquoise-accented header image.",
+                    }),
+                  },
+                },
+              ],
+            }),
+            { status: 200, headers: { "content-type": "application/json" } }
+          ),
+  },
+  {
+    action: "image",
+    body: { title: "A test title", category: "AI" },
+    upstreamPerCall: 1,
+    respond: () =>
+      new Response(JSON.stringify({ image: "aGVsbG8=" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+  },
+  {
+    action: "research",
+    body: { query: "AI policy in Kenya", model: "google/gemma-4-31B-turbo-TEE", provider: "chutes" },
+    upstreamPerCall: 2,
+    respond: (url) =>
+      url.includes("duckduckgo.com")
+        ? new Response(
+            `<a class="result__a" href="https://example.com/kenya-ai">Kenya AI policy</a>
+         <a class="result__snippet">A snippet about AI policy in Kenya.</a>`,
+            { status: 200, headers: { "content-type": "text/html" } }
+          )
+        : new Response(
+            JSON.stringify({
+              choices: [
+                {
+                  message: {
+                    content: JSON.stringify({
+                      title: "AI Policy in Kenya",
+                      excerpt: "What the new policy means.",
+                      topics: ["policy", "ai"],
+                      category: "AI",
+                    }),
+                  },
+                },
+              ],
+            }),
+            { status: 200, headers: { "content-type": "application/json" } }
+          ),
+  },
+  {
+    action: "write",
+    body: {
+      title: "A test title",
+      excerpt: "A test excerpt",
+      topics: ["one", "two"],
+      category: "AI",
+      model: "google/gemma-4-31B-turbo-TEE",
+      provider: "chutes",
+    },
+    upstreamPerCall: 1,
+    respond: () =>
+      new Response(
+        JSON.stringify({ choices: [{ message: { content: "## Heading\n\nA generated body." } }] }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      ),
+  },
+]
+
+for (const route of METERED_ROUTES) {
+  test(`/api/studio/${route.action} answers 429 with zero upstream calls once the budget is spent`, async () => {
+    const { createSessionToken } = await import("../lib/auth.ts")
+    const token = createSessionToken()
+    assert.ok(token, "a test session could not be issued")
+
+    const calls: string[] = []
+    const original = globalThis.fetch
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input)
+      calls.push(url)
+      return route.respond(url)
+    }) as typeof fetch
+
+    const routeModule = (await import(`../app/api/studio/${route.action}/route.ts`)) as {
+      POST: (request: Request) => Promise<Response>
+    }
+    const request = () =>
+      new Request(`http://localhost/api/studio/${route.action}`, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify(route.body),
+      })
+
+    const burst = Math.floor(STUDIO_BUCKET_CAPACITY / STUDIO_COST[route.action])
+    try {
+      for (let attempt = 1; attempt <= burst; attempt += 1) {
+        const response = await routeModule.POST(request())
+        assert.equal(
+          response.status,
+          200,
+          `${route.action} call ${attempt} of ${burst} should have been allowed`
+        )
+      }
+      const callsBeforeRefusal = calls.length
+      assert.equal(
+        callsBeforeRefusal,
+        burst * route.upstreamPerCall,
+        "each allowed call should reach its upstream exactly once"
+      )
+
+      const refused = await routeModule.POST(request())
+      assert.equal(refused.status, 429, `the next ${route.action} call must be throttled`)
+      assert.equal(
+        calls.length,
+        callsBeforeRefusal,
+        "a throttled request must not reach a paid provider"
+      )
+
+      const retryAfter = Number(refused.headers.get("Retry-After"))
+      assert.ok(retryAfter >= 1, `Retry-After should be positive, got ${retryAfter}`)
+      const payload = (await refused.json()) as { code?: string; retryAfterSeconds?: number }
+      assert.equal(payload.code, "rate-limited")
+      assert.equal(payload.retryAfterSeconds, retryAfter)
+    } finally {
+      globalThis.fetch = original
+    }
+  })
+}
+
+test("/api/studio/publish is metered too, and refuses before it touches GitHub", async () => {
+  const { createSessionToken, readAdminSessionKey } = await import("../lib/auth.ts")
   const token = createSessionToken()
   assert.ok(token, "a test session could not be issued")
+
+  const authorize = new Request("http://localhost/api/studio/publish", {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+  })
+  const sessionKey = readAdminSessionKey(authorize)
+  assert.ok(sessionKey)
+  // Spend the whole budget, then publish: it must be refused before it reads or
+  // writes anything in the repository.
+  assert.equal(spendStudioTokens(sessionKey!, STUDIO_BUCKET_CAPACITY, Date.now()).allowed, true)
 
   const calls: string[] = []
   const original = globalThis.fetch
   globalThis.fetch = (async (input: RequestInfo | URL) => {
-    const url = String(input)
-    calls.push(url)
-    if (url.includes("duckduckgo.com")) {
-      return new Response(
-        `<a class="result__a" href="https://example.com/kenya-ai">Kenya AI policy</a>
-         <a class="result__snippet">A snippet about AI policy in Kenya.</a>`,
-        { status: 200, headers: { "content-type": "text/html" } }
-      )
-    }
-    const document = {
-      title: "AI Policy in Kenya",
-      excerpt: "What the new policy means.",
-      topics: ["policy", "ai"],
-      category: "AI",
-      content: "## Heading\n\nThe body text.",
-      imagePrompt: "A dark, turquoise-accented header image.",
-    }
-    return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(document) } }] }), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    })
+    calls.push(String(input))
+    throw new Error("publish reached the network while throttled")
   }) as typeof fetch
 
-  const { POST } = await import("../app/api/studio/generate-all/route.ts")
-  const request = () =>
-    new Request("http://localhost/api/studio/generate-all", {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-      body: JSON.stringify({ query: "AI policy in Kenya" }),
-    })
-
   try {
-    for (let attempt = 1; attempt <= BURST; attempt += 1) {
-      const response = await POST(request())
-      assert.equal(response.status, 200, `generation ${attempt} of ${BURST} should have been allowed`)
-    }
-    const callsBeforeRefusal = calls.length
-    assert.equal(callsBeforeRefusal, BURST * 2, "each allowed generation is one search + one completion")
-
-    const refused = await POST(request())
-    assert.equal(refused.status, 429, "the next generation must be throttled")
-    assert.equal(calls.length, callsBeforeRefusal, "a throttled request must not reach a paid provider")
-
-    const retryAfter = Number(refused.headers.get("Retry-After"))
-    assert.ok(retryAfter >= 1, `Retry-After should be a positive number of seconds, got ${retryAfter}`)
-    const payload = (await refused.json()) as { code?: string; retryAfterSeconds?: number }
-    assert.equal(payload.code, "rate-limited")
-    assert.equal(payload.retryAfterSeconds, retryAfter)
+    const { POST } = await import("../app/api/studio/publish/route.ts")
+    const response = await POST(
+      new Request("http://localhost/api/studio/publish", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          title: "A throttled publish",
+          excerpt: "A test excerpt",
+          content: "A body.",
+          category: "AI",
+          author: "GashoTech Team",
+          published: true,
+        }),
+      })
+    )
+    assert.equal(response.status, 429)
+    assert.deepEqual(calls, [], "a throttled publish must not commit anything")
   } finally {
     globalThis.fetch = original
   }

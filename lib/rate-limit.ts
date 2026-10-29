@@ -198,11 +198,13 @@ export function resetRateLimiter(): void {
  * saturation to stop password guessing, and a spent spend-budget must not be able
  * to lock the owner out of signing in.
  *
- * Key: the session's start time (`sess`), never the token. `refresh` rotates the
- * token on every call, so a token-keyed bucket could be reset at will and would
- * limit nothing. `sess` also bounds the map naturally — a session lasts at most
- * SESSION_ABSOLUTE_TTL_SECONDS, after which its bucket refills to full and is the
- * first thing evicted.
+ * Key: the credential fingerprint (`pwf`, via `readAdminSessionKey`), never the
+ * token and never the session start. A token is rotated by `refresh` on every
+ * call, and `sess` is stamped at login, so either choice lets the caller refill
+ * the bucket on demand — by refreshing before each paid request, or by signing in
+ * again. `pwf` survives both and changes only when the password or the signing
+ * secret rotates, which already revokes every session. One password therefore has
+ * one budget, shared by whatever devices are signed in with it.
  *
  * Scope is per server instance and in memory, like the login limiter: on Vercel
  * each instance keeps its own bucket, so the real ceiling is `instances × 24`.
@@ -217,11 +219,19 @@ export const STUDIO_COST = {
   write: 4,
   image: 4,
   research: 2,
+  // The cheapest paid call: `publish` bills no model, but it commits an image blob
+  // and the archive to GitHub, so a stolen token must not be able to drive it in a
+  // loop either. One token keeps a normal drafting rhythm free of friction.
+  publish: 1,
 } as const
 
 export type StudioAction = keyof typeof STUDIO_COST
 
-/** Bound on tracked sessions. Only valid signed sessions get here, so this is slack. */
+/**
+ * Bound on tracked budgets. With credential keying that is one entry per admin
+ * password in use (this site has one), so 200 is slack; it exists so a future
+ * multi-tenant change cannot grow the map without a bound.
+ */
 export const MAX_STUDIO_SESSIONS = 200
 
 interface StudioBucket {
@@ -253,9 +263,11 @@ function refillStudioBucket(key: string, now: number): StudioBucket {
   }
 
   if (studioBuckets.size >= MAX_STUDIO_SESSIONS) {
-    // Evict the session that has been idle longest: it has refilled the most and
-    // is the least likely to still be drafting. A session that is actively
-    // spending is by definition recently updated.
+    // Evict the budget that has been idle longest: it has refilled the most and is
+    // the least likely to still be drafting. A budget that is actively spending is
+    // by definition recently updated. (Eviction cannot be used to escape the limit
+    // by anyone without the password: with credential keying, an attacker cannot
+    // mint keys at all, and each key requires a successful login.)
     let oldestKey: string | null = null
     let oldestUpdate = Number.POSITIVE_INFINITY
     for (const [candidate, bucket] of studioBuckets) {
