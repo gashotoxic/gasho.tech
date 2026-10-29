@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { AlertTriangle, ArrowLeft } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, RefreshCw } from 'lucide-react'
 
 /**
  * What a reader sees when the archive could not be read at all.
@@ -12,15 +12,17 @@ import { AlertTriangle, ArrowLeft } from 'lucide-react'
  * that mapped it to `notFound()` did the same thing one URL at a time.
  */
 export function BlogUnavailable({ what }: { what: 'index' | 'post' }) {
+  const isIndex = what === 'index'
+
   return (
     <div className="pt-20 pb-12">
       <div className="container mx-auto px-4 max-w-2xl text-center py-16">
         <AlertTriangle className="h-10 w-10 mx-auto mb-4 text-[#1abc9c]" />
         <h1 className="text-2xl font-bold mb-3">
-          {what === 'index' ? 'The blog is temporarily unavailable' : 'This post cannot be shown right now'}
+          {isIndex ? 'The blog is temporarily unavailable' : 'This post cannot be shown right now'}
         </h1>
         <p className="text-foreground/70 dark:text-[#cccccc] mb-2">
-          {what === 'index'
+          {isIndex
             ? 'We could not load the archive just now. Nothing has been taken down — please try again in a minute.'
             : 'We could not load the archive, so this post cannot be shown. It has not been removed — please try again in a minute.'}
         </p>
@@ -31,8 +33,8 @@ export function BlogUnavailable({ what }: { what: 'index' | 'post' }) {
           href="/blogs"
           className="inline-flex items-center gap-2 bg-[#1abc9c] hover:bg-[#16a085] text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:shadow-lg"
         >
-          <ArrowLeft className="h-4 w-4" />
-          Back to the blog
+          {isIndex ? <RefreshCw className="h-4 w-4" /> : <ArrowLeft className="h-4 w-4" />}
+          {isIndex ? 'Try again' : 'Back to the blog'}
         </Link>
       </div>
     </div>
