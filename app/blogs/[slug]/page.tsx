@@ -6,6 +6,7 @@ import type { BlogPost } from "@/lib/blogs"
 import { renderMarkdown } from "@/lib/studio-api"
 import { safeJsonLd } from "@/lib/escape"
 import { BlogUnavailable } from "@/components/blogs/blog-unavailable"
+import { authorFor, descriptionFor, heroPath, heroUrl } from "@/lib/blog-display"
 import { Calendar, Tag, ArrowLeft } from "lucide-react"
 
 interface Props {
@@ -14,9 +15,6 @@ interface Props {
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
-
-/** The hero every post falls back to, exactly as the renderers do. */
-const HERO_FALLBACK = "/images/AI.webp"
 
 /**
  * Look one post up in the live archive.
@@ -50,26 +48,10 @@ async function getPost(slug: string): Promise<PostLookup> {
 }
 
 /**
- * A hero URL for metadata and structured data.
- *
- * A cleared hero (`image: ""`, which an edit may legitimately store) built
- * `https://gashotech.com` as the og:image, twitter:image and JSON-LD `image` — a
- * share card pointing at the homepage, and structured data claiming the site root
- * is the article's image. The rendered `<Image>` already falls back, so the
- * metadata must use the same fallback.
+ * A hero URL for metadata and structured data — shared with the index card and
+ * the feed through `lib/blog-display.ts`, so the three cannot disagree about
+ * what a cleared hero field renders as.
  */
-function heroUrl(post: BlogPost): string {
-  return `https://gashotech.com${post.image || HERO_FALLBACK}`
-}
-
-/**
- * A description for metadata. A cleared excerpt is storable too, and an empty
- * share-card description is worse than the title it sits under.
- */
-function descriptionFor(post: BlogPost): string {
-  const excerpt = typeof post.excerpt === "string" ? post.excerpt.trim() : ""
-  return excerpt || post.title
-}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
@@ -97,7 +79,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       type: "article",
       publishedTime: new Date(post.date).toISOString(),
-      authors: [post.author],
+      authors: [authorFor(post)],
       images: [{ url: heroUrl(post), width: 1200, height: 630 }],
     },
     twitter: {
@@ -186,7 +168,7 @@ export default async function BlogPostPage({ params }: Props) {
 
         <div className="relative w-full h-[300px] md:h-[400px] rounded-2xl overflow-hidden mb-8 shadow-xl">
           <Image
-            src={post.image || HERO_FALLBACK}
+            src={heroPath(post)}
             alt={post.title}
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 100vw, 1200px"
@@ -213,7 +195,7 @@ export default async function BlogPostPage({ params }: Props) {
             })}
           </span>
           <span className="flex items-center gap-2">
-            <span>{post.author}</span>
+            <span>{authorFor(post)}</span>
           </span>
         </div>
 

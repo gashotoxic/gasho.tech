@@ -4,6 +4,7 @@ import Image from "next/image"
 import { Calendar, Tag } from "lucide-react"
 import type { BlogPost } from "@/lib/blogs"
 import { BlogUnavailable } from "@/components/blogs/blog-unavailable"
+import { authorFor, excerptFor, heroPath } from "@/lib/blog-display"
 
 export const metadata: Metadata = {
   title: "Blog",
@@ -76,7 +77,7 @@ export default async function BlogsPage() {
                 <article className="bg-card rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 h-full flex flex-col">
                   <div className="relative h-48 overflow-hidden">
                     <Image
-                      src={post.image || "/images/AI.webp"}
+                      src={heroPath(post)}
                       alt={post.title}
                       fill
                       sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
@@ -93,7 +94,7 @@ export default async function BlogsPage() {
                       {post.title}
                     </h2>
                     <p className="text-sm text-foreground/70 dark:text-[#cccccc] mb-4 flex-1">
-                      {post.excerpt}
+                      {excerptFor(post)}
                     </p>
                     <div className="flex items-center gap-4 text-xs text-muted-foreground pt-4 border-t border-border">
                       <span className="flex items-center gap-1">
@@ -105,7 +106,7 @@ export default async function BlogsPage() {
                         })}
                       </span>
                       <span className="flex items-center gap-1">
-                        <span>{post.author}</span>
+                        <span>{authorFor(post)}</span>
                       </span>
                     </div>
                   </div>

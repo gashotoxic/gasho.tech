@@ -5,7 +5,10 @@ import "./support/alias-hook.mjs"
 
 import { test, beforeEach } from "node:test"
 import assert from "node:assert/strict"
-import { readFile, rename, stat, utimes } from "node:fs/promises"
+import { readFile, rename } from "node:fs/promises"
+import { copyFileSync, mkdtempSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 // The anonymous read path keeps a 30s in-process memo, which would otherwise
@@ -125,10 +128,15 @@ function archivedPosts(count = 6) {
 }
 
 function blogRead(posts: unknown[], sha = "read-sha"): Response {
+  // `size` is part of the contract now, on the inline path too: the contents API
+  // always reports it, and the read refuses an inline body it cannot size-check
+  // (a truncated list parses more often than it looks like it should).
+  const body = JSON.stringify({ posts })
   return jsonResponse({
     sha,
+    size: Buffer.byteLength(body, "utf-8"),
     encoding: "base64",
-    content: Buffer.from(JSON.stringify({ posts }), "utf-8").toString("base64"),
+    content: Buffer.from(body, "utf-8").toString("base64"),
   })
 }
 
@@ -165,37 +173,56 @@ function blogReads(calls: Call[]): Call[] {
 
 /* ------------------------------------------------- snapshot fixture control ---- */
 
-const DATA_FILE_PATH = fileURLToPath(new URL("../data/blogs.json", import.meta.url))
+/**
+ * The deployed snapshot, as a *copy* in a tmpdir.
+ *
+ * These helpers used to `utimes` and `rename` the tracked `data/blogs.json`: a
+ * killed run left the checkout without its archive (the file was mv'd away and
+ * only a `finally` put it back), and even a passing run rewrote the mtime of a
+ * tracked file. `BLOG_SNAPSHOT_FILE` points the reader at this copy instead, so
+ * the tests can age it, hide it and corrupt it without touching the repository.
+ */
+const REAL_SNAPSHOT = new URL("../data/blogs.json", import.meta.url)
+const SNAPSHOT_DIR = mkdtempSync(join(tmpdir(), "gasho-blog-snapshot-"))
+const SNAPSHOT_FILE = join(SNAPSHOT_DIR, "blogs.json")
+copyFileSync(fileURLToPath(REAL_SNAPSHOT), SNAPSHOT_FILE)
+process.env.BLOG_SNAPSHOT_FILE = SNAPSHOT_FILE
 
 /**
  * Serve the route a deployed snapshot of a chosen age.
  *
- * The snapshot's age comes from the file's mtime, and a test run must not depend
- * on when this checkout happened — a working copy older than the bound would
- * otherwise turn the fallback tests into 503s, and a copy newer than it could not
- * test the bound at all. The original mtime is restored in a `finally`.
+ * The age comes from the *build stamp*, which is what a deployment has
+ * (`next.config.ts` bakes `NEXT_PUBLIC_BUILD_TIME` into the bundle) and what the
+ * bound is defined against. The file's mtime is only a local fallback, so a test
+ * that aged the copy on disk would no longer be testing the production anchor.
+ * `null` removes the stamp, which is how the "bound not applied" case is reached.
  */
-async function withSnapshotAge(ageMs: number, run: () => Promise<void>): Promise<void> {
-  const { mtime } = await stat(DATA_FILE_PATH)
-  const when = new Date(Date.now() - ageMs)
-  await utimes(DATA_FILE_PATH, when, when)
+async function withSnapshotAge(ageMs: number | null, run: () => Promise<void>): Promise<void> {
+  const previous = process.env.NEXT_PUBLIC_BUILD_TIME
+  if (ageMs === null) {
+    delete process.env.NEXT_PUBLIC_BUILD_TIME
+  } else {
+    process.env.NEXT_PUBLIC_BUILD_TIME = new Date(Date.now() - ageMs).toISOString()
+  }
   try {
     await run()
   } finally {
-    await utimes(DATA_FILE_PATH, mtime, mtime)
+    if (previous === undefined) delete process.env.NEXT_PUBLIC_BUILD_TIME
+    else process.env.NEXT_PUBLIC_BUILD_TIME = previous
   }
 }
 
-/** Hide the deployed snapshot, the way a repository without `data/blogs.json` would. */
+/** Hide the deployed snapshot, the way a deployment without one would. */
 async function hideSnapshot(): Promise<{ restore: () => Promise<void> }> {
-  const hidden = `${DATA_FILE_PATH}.unavailable-test`
-  await rename(DATA_FILE_PATH, hidden)
+  const hidden = `${SNAPSHOT_FILE}.unavailable-test`
+  await rename(SNAPSHOT_FILE, hidden)
   return {
     restore: async () => {
-      await rename(hidden, DATA_FILE_PATH)
+      await rename(hidden, SNAPSHOT_FILE)
     },
   }
 }
+
 
 /* ------------------------------------------------------------------ GET ---- */
 
@@ -696,7 +723,8 @@ test("a snapshot fallback says so on the response, with its age", async () => {
 })
 
 test("a snapshot past its maximum age is refused: 503 with no-store, not a stale blog", async () => {
-  const { GET, MAX_SNAPSHOT_AGE_MS } = await loadRoute()
+  const { GET } = await loadRoute()
+  const { MAX_SNAPSHOT_AGE_MS } = await import("../lib/blog-snapshot.ts")
   assert.ok(MAX_SNAPSHOT_AGE_MS > 0, "the snapshot bound must be enforced, not disabled")
 
   // "Serve the build-time list forever" is the bug. Past the bound the archive is
@@ -717,6 +745,88 @@ test("a snapshot past its maximum age is refused: 503 with no-store, not a stale
 
       const payload = (await response.json()) as Record<string, unknown>
       assert.equal(payload.code, "read-failed")
+    } finally {
+      stub.restore()
+    }
+  })
+})
+
+test("the 24–48 h band is served but marked, so the 48 h cliff is not a surprise", async () => {
+  const { SNAPSHOT_WARN_AGE_MS, MAX_SNAPSHOT_AGE_MS } = await import("../lib/blog-snapshot.ts")
+  assert.ok(SNAPSHOT_WARN_AGE_MS < MAX_SNAPSHOT_AGE_MS, "the warning has to arrive before the refusal")
+
+  // A deployment 30 h old is still a better answer than a 503 — every post published
+  // since it was built is missing, but the blog works — provided something says so.
+  await withSnapshotAge(30 * 60 * 60_000, async () => {
+    const stub = stubFetch((call) => {
+      if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") {
+        return new Response('{"message":"upstream down"}', { status: 500 })
+      }
+      throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+    })
+
+    try {
+      const { GET } = await loadRoute()
+      const response = await GET(new Request("http://localhost/api/blogs"))
+      assert.equal(response.status, 200, "the stale band is still served")
+      assert.equal(response.headers.get("x-blog-source"), "snapshot")
+      assert.equal(
+        response.headers.get("x-blog-snapshot-stale"),
+        "1",
+        "the stale marker is the alertable signal for the 24–48 h band"
+      )
+      const age = Number(response.headers.get("x-blog-snapshot-age"))
+      assert.ok(age >= 29 * 3600 && age <= 31 * 3600, `unexpected snapshot age: ${age}s`)
+    } finally {
+      stub.restore()
+    }
+  })
+})
+
+test("a snapshot with no build stamp falls back to the file's mtime, and says which anchor it used", async () => {
+  // The anchor is `NEXT_PUBLIC_BUILD_TIME`; without one (a local `next start`, a
+  // bare `node`) the age comes from the file's mtime — which can lie about a
+  // warm-workspace copy, so the response names the anchor it used rather than
+  // implying the age is measured from a build.
+  await withSnapshotAge(null, async () => {
+    const stub = stubFetch((call) => {
+      if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") {
+        return new Response('{"message":"upstream down"}', { status: 500 })
+      }
+      throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+    })
+
+    try {
+      const { GET } = await loadRoute()
+      const response = await GET(new Request("http://localhost/api/blogs"))
+      assert.equal(response.status, 200)
+      assert.equal(response.headers.get("x-blog-source"), "snapshot")
+      assert.equal(
+        response.headers.get("x-blog-snapshot-anchor"),
+        "mtime",
+        "without a build stamp the age is an mtime age, and the header has to say so"
+      )
+      assert.equal(response.headers.get("x-blog-snapshot-stale"), null)
+    } finally {
+      stub.restore()
+    }
+  })
+})
+
+test("a stamped snapshot reports the build as its anchor", async () => {
+  await withSnapshotAge(5 * 60_000, async () => {
+    const stub = stubFetch((call) => {
+      if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") {
+        return new Response('{"message":"upstream down"}', { status: 500 })
+      }
+      throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+    })
+
+    try {
+      const { GET } = await loadRoute()
+      const response = await GET(new Request("http://localhost/api/blogs"))
+      assert.equal(response.status, 200)
+      assert.equal(response.headers.get("x-blog-snapshot-anchor"), "build")
     } finally {
       stub.restore()
     }

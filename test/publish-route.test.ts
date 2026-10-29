@@ -152,6 +152,31 @@ const DUPLICATE_TITLE_PAIR = [
   "kenya-opens-public-consultation-draft",
 ] as const
 
+/**
+ * The fixture above is a hand-copied subset of `data/blogs.json`, which means it
+ * can disagree with the archive it claims to mirror: delete one half of the pair,
+ * or retitle it, and every ambiguous-title test below keeps passing against a
+ * shape production no longer has. One line against the real file is enough to
+ * make that drift fail loudly instead of silently weakening the suite.
+ */
+test("the duplicate-title pair the fixtures mirror still exists in data/blogs.json", async () => {
+  const { readFile } = await import("node:fs/promises")
+  const raw = await readFile(new URL("../data/blogs.json", import.meta.url), "utf-8")
+  const posts = (JSON.parse(raw) as { posts: Array<{ slug: string; title: string }> }).posts
+
+  const [firstSlug, secondSlug] = DUPLICATE_TITLE_PAIR
+  const first = posts.find((post) => post.slug === firstSlug)
+  const second = posts.find((post) => post.slug === secondSlug)
+
+  assert.ok(first, `${firstSlug} is no longer in the archive — update the fixture and its tests`)
+  assert.ok(second, `${secondSlug} is no longer in the archive — update the fixture and its tests`)
+  assert.equal(
+    first.title,
+    second.title,
+    "the pair must still share a title, or the ambiguity these tests cover does not exist"
+  )
+})
+
 /** Title-to-slug exactly as the studio and the route derive it. */
 function slugFromTitle(title: string): string {
   return title
@@ -161,10 +186,14 @@ function slugFromTitle(title: string): string {
 }
 
 function blogRead(posts: unknown[], sha = "read-sha"): Response {
+  // The inline body carries its size, because the read now refuses an inline body
+  // it cannot size-check (GitHub always reports one).
+  const body = JSON.stringify({ posts })
   return jsonResponse({
     sha,
+    size: Buffer.byteLength(body, "utf-8"),
     encoding: "base64",
-    content: Buffer.from(JSON.stringify({ posts }), "utf-8").toString("base64"),
+    content: Buffer.from(body, "utf-8").toString("base64"),
   })
 }
 
@@ -454,6 +483,72 @@ test("a title the archive holds twice is refused, never resolved to the first ma
       0,
       "nothing may be committed when the title is ambiguous"
     )
+  } finally {
+    stub.restore()
+  }
+})
+
+test("a slug read from a stale archive listing is refused instead of becoming a create", async () => {
+  // The studio names the slug it means by reading `GET /api/blogs`, and that route
+  // falls back to the deployed *snapshot* when the repository is unreadable. A post
+  // deleted since that build is still in that listing — so publishing "the post
+  // with this slug" would create a brand-new post at the deleted post's URL. Nothing
+  // is clobbered, but a deliberate deletion is undone by an edit.
+  const archived = archivedPosts()
+  const staleSlug = "a-post-that-was-deleted-after-the-snapshot"
+
+  const stub = stubFetch((call) => {
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") return blogRead(archived)
+    throw new Error(`a stale index must not write anything: ${call.method} ${call.url}`)
+  })
+
+  try {
+    const { response, payload } = await publishRequest({
+      slug: staleSlug,
+      resolvedFrom: "archive-index",
+      title: "A post the listing still remembers",
+      content: "body",
+      published: true,
+    })
+
+    assert.equal(response.status, 409, "a gone slug is a conflict, not a create")
+    assert.equal(payload.code, "stale-index")
+    assert.equal(payload.slug, staleSlug)
+    assert.equal(
+      stub.calls.filter((call) => call.method === "PUT" || call.method === "DELETE").length,
+      0,
+      "nothing may be committed for a slug that only existed in a stale listing"
+    )
+  } finally {
+    stub.restore()
+  }
+})
+
+test("an explicitly named slug that is not archived is still a legitimate create", async () => {
+  // The guard above must not turn "publish a new post at this URL" into a 409: the
+  // difference is where the slug came from, and that is what `resolvedFrom` says.
+  const archived = archivedPosts()
+  const newSlug = "a-brand-new-post"
+
+  const stub = stubFetch((call) => {
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") return blogRead(archived)
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "PUT") {
+      return jsonResponse({ content: { sha: "new-sha" }, commit: { sha: "c0ffee" } })
+    }
+    throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+  })
+
+  try {
+    const { response, payload } = await publishRequest({
+      slug: newSlug,
+      title: "A Brand New Post",
+      content: "body",
+      published: true,
+    })
+
+    assert.equal(response.status, 200)
+    assert.equal(payload.created, true)
+    assert.equal(payload.slug, newSlug)
   } finally {
     stub.restore()
   }

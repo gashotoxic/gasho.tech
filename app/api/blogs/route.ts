@@ -1,9 +1,13 @@
-import { promises as fs } from "fs"
-import path from "path"
 import { NextResponse } from "next/server"
 import { isAuthorizedRequest, readAdminAuth } from "@/lib/auth"
 import { buildNewPost, commitTitle, normalizeSlug, type BlogPostShape } from "@/lib/blog-post-update"
 import { clearBlogReadCache, readBlogFileCached } from "@/lib/blog-read-cache"
+import {
+  SNAPSHOT_WARN_AGE_MS,
+  readBlogSnapshot,
+  snapshotAgeVerdict,
+  type SnapshotAgeState,
+} from "@/lib/blog-snapshot"
 import { commitBlogChanges, readBlogFile, readBlogFileForWrite } from "@/lib/github"
 import {
   deletePostFromStore,
@@ -14,28 +18,7 @@ import {
   type StoreFailure,
 } from "@/lib/blog-publish"
 
-const DATA_FILE = path.join(process.cwd(), "data", "blogs.json")
-
 type BlogPost = BlogPostShape
-
-/**
- * How old the *build-time* copy of `data/blogs.json` may be before it stops being
- * served as a fallback.
- *
- * The snapshot exists so a GitHub outage does not blank the blog. It must not
- * become the blog: a deployment whose archive is missing from the repository (or
- * whose token lost access) served this list forever, signalled by nothing but a
- * `console.warn`. Past this age the snapshot is too stale to be worth serving —
- * every post published since that build is missing from it — so the route answers
- * 503 instead, which is loud, uncacheable and alertable.
- *
- * Age is the file's mtime: a Vercel deployment is built from a fresh checkout, so
- * that is the build. A timestamp that is not plausible (unset, epoch, in the
- * future) is reported as unknown and does *not* trip the bound — a nonsense clock
- * must not be able to take the blog offline by itself. The
- * `X-Blog-Source: snapshot` header is the primary signal either way.
- */
-export const MAX_SNAPSHOT_AGE_MS = 24 * 60 * 60 * 1000
 
 /** Where a served list came from, echoed as `X-Blog-Source`. */
 export type BlogSource = "live" | "snapshot"
@@ -46,20 +29,14 @@ interface ReadResult {
   /** True when the deployed snapshot's age could not be established. */
   snapshotAgeUnknown?: boolean
   snapshotAgeMs?: number
+  /** `fresh` | `stale` | `unknown` — the fallback's standing, for the headers. */
+  snapshotAgeState?: SnapshotAgeState
+  /** Which anchor the age came from: the deployment's build stamp, or the mtime. */
+  snapshotAnchor?: "build" | "mtime"
 }
 
+
 /** The copy shipped with the build. Read-only on Vercel, and only ever a fallback. */
-async function readSnapshotPosts(): Promise<{ posts: BlogPost[]; builtAt: number | null } | null> {
-  try {
-    const stat = await fs.stat(DATA_FILE)
-    const raw = await fs.readFile(DATA_FILE, "utf-8")
-    const parsed = JSON.parse(raw) as { posts?: unknown }
-    if (!Array.isArray(parsed.posts)) return null
-    return { posts: parsed.posts as BlogPost[], builtAt: stat.mtimeMs }
-  } catch {
-    return null
-  }
-}
 
 /**
  * Read the live archive — through the memo when the caller is anonymous, live
@@ -91,9 +68,15 @@ async function readLivePosts(cached: boolean): Promise<BlogPost[] | null> {
  * fall back to the deployed snapshot.
  *
  * `null` means there is nothing honest to serve: neither the repository nor the
- * deployed snapshot has a post list, or the snapshot is older than
+ * deployed snapshot has a post list, or the snapshot is past
  * `MAX_SNAPSHOT_AGE_MS`. The caller answers 503 instead of inventing an empty
  * blog.
+ *
+ * Between `SNAPSHOT_WARN_AGE_MS` (24 h) and `MAX_SNAPSHOT_AGE_MS` (48 h) the
+ * snapshot is still served, but it is marked: a warning in the log and
+ * `X-Blog-Snapshot-Stale: 1` on the response. A single cliff meant a deployment
+ * 24 h and 1 s old flipped the blog from serving to 503 on the clock alone, with
+ * no step where anyone could see it coming.
  */
 async function readPostsForRead(
   cached: boolean,
@@ -110,7 +93,7 @@ async function readPostsForRead(
     console.warn("Live blog read failed, serving the deployed snapshot:", error)
   }
 
-  const snapshot = await readSnapshotPosts()
+  const snapshot = await readBlogSnapshot()
   if (!snapshot || snapshot.posts.length === 0) {
     if (liveFailed) {
       console.error("Neither the repository nor the deployed snapshot holds a post list")
@@ -118,45 +101,48 @@ async function readPostsForRead(
     return null
   }
 
-  // A snapshot older than the bound is not served: the blog would be lying about
-  // everything published since that build, indefinitely, and nothing would say so.
-  const age = plausibleAge(snapshot.builtAt, now)
-  if (age === null) {
+  // The age anchor is the deployment's build stamp when there is one, and the
+  // file's mtime only as a local fallback — see lib/blog-snapshot.ts.
+  const verdict = snapshotAgeVerdict(snapshot.builtAt, now)
+  const ageMs = verdict.ageMs ?? 0
+  const limitHours = Math.round(verdict.limitMs / 3_600_000)
+
+  if (verdict.state === "expired") {
     console.error(
-      `Serving the deployed snapshot, but its age cannot be established (mtime ${snapshot.builtAt}); the ${MAX_SNAPSHOT_AGE_MS / 3_600_000}h bound is not applied`
-    )
-  } else if (age > MAX_SNAPSHOT_AGE_MS) {
-    console.error(
-      `The deployed snapshot is ${Math.round(age / 3_600_000)}h old and the live archive is unreadable; answering 503 rather than serving a snapshot older than ${MAX_SNAPSHOT_AGE_MS / 3_600_000}h`
+      `The deployed snapshot is ${Math.round(ageMs / 3_600_000)}h old (anchor: ${snapshot.builtAtSource}) ` +
+        `and the live archive is unreadable; answering 503 rather than serving a snapshot past ${limitHours}h`
     )
     return null
+  }
+
+  if (verdict.state === "unknown") {
+    console.error(
+      `Serving the deployed snapshot, but its age cannot be established (anchor: ${snapshot.builtAtSource}); ` +
+        `the ${limitHours}h bound is not applied`
+    )
+  } else if (verdict.state === "stale") {
+    console.warn(
+      `Serving the deployed snapshot (${Math.round(ageMs / 3_600_000)}h old, anchor: ${snapshot.builtAtSource}): ` +
+        `past the ${Math.round(SNAPSHOT_WARN_AGE_MS / 3_600_000)}h warning and refused at ${limitHours}h. ` +
+        `The live archive has not been readable since that build.`
+    )
   } else {
     console.warn(
-      `Serving the deployed snapshot (${Math.round(age / 60_000)}m old, limit ${MAX_SNAPSHOT_AGE_MS / 3_600_000}h)`
+      `Serving the deployed snapshot (${Math.round(ageMs / 60_000)}m old, anchor: ${snapshot.builtAtSource}, ` +
+        `limit ${limitHours}h)`
     )
   }
 
   return {
     posts: snapshot.posts,
     source: "snapshot",
-    snapshotAgeMs: age ?? undefined,
-    snapshotAgeUnknown: age === null,
+    snapshotAgeMs: verdict.ageMs ?? undefined,
+    snapshotAgeUnknown: verdict.state === "unknown",
+    snapshotAgeState: verdict.state,
+    snapshotAnchor: snapshot.builtAtSource,
   }
 }
 
-/**
- * Age of a build stamp, or `null` when the stamp is not usable.
- *
- * A stored mtime can be missing, zero or (across a clock change) in the future.
- * None of those is evidence that the snapshot is stale, and a wrong 503 takes the
- * blog offline — so an implausible stamp disables the bound instead of tripping
- * it. The `X-Blog-Source: snapshot` header still reports where the list came from.
- */
-function plausibleAge(builtAt: number | null, now: number): number | null {
-  if (typeof builtAt !== "number" || !Number.isFinite(builtAt) || builtAt <= 0) return null
-  const age = now - builtAt
-  return age < 0 ? 0 : age
-}
 
 /**
  * A store over the live file for the write handlers.
@@ -299,6 +285,14 @@ export async function GET(request: Request) {
     } else {
       headers["X-Blog-Snapshot-Age"] = "unknown"
     }
+    // Which clock the age came from. A deployment has a build stamp; a local
+    // process falls back to the file's mtime, which can lie about a warm-workspace
+    // copy — so the header says which one this answer is based on.
+    if (result.snapshotAnchor) headers["X-Blog-Snapshot-Anchor"] = result.snapshotAnchor
+    // The 24–48 h band is still served, and this is how anything watching the
+    // deployment sees the approach to the 48 h refusal instead of discovering it
+    // when the blog starts answering 503.
+    if (result.snapshotAgeState === "stale") headers["X-Blog-Snapshot-Stale"] = "1"
   }
 
   return NextResponse.json(isAdmin ? result.posts : publicPosts(result.posts), { headers })

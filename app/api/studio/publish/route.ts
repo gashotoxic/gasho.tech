@@ -101,6 +101,18 @@ function resolveArchivedByTitle(
 export interface PublishRequest {
   /** Optional: the stored slug, when the caller is editing a known post. */
   slug?: string
+  /**
+   * Where `slug` came from, when it was sent.
+   *
+   * - `archive-index` — the caller read it from a listing of the archive (the
+   *   studio does this to name the post a title means). It is a claim that this
+   *   post exists, so a slug that is *not* in the live list is refused rather
+   *   than treated as a create: a listing can be the deployed snapshot, and
+   *   creating at a stale slug resurrects a post that was deliberately deleted.
+   * - `explicit` (default) — typed or chosen deliberately by the caller; a slug
+   *   that is not archived is a new post at a chosen URL, which is legitimate.
+   */
+  resolvedFrom?: 'archive-index' | 'explicit'
   title: string
   excerpt: string
   content: string
@@ -247,6 +259,31 @@ export async function POST(request: Request) {
         )
       }
       archived = resolved.post
+    }
+
+    // A slug that came from an archive listing, and is not in the live archive, is
+    // a stale index — not a new post.
+    //
+    // The studio names the slug it thinks it is editing by reading `GET /api/blogs`,
+    // and that route falls back to the *deployed snapshot* when the repository is
+    // unreadable. A post deleted since that build is still in that listing, so
+    // naming its slug would publish a brand-new post at the deleted post's URL:
+    // nothing is clobbered, but a deliberate deletion is undone by an edit. The
+    // studio stops sending the slug in that case; this is the guard for every other
+    // client, and for the race where the deletion lands between the two calls.
+    if (explicitSlug && !archived && body.resolvedFrom === 'archive-index') {
+      console.warn(
+        `Refusing a create at ${explicitSlug}: the caller read that slug from an archive listing, but it is not in the live archive`
+      )
+      return NextResponse.json(
+        {
+          error:
+            'The post this publish meant to edit is no longer in the archive — the listing it came from was stale, so nothing was written. Refresh and check the admin panel; if you are publishing a new post, give it a different title or send the slug explicitly.',
+          code: 'stale-index',
+          slug: explicitSlug,
+        },
+        { status: 409 }
+      )
     }
 
     // The archived slug is the post's URL, so an edit lands on it even when the
