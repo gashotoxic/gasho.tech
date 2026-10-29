@@ -2,16 +2,24 @@ import { test, beforeEach } from "node:test"
 import assert from "node:assert/strict"
 
 import {
+  CHAT_BUCKET_CAPACITY,
+  CHAT_UPSTREAM_CALLS_PER_MINUTE,
+  CHAT_UPSTREAM_TOKENS_PER_MINUTE,
   LOCKOUT_BASE_MS,
   LOCKOUT_MAX_MS,
   LOGIN_MAX_FAILURES,
   LOGIN_WINDOW_MS,
+  MAX_TRACKED_CHAT_KEYS,
   MAX_TRACKED_KEYS,
   checkLoginAllowed,
   clientKey,
+  consumeChatRequest,
+  consumeChatUpstreamBudget,
   recordLoginFailure,
   recordLoginSuccess,
+  resetChatRateLimiter,
   resetRateLimiter,
+  trackedChatKeyCount,
 } from "../lib/rate-limit.ts"
 
 const KEY = "203.0.113.7"
@@ -172,4 +180,165 @@ test("clientKey uses the last x-forwarded-for hop, not the caller's first entry"
 
   const anonymous = new Request("https://gashotech.com/api/blogs/login")
   assert.equal(clientKey(anonymous), "unknown")
+})
+
+/*
+ * --- Review R-PR47: chat bucket saturation + token-denominated ceiling --------
+ *
+ * The saturation branch was the most intricate code in this module and had no
+ * coverage: at MAX_TRACKED_CHAT_KEYS every new-IP request paid a full 10k sweep
+ * PLUS a 10k eviction scan, and a brand-new visitor was refused while every
+ * tracked client held a live allowance.
+ */
+
+const CHAT_START = 1_910_000_000_000
+
+function chatKey(i: number): string {
+  // 10.50.<i>>8>.<i&255> is unique for 0 <= i < 65536.
+  return `10.50.${i >> 8}.${i & 255}`
+}
+
+test("clientKey prefers the platform-set x-vercel-forwarded-for", () => {
+  const request = new Request("https://gashotech.com/api/chat", {
+    headers: {
+      "x-vercel-forwarded-for": "203.0.113.61",
+      // What a caller-seeded header looks like: their own hop first.
+      "x-forwarded-for": "1.2.3.4, 203.0.113.62",
+    },
+  })
+
+  assert.equal(clientKey(request), "203.0.113.61")
+})
+
+test("clientKey takes the last hop of a seeded header and rejects non-IP keys", () => {
+  // A caller-seeded prefix must not become the bucket key: if it did, rotating
+  // the prefix would mint a fresh bucket per request (complete limiter bypass).
+  const seeded = new Request("https://gashotech.com/api/chat", {
+    headers: { "x-vercel-forwarded-for": "1.2.3.4, 203.0.113.70" },
+  })
+  assert.equal(clientKey(seeded), "203.0.113.70")
+
+  // Junk is not trusted: fall through to the next header instead of keying on it.
+  const junk = new Request("https://gashotech.com/api/chat", {
+    headers: {
+      "x-vercel-forwarded-for": "not-an-ip",
+      "x-forwarded-for": "203.0.113.71",
+    },
+  })
+  assert.equal(clientKey(junk), "203.0.113.71")
+
+  // A port suffix is dropped, so rotating source ports cannot mint buckets.
+  const withPort = new Request("https://gashotech.com/api/chat", {
+    headers: { "x-forwarded-for": "203.0.113.72:51820" },
+  })
+  assert.equal(clientKey(withPort), "203.0.113.72")
+
+  // A non-IP XFF with no other header lands in the shared "unknown" bucket.
+  const noIp = new Request("https://gashotech.com/api/chat", {
+    headers: { "x-forwarded-for": "totally-not-an-address" },
+  })
+  assert.equal(clientKey(noIp), "unknown")
+
+  // IPv6 literals are accepted as-is.
+  const v6 = new Request("https://gashotech.com/api/chat", {
+    headers: { "x-forwarded-for": "2001:db8::1" },
+  })
+  assert.equal(clientKey(v6), "2001:db8::1")
+})
+
+test("a full tracker evicts the insertion-oldest client that is not throttled", () => {
+  for (let i = 0; i < MAX_TRACKED_CHAT_KEYS; i += 1) {
+    assert.equal(consumeChatRequest(chatKey(i), CHAT_START).allowed, true)
+  }
+  assert.equal(trackedChatKeyCount(), MAX_TRACKED_CHAT_KEYS)
+
+  // Drain key 0 completely (throttled: must never be evicted) and leave key 1
+  // with exactly one token (11 - 10).
+  for (let d = 0; d < CHAT_BUCKET_CAPACITY; d += 1) {
+    consumeChatRequest(chatKey(0), CHAT_START)
+  }
+  for (let d = 0; d < CHAT_BUCKET_CAPACITY - 2; d += 1) {
+    consumeChatRequest(chatKey(1), CHAT_START)
+  }
+  assert.equal(consumeChatRequest(chatKey(0), CHAT_START).allowed, false)
+
+  // A brand-new key has to make room.
+  assert.equal(consumeChatRequest("203.0.113.200", CHAT_START).allowed, true)
+  assert.equal(trackedChatKeyCount(), MAX_TRACKED_CHAT_KEYS)
+
+  // The victim was key 1 (oldest evictable). If it had survived with its single
+  // token, the second call below would be denied.
+  assert.equal(consumeChatRequest(chatKey(1), CHAT_START).allowed, true)
+  assert.equal(consumeChatRequest(chatKey(1), CHAT_START).allowed, true)
+
+  // A throttled client was not handed a fresh allowance.
+  assert.equal(consumeChatRequest(chatKey(0), CHAT_START).allowed, false)
+  assert.ok(trackedChatKeyCount() <= MAX_TRACKED_CHAT_KEYS)
+})
+
+test("a tracker saturated with throttled clients fails closed and stays bounded", () => {
+  for (let i = 0; i < MAX_TRACKED_CHAT_KEYS; i += 1) {
+    for (let d = 0; d < CHAT_BUCKET_CAPACITY; d += 1) {
+      consumeChatRequest(chatKey(i), CHAT_START)
+    }
+  }
+  assert.equal(trackedChatKeyCount(), MAX_TRACKED_CHAT_KEYS)
+
+  const denied = consumeChatRequest("203.0.113.201", CHAT_START)
+  assert.equal(denied.allowed, false)
+  // Everyone holds 0 tokens; at 10/min the first token is earned in 6s.
+  assert.equal(denied.retryAfterSeconds, 6)
+
+  // A burst of brand-new IPs inside the cooldown keeps getting the same verdict
+  // from the cached saturation flag instead of rescanning 10k buckets each.
+  for (let i = 0; i < 500; i += 1) {
+    const gate = consumeChatRequest(`198.51.100.${i}.${i}`, CHAT_START + i)
+    assert.equal(gate.allowed, false)
+    assert.ok(gate.retryAfterSeconds >= 1, "a denial must carry an honest Retry-After")
+  }
+  assert.equal(trackedChatKeyCount(), MAX_TRACKED_CHAT_KEYS, "tracker must not grow past the cap")
+
+  // Throttled clients are never evicted to make room for a stranger.
+  assert.equal(consumeChatRequest(chatKey(0), CHAT_START).allowed, false)
+
+  // The denial is temporary: once the least-throttled client earns a token, a
+  // slot frees and a new visitor is tracked again.
+  const later = CHAT_START + 6_500
+  assert.equal(consumeChatRequest("203.0.113.202", later).allowed, true)
+  assert.equal(trackedChatKeyCount(), MAX_TRACKED_CHAT_KEYS)
+})
+
+test("the per-instance upstream ceiling is token-denominated", () => {
+  // 2000-token prompts: the token budget binds at 15 per minute, long before the
+  // 60-call cap — so the ceiling agrees with the guard's meter.
+  let allowed = 0
+  for (let i = 0; i < CHAT_UPSTREAM_CALLS_PER_MINUTE; i += 1) {
+    if (consumeChatUpstreamBudget(2000, CHAT_START)) allowed += 1
+  }
+  assert.equal(allowed, CHAT_UPSTREAM_TOKENS_PER_MINUTE / 2000)
+  assert.equal(allowed, 15)
+
+  // The next window refills the budget.
+  assert.equal(consumeChatUpstreamBudget(2000, CHAT_START + 60_000), true)
+
+  // Tiny prompts cannot turn the spend budget into unbounded round-trips: the
+  // call cap still binds.
+  let tiny = 0
+  for (let i = 0; i < 200; i += 1) {
+    if (consumeChatUpstreamBudget(1, CHAT_START + 120_000)) tiny += 1
+  }
+  assert.equal(tiny, CHAT_UPSTREAM_CALLS_PER_MINUTE)
+})
+
+test("resetChatRateLimiter clears the saturation state", () => {
+  for (let i = 0; i < MAX_TRACKED_CHAT_KEYS; i += 1) {
+    for (let d = 0; d < CHAT_BUCKET_CAPACITY; d += 1) {
+      consumeChatRequest(chatKey(i), CHAT_START)
+    }
+  }
+  assert.equal(consumeChatRequest("203.0.113.203", CHAT_START).allowed, false)
+
+  resetChatRateLimiter()
+  assert.equal(trackedChatKeyCount(), 0)
+  assert.equal(consumeChatRequest("203.0.113.203", CHAT_START).allowed, true)
 })
