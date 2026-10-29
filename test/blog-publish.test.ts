@@ -207,3 +207,22 @@ test("explicit tags on the incoming post win over the archived ones", () => {
   assert.deepEqual(merged.tags, ["new"])
   assert.equal(merged.readTime, 2)
 })
+
+test("a duplicated slug is collapsed to one post, at the first position", () => {
+  // No duplicate exists in the archive today; this only has to be safe if one
+  // ever appears. Replacing the first match used to leave the twin behind.
+  const first: BlogPost = { ...EXISTING[0], slug: "twice", title: "First copy" }
+  const twin: BlogPost = { ...EXISTING[1], slug: "twice", title: "Second copy" }
+  const list = [EXISTING[2], first, EXISTING[3], twin]
+
+  const merged = upsertPost(list, newPost("twice"))
+
+  assert.equal(merged.filter((post) => post.slug === "twice").length, 1)
+  assert.equal(merged[1].title, newPost("twice").title, "the edit must land on the first copy")
+  assert.equal(merged.length, 3, "the duplicate must be dropped, not kept alongside")
+  assert.deepEqual(
+    merged.map((post) => post.slug),
+    [EXISTING[2].slug, "twice", EXISTING[3].slug],
+    "dropping the twin must not reorder the archive"
+  )
+})

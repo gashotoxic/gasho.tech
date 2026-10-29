@@ -44,16 +44,27 @@ export type PublishOutcome =
  * cannot reorder the archive), a new post is appended. The input array is never
  * mutated — callers may hold it in a cache.
  *
+ * Duplicates are collapsed, not left behind: if the file ever holds the same slug
+ * twice, replacing only the first match would keep a stale twin that renders the
+ * same post a second time and makes the next edit land on an arbitrary copy.
+ *
  * A replace keeps the archived `tags`/`readTime` when the incoming post has none:
  * this publish path has no tag or read-time editor, so re-publishing a title must
- * not silently blank metadata 67 of 72 posts carry.
+ * not silently blank metadata 67 of 72 posts carry. (`date`, `image`, `excerpt`,
+ * `author` and `category` are preserved where the post is *built* — see
+ * `buildNewPost(..., existing)` — because only the builder still knows which
+ * fields the caller actually sent.)
  */
 export function upsertPost(posts: readonly BlogPost[], post: BlogPost): BlogPost[] {
   const index = posts.findIndex((candidate) => candidate.slug === post.slug)
   if (index === -1) return [...posts, post]
 
   const existing = posts[index]
-  const merged = posts.slice()
+  // `findIndex` returns the first match, so every other post with this slug sits
+  // after `index` — dropping them leaves `index` pointing at the right slot.
+  const merged = posts.filter(
+    (candidate, position) => position === index || candidate.slug !== post.slug
+  )
   merged[index] = {
     ...post,
     tags: post.tags ?? existing.tags,

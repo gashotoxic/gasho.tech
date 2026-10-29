@@ -101,6 +101,68 @@ test("a create without a title or content is refused", () => {
   assert.equal(buildNewPost(null, "x"), null)
 })
 
+const ARCHIVED = {
+  slug: "archived-post",
+  title: "Archived post",
+  excerpt: "The excerpt a human wrote",
+  content: "old body",
+  author: "GashoTech",
+  category: "Policy",
+  date: "2025-02-14",
+  image: "/images/archived-post.webp",
+  published: true,
+  tags: ["kenya"],
+  readTime: 7,
+}
+
+test("re-publishing keeps the archived date, image, excerpt, author and category", () => {
+  // The studio sends only what it generates: title + body. Everything else was
+  // defaulted on the create path and used to reset the archive entry.
+  const rebuilt = buildNewPost(
+    { title: "Archived post", content: "new body", published: true },
+    "archived-post",
+    ARCHIVED
+  )
+
+  assert.ok(rebuilt)
+  assert.equal(rebuilt.content, "new body", "the new body must win")
+  assert.equal(rebuilt.date, ARCHIVED.date, "the publish date was reset to today")
+  assert.equal(rebuilt.image, ARCHIVED.image, "the hero image was reset")
+  assert.equal(rebuilt.excerpt, ARCHIVED.excerpt, "the excerpt was replaced with the title")
+  assert.equal(rebuilt.author, ARCHIVED.author)
+  assert.equal(rebuilt.category, ARCHIVED.category)
+  assert.deepEqual(rebuilt.tags, ARCHIVED.tags)
+  assert.equal(rebuilt.readTime, ARCHIVED.readTime)
+})
+
+test("an explicit field on a re-publish still wins over the archived one", () => {
+  const rebuilt = buildNewPost(
+    {
+      title: "Archived post",
+      content: "new body",
+      excerpt: "fresh excerpt",
+      author: "Denis",
+      category: "AI",
+      image: "/images/blog/new.webp",
+      tags: ["new"],
+      readTime: 3,
+      published: false,
+    },
+    "archived-post",
+    ARCHIVED
+  )
+
+  assert.ok(rebuilt)
+  assert.equal(rebuilt.excerpt, "fresh excerpt")
+  assert.equal(rebuilt.author, "Denis")
+  assert.equal(rebuilt.category, "AI")
+  assert.equal(rebuilt.image, "/images/blog/new.webp")
+  assert.deepEqual(rebuilt.tags, ["new"])
+  assert.equal(rebuilt.readTime, 3)
+  assert.equal(rebuilt.published, false)
+  assert.equal(rebuilt.date, ARCHIVED.date, "the date is never rewritten by a re-publish")
+})
+
 test("slugs are normalised and bounded", () => {
   assert.equal(normalizeSlug("Hello, World!", "fallback"), "hello-world")
   assert.equal(normalizeSlug("  Trailing -- dashes  ", "fallback"), "trailing-dashes")
