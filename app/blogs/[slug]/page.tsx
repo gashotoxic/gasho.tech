@@ -5,6 +5,7 @@ import Image from "next/image"
 import type { BlogPost } from "@/lib/blogs"
 import { renderMarkdown } from "@/lib/studio-api"
 import { safeJsonLd } from "@/lib/escape"
+import { BlogUnavailable } from "@/components/blogs/blog-unavailable"
 import { Calendar, Tag, ArrowLeft } from "lucide-react"
 
 interface Props {
@@ -14,43 +15,96 @@ interface Props {
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
-async function getPost(slug: string): Promise<BlogPost | null> {
+/** The hero every post falls back to, exactly as the renderers do. */
+const HERO_FALLBACK = "/images/AI.webp"
+
+/**
+ * Look one post up in the live archive.
+ *
+ * Three outcomes, and the difference matters: `unavailable` is an outage (the route
+ * answered 503 / the fetch failed), `not-found` is a genuinely unknown slug, and
+ * collapsing them into `null` turned every post URL into a 404 the moment the
+ * archive could not be read.
+ */
+type PostLookup =
+  | { status: "ok"; post: BlogPost }
+  | { status: "not-found" }
+  | { status: "unavailable" }
+
+async function getPost(slug: string): Promise<PostLookup> {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://gashotech.com"
     const res = await fetch(`${baseUrl}/api/blogs`, { cache: "no-store" })
-    if (res.ok) {
-      const posts: BlogPost[] = await res.json()
-      return posts.find((p) => p.slug === slug && p.published) || null
+    if (!res.ok) {
+      console.error(`Blog archive unavailable: ${res.status} ${res.statusText}`)
+      return { status: "unavailable" }
     }
+    const posts: BlogPost[] = await res.json()
+    if (!Array.isArray(posts)) return { status: "unavailable" }
+    const post = posts.find((p) => p.slug === slug && p.published)
+    return post ? { status: "ok", post } : { status: "not-found" }
   } catch (e) {
     console.error("Failed to fetch blog post:", e)
+    return { status: "unavailable" }
   }
-  return null
+}
+
+/**
+ * A hero URL for metadata and structured data.
+ *
+ * A cleared hero (`image: ""`, which an edit may legitimately store) built
+ * `https://gashotech.com` as the og:image, twitter:image and JSON-LD `image` — a
+ * share card pointing at the homepage, and structured data claiming the site root
+ * is the article's image. The rendered `<Image>` already falls back, so the
+ * metadata must use the same fallback.
+ */
+function heroUrl(post: BlogPost): string {
+  return `https://gashotech.com${post.image || HERO_FALLBACK}`
+}
+
+/**
+ * A description for metadata. A cleared excerpt is storable too, and an empty
+ * share-card description is worse than the title it sits under.
+ */
+function descriptionFor(post: BlogPost): string {
+  const excerpt = typeof post.excerpt === "string" ? post.excerpt.trim() : ""
+  return excerpt || post.title
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
-  const post = await getPost(slug)
-  if (!post) return { title: "Post Not Found" }
+  const found = await getPost(slug)
+
+  if (found.status === "unavailable") {
+    // Not "Post Not Found": the post exists, the archive did not load. Keep the
+    // error page out of search results rather than teaching Google that the post
+    // is gone.
+    return { title: "Blog post unavailable", robots: { index: false, follow: false } }
+  }
+  if (found.status === "not-found") return { title: "Post Not Found" }
+
+  const { post } = found
+  const description = descriptionFor(post)
+
   return {
     title: post.title,
-    description: post.excerpt,
+    description,
     alternates: {
       canonical: `https://gashotech.com/blogs/${post.slug}`,
     },
     openGraph: {
       title: post.title,
-      description: post.excerpt,
+      description,
       type: "article",
       publishedTime: new Date(post.date).toISOString(),
       authors: [post.author],
-      images: [{ url: `https://gashotech.com${post.image}`, width: 1200, height: 630 }],
+      images: [{ url: heroUrl(post), width: 1200, height: 630 }],
     },
     twitter: {
       card: "summary_large_image",
       title: post.title,
-      description: post.excerpt,
-      images: [{ url: `https://gashotech.com${post.image}` }],
+      description,
+      images: [{ url: heroUrl(post) }],
     },
   }
 }
@@ -71,11 +125,21 @@ function formatContent(content: string): string {
 
 export default async function BlogPostPage({ params }: Props) {
   const { slug } = await params
-  const post = await getPost(slug)
+  const found = await getPost(slug)
 
-  if (!post) {
+  if (found.status === "unavailable") {
+    // An outage is not a missing post: `notFound()` here 404'd every post URL the
+    // moment the archive could not be read, which is the symptom the snapshot
+    // fallback exists to prevent — and the page was the one place still doing it.
+    return <BlogUnavailable what="post" />
+  }
+
+  if (found.status === "not-found") {
     notFound()
   }
+
+  const { post } = found
+  const description = descriptionFor(post)
 
   return (
     <div className="pt-20 pb-12">
@@ -87,8 +151,8 @@ export default async function BlogPostPage({ params }: Props) {
             "@context": "https://schema.org",
             "@type": "Article",
             headline: post.title,
-            description: post.excerpt,
-            image: `https://gashotech.com${post.image}`,
+            description,
+            image: heroUrl(post),
             datePublished: new Date(post.date).toISOString(),
             dateModified: new Date(post.date).toISOString(),
             author: {
@@ -122,7 +186,7 @@ export default async function BlogPostPage({ params }: Props) {
 
         <div className="relative w-full h-[300px] md:h-[400px] rounded-2xl overflow-hidden mb-8 shadow-xl">
           <Image
-            src={post.image || "/images/AI.webp"}
+            src={post.image || HERO_FALLBACK}
             alt={post.title}
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 100vw, 1200px"

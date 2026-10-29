@@ -22,21 +22,38 @@ import { readBlogFile, type BlogFileSnapshot } from "./github.ts"
 
 export const READ_CACHE_TTL_MS = 30_000
 
+/**
+ * How long a *missing* archive is remembered. Much shorter than a hit, because a
+ * missing file is a state that should heal as soon as someone publishes — but not
+ * zero, because it is exactly as expensive to discover as a hit.
+ *
+ * Without this the 404 was re-probed once per anonymous render: a persistent 404
+ * (wrong ref, token without access, the file genuinely gone) cost one
+ * authenticated contents call per viewer, which is the 5,000/hour burn this memo
+ * exists to stop — the very failure it did not cover.
+ */
+export const MISSING_CACHE_TTL_MS = 5_000
+
 let cached: { at: number; snapshot: BlogFileSnapshot } | null = null
 
 /**
- * Read the live archive, reusing a read younger than `READ_CACHE_TTL_MS`.
+ * Read the live archive, reusing a read younger than its TTL: `READ_CACHE_TTL_MS`
+ * for a list, `MISSING_CACHE_TTL_MS` for a 404 (`{ posts: [], missing: true }`).
  *
- * A failed read is not memoised (it throws straight out), and neither is a
- * missing file: the caller treats that as "serve the deployed snapshot", and
- * pinning an outage in place for another 30 seconds would keep the blog stale
- * long after the repository is readable again.
+ * A read that *throws* is not memoised — that is a request-level failure (no
+ * token, network, GitHub 5xx), and pinning "unreadable" in place for even a few
+ * seconds would keep the blog on its snapshot fallback after the repository is
+ * readable again. The cheap, common, repeated failure is the 404, and that one is
+ * cached.
  */
 export async function readBlogFileCached(now: number = Date.now()): Promise<BlogFileSnapshot> {
-  if (cached && now - cached.at < READ_CACHE_TTL_MS) return cached.snapshot
+  if (cached) {
+    const ttl = cached.snapshot.missing ? MISSING_CACHE_TTL_MS : READ_CACHE_TTL_MS
+    if (now - cached.at < ttl) return cached.snapshot
+  }
 
   const snapshot = await readBlogFile()
-  if (!snapshot.missing) cached = { at: now, snapshot }
+  cached = { at: now, snapshot }
   return snapshot
 }
 

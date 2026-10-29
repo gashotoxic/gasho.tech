@@ -5,7 +5,8 @@ import "./support/alias-hook.mjs"
 
 import { test, beforeEach } from "node:test"
 import assert from "node:assert/strict"
-import { readFile } from "node:fs/promises"
+import { readFile, rename, stat, utimes } from "node:fs/promises"
+import { fileURLToPath } from "node:url"
 
 // The anonymous read path keeps a 30s in-process memo, which would otherwise
 // make one test's stubbed archive leak into the next one. Each test starts from a
@@ -160,6 +161,40 @@ function countWrites(calls: Call[]): number {
 
 function blogReads(calls: Call[]): Call[] {
   return calls.filter((call) => call.method === "GET" && call.url.includes(BLOG_CONTENTS))
+}
+
+/* ------------------------------------------------- snapshot fixture control ---- */
+
+const DATA_FILE_PATH = fileURLToPath(new URL("../data/blogs.json", import.meta.url))
+
+/**
+ * Serve the route a deployed snapshot of a chosen age.
+ *
+ * The snapshot's age comes from the file's mtime, and a test run must not depend
+ * on when this checkout happened — a working copy older than the bound would
+ * otherwise turn the fallback tests into 503s, and a copy newer than it could not
+ * test the bound at all. The original mtime is restored in a `finally`.
+ */
+async function withSnapshotAge(ageMs: number, run: () => Promise<void>): Promise<void> {
+  const { mtime } = await stat(DATA_FILE_PATH)
+  const when = new Date(Date.now() - ageMs)
+  await utimes(DATA_FILE_PATH, when, when)
+  try {
+    await run()
+  } finally {
+    await utimes(DATA_FILE_PATH, mtime, mtime)
+  }
+}
+
+/** Hide the deployed snapshot, the way a repository without `data/blogs.json` would. */
+async function hideSnapshot(): Promise<{ restore: () => Promise<void> }> {
+  const hidden = `${DATA_FILE_PATH}.unavailable-test`
+  await rename(DATA_FILE_PATH, hidden)
+  return {
+    restore: async () => {
+      await rename(hidden, DATA_FILE_PATH)
+    },
+  }
 }
 
 /* ------------------------------------------------------------------ GET ---- */
@@ -573,6 +608,126 @@ test("a 404 from the contents API does not blank the blog: GET falls back to the
   // answered 200 `[]` with `s-maxage=60`: the whole blog rendered "No blog posts
   // yet" and every `/blogs/<slug>` 404'd for a minute, at the same moment the
   // write path refuses to trust that very same 404.
+  //
+  // The snapshot's age is pinned here: the fallback is only served while the
+  // build-time copy is younger than the bound, and a checkout's mtime is not
+  // something a test should depend on.
+  await withSnapshotAge(0, async () => {
+    const stub = stubFetch((call) => {
+      if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") {
+        return new Response('{"message":"Not Found"}', { status: 404 })
+      }
+      throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+    })
+
+    try {
+      const { GET } = await loadRoute()
+      const response = await GET(new Request("http://localhost/api/blogs"))
+      assert.equal(response.status, 200)
+
+      const body = (await response.json()) as Array<Record<string, unknown>>
+      assert.ok(
+        Array.isArray(body) && body.length > 0,
+        "a 404 must not be served as an empty blog"
+      )
+
+      // …and what it falls back to is the deployed snapshot, published only.
+      const snapshotRaw = await readFile(new URL("../data/blogs.json", import.meta.url), "utf-8")
+      const snapshot = (JSON.parse(snapshotRaw) as { posts: Array<Record<string, unknown>> }).posts
+      const expected = snapshot.filter((post) => post.published === true).map((post) => post.slug)
+
+      assert.deepEqual(
+        body.map((post) => post.slug),
+        expected,
+        "the fallback must be the build-time archive, not nothing"
+      )
+      assert.ok(
+        body.every((post) => post.published === true),
+        "the snapshot fallback must still be projected for an anonymous caller"
+      )
+    } finally {
+      stub.restore()
+    }
+  })
+})
+
+test("a live read is marked as live, so the fallback can be told apart from it", async () => {
+  const posts = livePosts()
+  const stub = stubFetch((call) => {
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") return blogRead(posts)
+    throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+  })
+
+  try {
+    const { GET } = await loadRoute()
+    const response = await GET(new Request("http://localhost/api/blogs"))
+    assert.equal(response.status, 200)
+    assert.equal(response.headers.get("x-blog-source"), "live")
+  } finally {
+    stub.restore()
+  }
+})
+
+test("a snapshot fallback says so on the response, with its age", async () => {
+  // The fallback used to be a `console.warn` and nothing else: a deployment whose
+  // archive could not be read served the build-time list with every monitoring
+  // check green. The header is the alertable signal.
+  await withSnapshotAge(5 * 60_000, async () => {
+    const stub = stubFetch((call) => {
+      if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") {
+        return new Response('{"message":"upstream down"}', { status: 500 })
+      }
+      throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+    })
+
+    try {
+      const { GET } = await loadRoute()
+      const response = await GET(new Request("http://localhost/api/blogs"))
+      assert.equal(response.status, 200)
+      assert.equal(response.headers.get("x-blog-source"), "snapshot")
+
+      const age = Number(response.headers.get("x-blog-snapshot-age"))
+      assert.ok(Number.isFinite(age), "the snapshot age must be reported in seconds")
+      assert.ok(age >= 4 * 60 && age <= 10 * 60, `unexpected snapshot age: ${age}s`)
+    } finally {
+      stub.restore()
+    }
+  })
+})
+
+test("a snapshot past its maximum age is refused: 503 with no-store, not a stale blog", async () => {
+  const { GET, MAX_SNAPSHOT_AGE_MS } = await loadRoute()
+  assert.ok(MAX_SNAPSHOT_AGE_MS > 0, "the snapshot bound must be enforced, not disabled")
+
+  // "Serve the build-time list forever" is the bug. Past the bound the archive is
+  // missing everything published since that build, so the honest answer is 503.
+  await withSnapshotAge(MAX_SNAPSHOT_AGE_MS + 60 * 60_000, async () => {
+    const stub = stubFetch((call) => {
+      if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") {
+        return new Response('{"message":"Not Found"}', { status: 404 })
+      }
+      throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+    })
+
+    try {
+      const response = await GET(new Request("http://localhost/api/blogs"))
+      assert.equal(response.status, 503, "an over-age snapshot must not be served as the blog")
+      assert.match(String(response.headers.get("cache-control")), /no-store/)
+      assert.equal(response.headers.get("x-blog-source"), "none")
+
+      const payload = (await response.json()) as Record<string, unknown>
+      assert.equal(payload.code, "read-failed")
+    } finally {
+      stub.restore()
+    }
+  })
+})
+
+test("no live archive and no snapshot is a 503, never an empty blog", async () => {
+  // The `readPostsForRead` → `null` branch: nothing honest to serve. Answering 200
+  // `[]` here renders "No blog posts yet" and 404s every post page, which is the
+  // symptom the whole fallback exists to avoid.
+  const hidden = await hideSnapshot()
   const stub = stubFetch((call) => {
     if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") {
       return new Response('{"message":"Not Found"}', { status: 404 })
@@ -583,31 +738,48 @@ test("a 404 from the contents API does not blank the blog: GET falls back to the
   try {
     const { GET } = await loadRoute()
     const response = await GET(new Request("http://localhost/api/blogs"))
-    assert.equal(response.status, 200)
 
-    const body = (await response.json()) as Array<Record<string, unknown>>
-    assert.ok(
-      Array.isArray(body) && body.length > 0,
-      "a 404 must not be served as an empty blog"
-    )
+    assert.equal(response.status, 503)
+    assert.match(String(response.headers.get("cache-control")), /no-store/)
+    assert.equal(response.headers.get("x-blog-source"), "none")
 
-    // …and what it falls back to is the deployed snapshot, published only.
-    const snapshotRaw = await readFile(new URL("../data/blogs.json", import.meta.url), "utf-8")
-    const snapshot = (JSON.parse(snapshotRaw) as { posts: Array<Record<string, unknown>> }).posts
-    const expected = snapshot.filter((post) => post.published === true).map((post) => post.slug)
-
-    assert.deepEqual(
-      body.map((post) => post.slug),
-      expected,
-      "the fallback must be the build-time archive, not nothing"
-    )
-    assert.ok(
-      body.every((post) => post.published === true),
-      "the snapshot fallback must still be projected for an anonymous caller"
-    )
+    const payload = (await response.json()) as Record<string, unknown>
+    assert.match(String(payload.error), /not an empty blog/)
   } finally {
     stub.restore()
+    await hidden.restore()
   }
+})
+
+test("a persistent 404 costs one authenticated read per negative TTL, not one per render", async () => {
+  // The memo never cached `missing`, so every anonymous render of a broken archive
+  // spent an authenticated contents call — the 5,000/hour burn the memo exists to
+  // stop, in the one case it did not cover.
+  await withSnapshotAge(0, async () => {
+    let reads = 0
+    const stub = stubFetch((call) => {
+      if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") {
+        reads += 1
+        return new Response('{"message":"Not Found"}', { status: 404 })
+      }
+      throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+    })
+
+    try {
+      const { GET } = await loadRoute()
+      for (let i = 0; i < 3; i += 1) {
+        const response = await GET(new Request("http://localhost/api/blogs"))
+        assert.equal(response.status, 200)
+      }
+      assert.equal(
+        reads,
+        1,
+        "a missing archive must be remembered for the negative TTL, not re-probed every render"
+      )
+    } finally {
+      stub.restore()
+    }
+  })
 })
 
 test("an invalid Authorization header is a 401, not the anonymous list", async () => {
@@ -642,8 +814,11 @@ test("an invalid Authorization header is a 401, not the anonymous list", async (
     // No header at all is still an anonymous read, not a failure. (The live read
     // fails here on purpose — the stub throws — so this also proves the snapshot
     // fallback answers a request instead of erroring.)
-    const anonymous = await GET(new Request("http://localhost/api/blogs"))
-    assert.equal(anonymous.status, 200, "a missing header must stay an anonymous read")
+    await withSnapshotAge(0, async () => {
+      const anonymous = await GET(new Request("http://localhost/api/blogs"))
+      assert.equal(anonymous.status, 200, "a missing header must stay an anonymous read")
+      assert.equal(anonymous.headers.get("x-blog-source"), "snapshot")
+    })
   } finally {
     stub.restore()
   }

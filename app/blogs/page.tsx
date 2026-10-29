@@ -3,6 +3,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { Calendar, Tag } from "lucide-react"
 import type { BlogPost } from "@/lib/blogs"
+import { BlogUnavailable } from "@/components/blogs/blog-unavailable"
 
 export const metadata: Metadata = {
   title: "Blog",
@@ -22,7 +23,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
-async function getPosts(): Promise<BlogPost[]> {
+async function getPosts(): Promise<BlogPost[] | null> {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://gashotech.com"
     const res = await fetch(`${baseUrl}/api/blogs`, { cache: "no-store" })
@@ -30,14 +31,27 @@ async function getPosts(): Promise<BlogPost[]> {
       const data = await res.json()
       return Array.isArray(data) ? data : []
     }
+    // Not `[]`: the route answers 503 when it has no honest list to serve (no
+    // repository, no usable snapshot), and rendering "No blog posts yet" for that
+    // told readers the blog was empty and let a cache repeat it. Every other
+    // non-ok status is the same story from here — the list did not load.
+    console.error(`Blog list unavailable: ${res.status} ${res.statusText}`)
   } catch (e) {
     console.error("Failed to fetch blog posts:", e)
   }
-  return []
+  return null
 }
 
 export default async function BlogsPage() {
-  const posts = (await getPosts())
+  const loaded = await getPosts()
+
+  // The archive could not be read. Distinct from "no posts yet": one is an outage,
+  // the other is an empty blog, and only one of them is worth a 503 upstream.
+  if (loaded === null) {
+    return <BlogUnavailable what="index" />
+  }
+
+  const posts = loaded
     .filter((p: BlogPost) => p.published)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
