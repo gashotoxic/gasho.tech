@@ -1,10 +1,10 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
 
-import { CANARY_MARKER, canaryPost, scanArtifacts } from "../scripts/check-client-bundles.mjs"
+import { CANARY_MARKER, canaryPost, plantCanary, recoverLeftoverBackup, scanArtifacts } from "../scripts/check-client-bundles.mjs"
 
 /**
  * The scanner behind `scripts/check-client-bundles.mjs` is the only guard that
@@ -94,6 +94,46 @@ test("the scanner ignores extensions a browser cannot execute", () => {
     assert.equal(scanned, 0)
     assert.deepEqual(offenders, [])
   })
+})
+
+test("the scanner reads a statically rendered route-handler body", () => {
+  // `.body` is a route handler Next rendered at build time (robots.txt,
+  // sitemap.xml in the current build). A handler that read the archive and
+  // became static would put every post body there, and the response is served
+  // to anyone, so it belongs in the scanned set.
+  withBuild({ "server/app/feed.xml.body": `<rss>${CANARY_MARKER}</rss>` }, (nextDir) => {
+    const { scanned, offenders } = scanArtifacts({ nextDir })
+    assert.equal(scanned, 1)
+    assert.equal(offenders.length, 1)
+    assert.match(offenders[0], /feed\.xml\.body$/)
+  })
+})
+
+test("planting the canary is reversible, and a killed run is recovered", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "canary-archive-"))
+  const dataPath = path.join(root, "blogs.json")
+  const original = JSON.stringify({ posts: [{ slug: "real-post", published: true }] }, null, 2)
+  writeFileSync(dataPath, original, "utf8")
+
+  try {
+    const planted = plantCanary(dataPath, CANARY_MARKER)
+    assert.match(readFileSync(dataPath, "utf8"), new RegExp(CANARY_MARKER))
+    planted.restore()
+    assert.equal(readFileSync(dataPath, "utf8"), original, "restore must byte-for-byte revert")
+
+    // A run that died between planting and restoring leaves the backup behind.
+    const plantedAgain = plantCanary(dataPath, CANARY_MARKER)
+    assert.ok(plantedAgain, "the second plant must succeed")
+    assert.ok(existsSync(`${dataPath}.canary-backup`), "the backup is what recovery reads")
+    assert.equal(recoverLeftoverBackup(dataPath), true)
+    assert.equal(readFileSync(dataPath, "utf8"), original, "recovery must restore the archive")
+    assert.equal(existsSync(`${dataPath}.canary-backup`), false, "the backup is consumed")
+
+    // Nothing left to recover: the next run must not invent one.
+    assert.equal(recoverLeftoverBackup(dataPath), false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
 })
 
 test("the scanner is empty-clean on a build with no marker anywhere", () => {
