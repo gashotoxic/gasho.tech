@@ -3,8 +3,22 @@
 // must be imported before the route module.
 import "./support/alias-hook.mjs"
 
-import { test } from "node:test"
+import { test, beforeEach } from "node:test"
 import assert from "node:assert/strict"
+import { readFile } from "node:fs/promises"
+
+// The anonymous read path keeps a 30s in-process memo, which would otherwise
+// make one test's stubbed archive leak into the next one. Each test starts from a
+// cold cache.
+//
+// Imported *dynamically*: `lib/blog-read-cache.ts` pulls in `lib/github.ts`,
+// which captures `process.env.GH_TOKEN` when it is evaluated, and the token below
+// is only set once this module's body runs. A static import here would load
+// GitHub with no token, and every read would fail before the stub is reached.
+beforeEach(async () => {
+  const { clearBlogReadCache } = await import("../lib/blog-read-cache.ts")
+  clearBlogReadCache()
+})
 
 /**
  * Route-layer tests for `app/api/blogs/route.ts`.
@@ -547,6 +561,158 @@ test("the GET response says how it may be cached, and varies on Authorization", 
       /no-store/,
       "a draft-bearing response must never be cached"
     )
+  } finally {
+    stub.restore()
+  }
+})
+
+test("a 404 from the contents API does not blank the blog: GET falls back to the snapshot", async () => {
+  // The regression this test exists for. `readBlogFile()` reports a 404 from the
+  // contents API as `{ posts: [], missing: true }` — a shape meant for a genuine
+  // first publish — and the read path took it at face value. The public GET then
+  // answered 200 `[]` with `s-maxage=60`: the whole blog rendered "No blog posts
+  // yet" and every `/blogs/<slug>` 404'd for a minute, at the same moment the
+  // write path refuses to trust that very same 404.
+  const stub = stubFetch((call) => {
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") {
+      return new Response('{"message":"Not Found"}', { status: 404 })
+    }
+    throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+  })
+
+  try {
+    const { GET } = await loadRoute()
+    const response = await GET(new Request("http://localhost/api/blogs"))
+    assert.equal(response.status, 200)
+
+    const body = (await response.json()) as Array<Record<string, unknown>>
+    assert.ok(
+      Array.isArray(body) && body.length > 0,
+      "a 404 must not be served as an empty blog"
+    )
+
+    // …and what it falls back to is the deployed snapshot, published only.
+    const snapshotRaw = await readFile(new URL("../data/blogs.json", import.meta.url), "utf-8")
+    const snapshot = (JSON.parse(snapshotRaw) as { posts: Array<Record<string, unknown>> }).posts
+    const expected = snapshot.filter((post) => post.published === true).map((post) => post.slug)
+
+    assert.deepEqual(
+      body.map((post) => post.slug),
+      expected,
+      "the fallback must be the build-time archive, not nothing"
+    )
+    assert.ok(
+      body.every((post) => post.published === true),
+      "the snapshot fallback must still be projected for an anonymous caller"
+    )
+  } finally {
+    stub.restore()
+  }
+})
+
+test("an invalid Authorization header is a 401, not the anonymous list", async () => {
+  // GET used to answer 200 with the published projection for any header that did
+  // not verify. That made the admin panel's `reload.status === 401` branch dead
+  // code: an expired session got a list with every draft silently missing and no
+  // "sign in again".
+  const stub = stubFetch((call) => {
+    throw new Error(`an unauthenticated read must not reach GitHub: ${call.method} ${call.url}`)
+  })
+
+  try {
+    const { GET } = await loadRoute()
+
+    for (const authorization of [
+      "Bearer not-a-token",
+      "Bearer v1.eyJ2IjoidjEifQ.signature",
+      "Bearer ",
+      "Basic YWRtaW46cGFzcw==",
+      "bearer lowercase-scheme",
+    ]) {
+      const response = await GET(new Request("http://localhost/api/blogs", { headers: { authorization } }))
+      assert.equal(response.status, 401, `${authorization} was treated as anonymous`)
+      const payload = (await response.json()) as Record<string, unknown>
+      assert.equal(payload.code, "invalid-token")
+      assert.match(String(response.headers.get("cache-control")), /no-store/)
+    }
+
+    // No rejected session may cost a GitHub read.
+    assert.equal(stub.calls.length, 0, "no rejected session may cost a GitHub read")
+
+    // No header at all is still an anonymous read, not a failure. (The live read
+    // fails here on purpose — the stub throws — so this also proves the snapshot
+    // fallback answers a request instead of erroring.)
+    const anonymous = await GET(new Request("http://localhost/api/blogs"))
+    assert.equal(anonymous.status, 200, "a missing header must stay an anonymous read")
+  } finally {
+    stub.restore()
+  }
+})
+
+test("a write in the process drops the anonymous read memo", async () => {
+  const posts = livePosts()
+  let reads = 0
+  const stub = stubFetch((call) => {
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") {
+      reads += 1
+      return blogRead(posts)
+    }
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "PUT") {
+      return jsonResponse({ content: { sha: "new-sha" }, commit: { sha: "c0ffee" } })
+    }
+    throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+  })
+
+  try {
+    const { GET, POST } = await loadRoute()
+
+    await GET(new Request("http://localhost/api/blogs"))
+    assert.equal(reads, 1, "the first anonymous read fills the memo")
+
+    const created = await POST(
+      new Request("http://localhost/api/blogs", {
+        method: "POST",
+        headers: await authorized(),
+        body: JSON.stringify({ title: "Published Right Now", content: "fresh body" }),
+      })
+    )
+    assert.equal(created.status, 201)
+
+    // The next anonymous read must go back to the repository: a post published a
+    // moment ago must not wait out the memo's TTL.
+    await GET(new Request("http://localhost/api/blogs"))
+    assert.equal(reads, 3, "the write must have dropped the memo (1 read + 1 write read + 1 refresh)")
+  } finally {
+    stub.restore()
+  }
+})
+
+test("anonymous renders reuse a short memo; the admin list never does", async () => {
+  const posts = livePosts()
+  const stub = stubFetch((call) => {
+    if (call.url.includes(BLOG_CONTENTS) && call.method === "GET") return blogRead(posts)
+    throw new Error(`unexpected fetch: ${call.method} ${call.url}`)
+  })
+
+  try {
+    const { GET } = await loadRoute()
+
+    const first = await GET(new Request("http://localhost/api/blogs"))
+    const second = await GET(new Request("http://localhost/api/blogs"))
+    assert.equal(first.status, 200)
+    assert.equal(second.status, 200)
+    assert.equal(
+      blogReads(stub.calls).length,
+      1,
+      "a burst of anonymous renders must not cost one token-bearing read each"
+    )
+
+    // An admin reload follows a save and must see the file as it is now.
+    const admin = await GET(
+      new Request("http://localhost/api/blogs", { headers: await authorized() })
+    )
+    assert.equal(admin.status, 200)
+    assert.equal(blogReads(stub.calls).length, 2, "the admin read must bypass the memo")
   } finally {
     stub.restore()
   }

@@ -1,9 +1,10 @@
 import { promises as fs } from "fs"
 import path from "path"
 import { NextResponse } from "next/server"
-import { verifyToken } from "@/lib/auth"
-import { buildNewPost, normalizeSlug, type BlogPostShape } from "@/lib/blog-post-update"
-import { commitBlogChanges, readBlogFile } from "@/lib/github"
+import { isAuthorizedRequest, readAdminAuth } from "@/lib/auth"
+import { buildNewPost, commitTitle, normalizeSlug, type BlogPostShape } from "@/lib/blog-post-update"
+import { clearBlogReadCache, readBlogFileCached } from "@/lib/blog-read-cache"
+import { commitBlogChanges, readBlogFile, readBlogFileForWrite } from "@/lib/github"
 import {
   deletePostFromStore,
   publicPosts,
@@ -17,12 +18,6 @@ const DATA_FILE = path.join(process.cwd(), "data", "blogs.json")
 
 type BlogPost = BlogPostShape
 
-function checkAuth(request: Request): boolean {
-  const authHeader = request.headers.get("authorization")
-  if (!authHeader || !authHeader.startsWith("Bearer ")) return false
-  return verifyToken(authHeader.slice(7))
-}
-
 /** The copy shipped with the build. Read-only on Vercel, and only ever a fallback. */
 async function readSnapshotPosts(): Promise<BlogPost[]> {
   try {
@@ -35,61 +30,79 @@ async function readSnapshotPosts(): Promise<BlogPost[]> {
 }
 
 /**
+ * Read the live archive — through the memo when the caller is anonymous, live
+ * when it is the admin panel (which must see the list it just wrote).
+ *
+ * Returns `null` when the repository says the file does not exist. That is a
+ * failure here, not an empty archive: see `readPostsForRead`.
+ */
+async function readLivePosts(cached: boolean): Promise<BlogPost[] | null> {
+  const snapshot = cached ? await readBlogFileCached() : await readBlogFile()
+  return snapshot.missing ? null : snapshot.posts
+}
+
+/**
  * Read for the public GET.
  *
  * The live `data/blogs.json` is the source of truth: the deployed copy is a
  * build-time snapshot, so serving that as "the blog" hands readers a list that
  * is missing everything published since the last deploy. When the repository
  * cannot be read (no token locally, GitHub down) the snapshot is still better
- * than nothing, and the caller below decides what may leave the server.
+ * than nothing.
+ *
+ * `missing: true` is a read failure too, and this is the one place that decides
+ * so for reads. A 404 from the contents API arrives as
+ * `{ posts: [], missing: true }`, and taking it at face value answered 200 `[]`
+ * — the whole blog rendered "No blog posts yet" with every `/blogs/<slug>` a
+ * 404 — and then told every cache to keep that empty list for 60 seconds. The
+ * write paths already refuse the same 404; a read has to refuse it as well and
+ * fall back to the deployed snapshot.
+ *
+ * `null` means there is nothing honest to serve: neither the repository nor the
+ * deployed snapshot has a post list. The caller answers 503 instead of inventing
+ * an empty blog.
  */
-async function readPostsForRead(): Promise<BlogPost[]> {
+async function readPostsForRead(cached: boolean): Promise<BlogPost[] | null> {
+  let liveFailed = false
   try {
-    return (await readBlogFile()).posts
+    const live = await readLivePosts(cached)
+    if (live) return live
+    liveFailed = true
+    console.warn("data/blogs.json is missing from the repository; serving the deployed snapshot")
   } catch (error) {
+    liveFailed = true
     console.warn("Live blog read failed, serving the deployed snapshot:", error)
-    return readSnapshotPosts()
   }
+
+  const snapshotPosts = await readSnapshotPosts()
+  if (snapshotPosts.length > 0) return snapshotPosts
+
+  if (liveFailed) {
+    console.error("Neither the repository nor the deployed snapshot holds a post list")
+  }
+  return null
 }
 
 /**
  * A store over the live file for the write handlers.
  *
- * `read` deliberately has no cache and no snapshot fallback: writing a list the
- * server could not read is the bug that let one request resurrect a deleted post
- * and wipe everything published since the build.
+ * `read` is `readBlogFileForWrite()`: it has no cache and no snapshot fallback,
+ * and it refuses a file the repository does not have. Writing a list the server
+ * could not read is the bug that let one request resurrect a deleted post and
+ * wipe everything published since the build. A 404 from the contents API is a
+ * bad ref, a token without access or an outage — not "the archive is empty" —
+ * and treating it as empty replaced 73 posts with the one being written.
  *
- * A 404 from the contents API is treated as a failure too, not as "the archive is
- * empty". `readBlogFile()` offers a missing file as `{ posts: [], missing: true }`
- * for a genuine first-ever publish, but this route edits an archive that already
- * exists: a 404 here means a bad ref, a token without access, or an outage, and
- * "empty" would replace 73 posts with the one being written. A transient 404 must
- * never be able to do that.
- *
- * `write` pins the sha that `read` returned and refuses to send a commit without
- * one, so a concurrent change fails (409) instead of being silently overwritten —
- * and no future edit can reintroduce an unpinned write by dropping the argument.
+ * The sha comes back *with* the list and `write` has to name it, so a concurrent
+ * change fails (409) instead of being silently overwritten. Both routes get that
+ * invariant from `lib/blog-publish.ts`; there is no unpinned write left to drop
+ * the argument from.
  */
 function createBlogStore(): PostStore {
-  let sha: string | undefined
   return {
-    read: async () => {
-      const snapshot = await readBlogFile()
-      if (snapshot.missing) {
-        throw new Error("data/blogs.json was not found in the repository; refusing to write")
-      }
-      sha = snapshot.sha
-      return snapshot.posts
-    },
-    write: (posts, commitMessage) => {
-      if (!sha) {
-        return Promise.resolve({
-          success: false,
-          error: "Refusing to commit the post list without the sha it was read at",
-        })
-      }
-      return commitBlogChanges(JSON.stringify({ posts }, null, 2), commitMessage, sha)
-    },
+    read: readBlogFileForWrite,
+    write: (posts, commitMessage, sha) =>
+      commitBlogChanges(JSON.stringify({ posts }, null, 2), commitMessage, sha),
   }
 }
 
@@ -143,15 +156,52 @@ function failureResponse(failure: StoreFailure) {
  * drafts — everyone else gets the published archive only. Published bodies are
  * returned as stored: they are the rendered pages, so nothing is disclosed that
  * the site does not already serve at `/blogs/<slug>`.
+ *
+ * A header that is present but does not verify is answered 401, not with the
+ * anonymous projection. Answering 200 hid expiry — the admin panel reloaded its
+ * list, got published posts back, and showed every draft as gone with no "sign
+ * in again" — so the panel's 401 branch could never fire. No header at all is
+ * still an anonymous read.
  */
 export async function GET(request: Request) {
-  const posts = await readPostsForRead()
-  const isAdmin = checkAuth(request)
+  const auth = readAdminAuth(request)
+
+  if (auth === "invalid") {
+    return NextResponse.json(
+      { error: "Unauthorized", code: "invalid-token" },
+      // Never cached: a failed session must not be replayed from a cache, and a
+      // 401 is not the public list.
+      { status: 401, headers: { "Cache-Control": "private, no-store" } }
+    )
+  }
+
+  const isAdmin = auth === "admin"
+
+  // An admin read goes straight to the repository: the panel reloads its list
+  // right after a save and must not be handed a memoised copy older than the
+  // write it just made.
+  const posts = await readPostsForRead(!isAdmin)
+  if (!posts) {
+    return NextResponse.json(
+      {
+        error: "The blog archive could not be read, so this is not an empty blog. Try again shortly.",
+        code: "read-failed",
+      },
+      // No cache: "unavailable for a moment" must not be pinned onto the URL.
+      { status: 503, headers: { "Cache-Control": "no-store" } }
+    )
+  }
 
   // A public read of a page that must never be cached across users: the response
   // differs by Authorization, so say so, and let a shared cache hold only the
   // published projection (the list is larger than the pages that need it, and
   // every anonymous request would otherwise pull the whole file from GitHub).
+  //
+  // Caveat: Vercel's CDN does not key on `Vary`, so an admin can be served the
+  // cached *published-only* list for up to 60s. No draft can leak (admin
+  // responses are private/no-store and are never stored), and an expired session
+  // now answers 401 instead of a silent projection; a short-lived stale list is
+  // the remaining cost, and it heals in under a minute.
   const headers = isAdmin
     ? { "Cache-Control": "private, no-store", Vary: "Authorization" }
     : { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300", Vary: "Authorization" }
@@ -160,7 +210,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!checkAuth(request)) {
+  if (!isAuthorizedRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -190,10 +240,14 @@ export async function POST(request: Request) {
     const result = await publishPostToStore(
       createBlogStore(),
       newPost,
-      `feat(blog): add post "${newPost.title}"`,
+      `feat(blog): add post "${commitTitle(newPost.title)}"`,
       { refuseExisting: true }
     )
     if (!result.success) return failureResponse(result)
+
+    // A write in this process drops the anonymous read memo: the new post must be
+    // reachable now, not after the TTL, and the old list must stop being served.
+    clearBlogReadCache()
 
     return NextResponse.json(newPost, { status: 201 })
   } catch (err) {
@@ -203,7 +257,7 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  if (!checkAuth(request)) {
+  if (!isAuthorizedRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -225,6 +279,8 @@ export async function PUT(request: Request) {
     const result = await updatePostInStore(createBlogStore(), slug, body)
     if (!result.success) return failureResponse(result)
 
+    clearBlogReadCache()
+
     return NextResponse.json(result.post)
   } catch (err) {
     console.error("Blog PUT error:", err)
@@ -233,7 +289,7 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  if (!checkAuth(request)) {
+  if (!isAuthorizedRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -247,6 +303,9 @@ export async function DELETE(request: Request) {
 
     const result = await deletePostFromStore(createBlogStore(), slug)
     if (!result.success) return failureResponse(result)
+
+    // A deleted post must stop being served to anonymous readers immediately.
+    clearBlogReadCache()
 
     return NextResponse.json({ success: true })
   } catch (err) {

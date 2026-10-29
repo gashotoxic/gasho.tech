@@ -33,6 +33,27 @@ export interface BlogFileSnapshot {
 }
 
 /**
+ * A read that a write may act on: the file exists and the exact blob sha it was
+ * read at is known.
+ *
+ * The sha is not optional here, and that is the point. `commitBlogChanges` needs
+ * one, and a caller that read nothing usable has nothing to pin — so "I could not
+ * read the archive, let me write anyway" cannot be expressed with this type.
+ */
+export interface WritableBlogFile {
+  posts: BlogPostShape[]
+  sha: string
+}
+
+/** Raised when the repository has no `data/blogs.json` to write over. */
+export class MissingBlogFileError extends Error {
+  constructor(message = "data/blogs.json was not found in the repository; refusing to write") {
+    super(message)
+    this.name = "MissingBlogFileError"
+  }
+}
+
+/**
  * Read the live `data/blogs.json` from the repository — the source of truth for
  * anything that rewrites the file (the deployed copy is a build-time snapshot).
  *
@@ -80,46 +101,60 @@ export async function readBlogFile(): Promise<BlogFileSnapshot> {
   return { posts: posts as BlogPostShape[], sha: file.sha }
 }
 
+/**
+ * Read the live archive for a write.
+ *
+ * This is the write-facing sibling of `readBlogFile()`, and the only read a
+ * mutation may use. `readBlogFile()` offers a 404 as `{ posts: [], missing: true }`
+ * so a first-ever publish can create the file; a *write over an existing archive*
+ * must never read that as "the archive is empty". A 404 there means a bad ref, a
+ * token without access, or an outage, and trusting it commits one post on top of
+ * the 73 that were not read — with no sha to protect the rest.
+ *
+ * It throws instead, which every store turns into a refusal (`read-failed`) with
+ * nothing written. `/api/blogs` and `/api/studio/publish` both come through here,
+ * so the refusal cannot drift back into one route and not the other.
+ */
+export async function readBlogFileForWrite(): Promise<WritableBlogFile> {
+  const snapshot = await readBlogFile()
+  if (snapshot.missing) throw new MissingBlogFileError()
+  if (typeof snapshot.sha !== "string" || !snapshot.sha) {
+    // A 200 without a blob sha is not something a write can be pinned to.
+    throw new Error("data/blogs.json was read without a blob sha; refusing to write")
+  }
+  return { posts: snapshot.posts, sha: snapshot.sha }
+}
+
+/**
+ * Commit `content` to `data/blogs.json` on top of the blob `expectedSha` names.
+ *
+ * The sha is required. It used to be optional, and the fallback — read the sha
+ * again, just before writing — turned a read-then-write into a blind write: the
+ * list was read at one sha and committed against another, so the commit
+ * succeeded over whatever had landed in between. Callers read first
+ * (`readBlogFileForWrite`) and pin what they read; a concurrent commit then
+ * fails with 409 instead of being overwritten.
+ */
 export async function commitBlogChanges(
   content: string,
   commitMessage: string,
-  expectedSha?: string
+  expectedSha: string
 ): Promise<GitHubCommitResult> {
   if (!GITHUB_TOKEN) {
     return { success: false, error: "GH_TOKEN not set" }
   }
 
+  if (typeof expectedSha !== "string" || !expectedSha) {
+    // Defence in depth for JS callers: a commit that names no base can only be
+    // an accident, and any accident here overwrites the archive.
+    return { success: false, error: "Refusing to commit without the sha the file was read at" }
+  }
+
   const apiUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`
 
   try {
-    // Step 1: Get current file SHA.
-    // A caller that just read the file passes the SHA it read, so a commit that
-    // lands in between fails loudly (409) instead of being silently overwritten.
-    let currentSha: string | undefined = expectedSha
-
-    if (!currentSha) {
-      const getRes = await fetch(`${apiUrl}?ref=${BRANCH}`, {
-        headers: {
-          Authorization: `Bearer ${GITHUB_TOKEN}`,
-          Accept: "application/vnd.github.v3+json",
-        },
-      })
-
-      // 404 = the file does not exist yet, so this PUT creates it (no `sha`).
-      // Any other failure is reported instead of guessed at.
-      if (getRes.status !== 404) {
-        if (!getRes.ok) {
-          return {
-            success: false,
-            error: `Failed to fetch current file: ${getRes.status}`,
-            status: getRes.status,
-          }
-        }
-        currentSha = (await getRes.json()).sha as string
-      }
-    }
-
-    // Step 2: Commit updated content
+    // One request, and it names the base it was built on. If the file moved
+    // since, GitHub answers 409 and nothing is lost.
     const commitRes = await fetch(apiUrl, {
       method: "PUT",
       headers: {
@@ -130,7 +165,7 @@ export async function commitBlogChanges(
       body: JSON.stringify({
         message: commitMessage,
         content: Buffer.from(content).toString("base64"),
-        sha: currentSha,
+        sha: expectedSha,
         branch: BRANCH,
       }),
     })
@@ -161,6 +196,13 @@ export async function commitBlogChanges(
  * a traversal or a stray query/backslash is refused here even though today's
  * only caller builds it from a normalised slug. Defence in depth — the guard
  * lives next to the write, not next to the caller.
+ *
+ * Writes only ever target files this process is about to create, so the stricter
+ * rule is safe: query strings and fragments are refused here. Note that a *stored*
+ * post may legitimately carry one (`/images/<slug>.webp?v=3`, five posts do), so a
+ * caller must never feed a stored image value straight back into a write — strip
+ * the query first. The read-side guard (`isSafeImagePath` in the publish route)
+ * accepts a query string for exactly that reason.
  */
 const WRITABLE_IMAGE_ROOT = "public/images/blog/"
 
@@ -170,7 +212,10 @@ export function isWritableImagePath(filePath: unknown): boolean {
     filePath.startsWith(WRITABLE_IMAGE_ROOT) &&
     filePath.length > WRITABLE_IMAGE_ROOT.length &&
     !filePath.includes("..") &&
-    !/[?#\\]/.test(filePath)
+    // `%` as well as `?#\\`: a percent-encoded `%2e%2e` is still a traversal to
+    // anything that decodes the path before using it, and no real image path in
+    // this repository contains one.
+    !/[?#\\%]/.test(filePath)
   )
 }
 

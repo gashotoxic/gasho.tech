@@ -2,9 +2,13 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 
 import {
+  HOUSE_IMAGE_PATH,
+  MAX_SLUG_LENGTH,
   applyPostUpdate,
   buildNewPost,
+  commitTitle,
   normalizeSlug,
+  slugify,
   type BlogPostShape,
 } from "../lib/blog-post-update.ts"
 
@@ -73,6 +77,66 @@ test("readTime and tags can be set explicitly", () => {
   const saved = applyPostUpdate(EXISTING, { readTime: 9, tags: ["x"] })
   assert.equal(saved.readTime, 9)
   assert.deepEqual(saved.tags, ["x"])
+})
+
+test("an optional field is cleared by an explicit empty string", () => {
+  // Key-absent means "keep what is stored"; '' means "clear it". The old
+  // truthiness check collapsed the two, so the studio could never remove an
+  // excerpt, a byline, a category or a hero image.
+  const saved = applyPostUpdate(EXISTING, {
+    excerpt: "",
+    author: "",
+    category: "",
+    image: "",
+  })
+
+  assert.equal(saved.excerpt, "")
+  assert.equal(saved.author, "")
+  assert.equal(saved.category, "")
+  assert.equal(saved.image, "")
+  // Everything else still survives.
+  assert.equal(saved.content, EXISTING.content)
+  assert.equal(saved.title, EXISTING.title)
+})
+
+test("an explicit undefined is the same as not sending the field", () => {
+  const saved = applyPostUpdate(EXISTING, {
+    excerpt: undefined,
+    image: undefined,
+    author: undefined,
+  })
+
+  assert.equal(saved.excerpt, EXISTING.excerpt)
+  assert.equal(saved.image, EXISTING.image)
+  assert.equal(saved.author, EXISTING.author)
+})
+
+test("a required field cannot be cleared, only rewritten", () => {
+  const saved = applyPostUpdate(EXISTING, { title: "", content: "   " })
+  assert.equal(saved.title, EXISTING.title)
+  assert.equal(saved.content, EXISTING.content)
+})
+
+test("an updated title is stored trimmed", () => {
+  const saved = applyPostUpdate(EXISTING, { title: "  Spaced Title  " })
+  assert.equal(saved.title, "Spaced Title")
+})
+
+test("the optional strings are stored trimmed, so a blank field is a blank field", () => {
+  // `"   "` used to be stored verbatim: invisible on the page, but not equal to
+  // the "" that means "cleared", so an "empty" excerpt stayed different from one.
+  const trimmed = applyPostUpdate(EXISTING, {
+    excerpt: "  spaced excerpt  ",
+    author: " GashoTech ",
+    category: " AI ",
+  })
+  assert.equal(trimmed.excerpt, "spaced excerpt")
+  assert.equal(trimmed.author, "GashoTech")
+  assert.equal(trimmed.category, "AI")
+
+  const blanked = applyPostUpdate(EXISTING, { excerpt: "   ", author: "  " })
+  assert.equal(blanked.excerpt, "")
+  assert.equal(blanked.author, "")
 })
 
 test("a create builds a complete post from the body alone", () => {
@@ -163,6 +227,54 @@ test("an explicit field on a re-publish still wins over the archived one", () =>
   assert.equal(rebuilt.date, ARCHIVED.date, "the date is never rewritten by a re-publish")
 })
 
+test("a re-publish can clear an optional field with an explicit empty string", () => {
+  const rebuilt = buildNewPost(
+    { title: "Archived post", content: "new body", excerpt: "", image: "" },
+    "archived-post",
+    ARCHIVED
+  )
+
+  assert.ok(rebuilt)
+  assert.equal(rebuilt.excerpt, "", "an explicit '' must clear the archived excerpt")
+  assert.equal(rebuilt.image, "", "an explicit '' must clear the archived hero")
+  assert.equal(rebuilt.author, ARCHIVED.author, "fields that were not sent keep their value")
+})
+
+test("a re-publish that sends undefined keeps the archived value", () => {
+  const rebuilt = buildNewPost(
+    { title: "Archived post", content: "new body", image: undefined, excerpt: undefined },
+    "archived-post",
+    ARCHIVED
+  )
+
+  assert.ok(rebuilt)
+  assert.equal(rebuilt.image, ARCHIVED.image)
+  assert.equal(rebuilt.excerpt, ARCHIVED.excerpt)
+})
+
+test("a stored title is trimmed", () => {
+  const rebuilt = buildNewPost({ title: "  Padded Title  ", content: "body" }, "padded-title")
+  assert.ok(rebuilt)
+  assert.equal(rebuilt.title, "Padded Title")
+})
+
+test("the house hero is the documented fallback", () => {
+  const created = buildNewPost({ title: "No Image", content: "body" }, "no-image")
+  assert.ok(created)
+  assert.equal(created.image, HOUSE_IMAGE_PATH)
+})
+
+test("slugify is exported so a caller can explain a refused slug", () => {
+  assert.equal(slugify("Hello, World!"), "hello-world")
+  assert.equal(slugify("!!!"), "")
+  // `normalizeSlug` bounds the length; `slugify` does not, which is what lets the
+  // route say "this title becomes a 149-character URL".
+  const long = "x".repeat(MAX_SLUG_LENGTH + 1)
+  assert.equal(slugify(long).length, MAX_SLUG_LENGTH + 1)
+  assert.equal(normalizeSlug(long, ""), null)
+  assert.equal(normalizeSlug("x".repeat(MAX_SLUG_LENGTH), ""), "x".repeat(MAX_SLUG_LENGTH))
+})
+
 test("slugs are normalised and bounded", () => {
   assert.equal(normalizeSlug("Hello, World!", "fallback"), "hello-world")
   assert.equal(normalizeSlug("  Trailing -- dashes  ", "fallback"), "trailing-dashes")
@@ -185,7 +297,8 @@ test("a hero image must stay a local, non-traversing path", () => {
     "/images/../../etc/passwd",
     "images/x.webp",
     "//evil.example/x.png",
-    "",
+    "/images/blog/x.webp?ref=main&x=1",
+    "/images/blog/x.webp#frag",
   ]) {
     const updated = applyPostUpdate(EXISTING, { image: unsafe })
     assert.equal(updated.image, EXISTING.image, `update stored the unsafe image ${unsafe}`)
@@ -196,6 +309,27 @@ test("a hero image must stay a local, non-traversing path", () => {
 
   const safe = applyPostUpdate(EXISTING, { image: "/images/blog/hero-2026.webp" })
   assert.equal(safe.image, "/images/blog/hero-2026.webp", "a normal image path must be kept")
+
+  // Five archived posts carry a cache-busting hero; a re-publish that echoes one
+  // back must not lose it to the guard.
+  const versioned = applyPostUpdate(EXISTING, { image: "/images/blog/hero.webp?v=3" })
+  assert.equal(versioned.image, "/images/blog/hero.webp?v=3", "a ?v= hero must survive")
+
+  // '' still means "clear it", as for every other optional field.
+  assert.equal(applyPostUpdate(EXISTING, { image: "" }).image, "")
+})
+
+test("a commit message cannot be given extra lines by a title", () => {
+  // Commit messages are line-oriented: a title with a newline forges trailers in
+  // the history of main. Only the message copy is flattened — the stored title is
+  // untouched.
+  assert.equal(
+    commitTitle("Policy recap\n\nCo-authored-by: someone@example.com"),
+    "Policy recap Co-authored-by: someone@example.com"
+  )
+  assert.equal(commitTitle("  Spaced\tTitle  "), "Spaced Title")
+  assert.equal(commitTitle("x".repeat(300)).length, 120)
+  assert.equal(commitTitle(undefined), "")
 })
 
 test("tags are bounded so a post cannot grow the committed file without limit", () => {

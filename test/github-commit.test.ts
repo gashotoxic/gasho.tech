@@ -86,57 +86,66 @@ test("commitBlogChanges sends the whole list with the sha the caller read", asyn
   }
 })
 
-test("without a pinned sha the current sha is fetched, and the payload is still the full list", async () => {
+test("a commit without a sha is refused before it can overwrite anything", async () => {
   const { commitBlogChanges } = await import("../lib/github.ts")
-  const stub = stubFetch([
-    () => jsonResponse({ sha: "current-sha", content: "" }),
-    () => jsonResponse({ content: { sha: "new-sha" }, commit: { sha: "c0ffee" } }),
-  ])
+  // JS callers can still pass nothing; the type says they cannot, and this is the
+  // runtime half of the same rule. An unpinned write is the clobber bug.
+  const stub = stubFetch([])
 
   try {
-    const content = JSON.stringify({ posts: [...FULL_LIST, { slug: "new-post" }] }, null, 2)
-    const result = await commitBlogChanges(content, "feat(blog): publish")
+    const result = await commitBlogChanges(
+      JSON.stringify({ posts: FULL_LIST }, null, 2),
+      "feat(blog): publish",
+      undefined as unknown as string
+    )
 
-    assert.equal(result.success, true)
-    assert.equal(stub.calls.length, 2)
-    assert.equal(stub.calls[1].body?.sha, "current-sha")
-    const committed = decodeCommitted(stub.calls[1].body)
-    assert.equal(committed.posts.length, 73)
-    assert.notEqual(committed.posts.length, 1, "a single-post payload is the clobber bug")
+    assert.equal(result.success, false)
+    assert.match(String(result.error), /Refusing to commit without the sha/)
+    assert.equal(stub.calls.length, 0, "nothing may reach GitHub without a base")
   } finally {
     stub.restore()
   }
 })
 
-test("a first publish creates the file (404 on read sends no sha)", async () => {
-  const { commitBlogChanges } = await import("../lib/github.ts")
-  const stub = stubFetch([
-    () => new Response("not found", { status: 404 }),
-    () => jsonResponse({ content: { sha: "created" }, commit: { sha: "c0ffee" } }),
-  ])
+test("a 404 read is a refusal to write, not a first publish", async () => {
+  const { readBlogFileForWrite } = await import("../lib/github.ts")
+  const stub = stubFetch([() => new Response("not found", { status: 404 })])
 
   try {
-    const result = await commitBlogChanges(JSON.stringify({ posts: [] }, null, 2), "feat(blog): create")
-
-    assert.equal(result.success, true)
-    const put = stub.calls.find((call) => call.method === "PUT")
-    assert.ok(put, "no PUT was attempted")
-    assert.equal("sha" in (put.body ?? {}), false, "a create must not send a sha")
+    // A first-ever publish used to be the excuse for treating 404 as "empty".
+    // Over an archive that exists, 404 means a bad ref, a token without access or
+    // an outage — and a write based on it replaces every post with one.
+    await assert.rejects(readBlogFileForWrite(), /not found in the repository/)
   } finally {
     stub.restore()
   }
 })
 
-test("a rejected read is reported, not written over", async () => {
-  const { commitBlogChanges } = await import("../lib/github.ts")
+test("a rejected read is reported, and no write follows", async () => {
+  const { readBlogFileForWrite } = await import("../lib/github.ts")
   const stub = stubFetch([() => jsonResponse({ message: "boom" }, 500)])
 
   try {
-    const result = await commitBlogChanges(JSON.stringify({ posts: [] }, null, 2), "feat(blog): publish")
-
-    assert.equal(result.success, false)
-    assert.equal(result.status, 500)
+    await assert.rejects(readBlogFileForWrite(), /500/)
     assert.equal(stub.calls.filter((call) => call.method === "PUT").length, 0)
+  } finally {
+    stub.restore()
+  }
+})
+
+test("a read that carries no blob sha cannot be written over", async () => {
+  const { readBlogFileForWrite } = await import("../lib/github.ts")
+  const stub = stubFetch([
+    () =>
+      jsonResponse({
+        // A 200 without a sha: nothing to pin a commit to.
+        encoding: "base64",
+        content: Buffer.from(JSON.stringify({ posts: [] }), "utf-8").toString("base64"),
+      }),
+  ])
+
+  try {
+    await assert.rejects(readBlogFileForWrite(), /without a blob sha/)
   } finally {
     stub.restore()
   }

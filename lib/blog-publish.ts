@@ -20,7 +20,7 @@
  * everything published since the build. It now goes through this module too.
  */
 
-import { applyPostUpdate, type BlogPostShape } from "./blog-post-update.ts"
+import { applyPostUpdate, commitTitle, type BlogPostShape } from "./blog-post-update.ts"
 
 /** Post shape as stored in `data/blogs.json`. */
 export type BlogPost = BlogPostShape
@@ -31,12 +31,27 @@ export interface StoredBlogFile {
 
 /** The only two things publishing needs from storage; injected for tests. */
 export interface PostStore {
-  /** Current full post list. Must throw rather than return `[]` on failure. */
-  read: () => Promise<BlogPost[]>
+  /**
+   * The current full post list, *and the blob sha it was read at*.
+   *
+   * The sha belongs to the read because the write must name it: a list that
+   * arrives without one cannot be committed (see `write`), and `read` must throw
+   * rather than return `[]` on any failure — a 404, an outage, a bad ref.
+   * Retrofitting the sha at write time is what made the old code a blind write.
+   */
+  read: () => Promise<PostSnapshot>
   write: (
     posts: BlogPost[],
-    commitMessage: string
+    commitMessage: string,
+    /** The sha `read` returned. Required: pinned or nothing. */
+    sha: string
   ) => Promise<{ success: boolean; error?: string; url?: string; status?: number }>
+}
+
+/** A post list and the version of the file it came from. */
+export interface PostSnapshot {
+  posts: BlogPost[]
+  sha: string
 }
 
 export type PublishOutcome =
@@ -103,6 +118,46 @@ function writeFailure(result: {
   }
 }
 
+/**
+ * Read the store, and refuse anything a write must not act on.
+ *
+ * One place for the three refusals every mutation needs, so a route cannot
+ * forget one: a read that throws, a read that returns something which is not a
+ * post list, and a read that reports no sha. The last one is the shared-layer
+ * guard the routes inherit — a missing `data/blogs.json` arrives as `[]`, and a
+ * list with no sha behind it is exactly the state that must never be written
+ * over.
+ */
+async function readStore(
+  store: PostStore
+): Promise<{ ok: true; snapshot: PostSnapshot } | StoreFailure> {
+  let snapshot: PostSnapshot
+  try {
+    snapshot = await store.read()
+  } catch (error) {
+    return readFailure(error)
+  }
+
+  if (!snapshot || !Array.isArray(snapshot.posts)) {
+    return {
+      success: false,
+      code: "read-failed",
+      error: "Could not read the current post list, so nothing was written (unexpected shape)",
+    }
+  }
+
+  if (typeof snapshot.sha !== "string" || !snapshot.sha) {
+    return {
+      success: false,
+      code: "read-failed",
+      error:
+        "Could not read the current post list, so nothing was written (the store reported no sha to pin the write to)",
+    }
+  }
+
+  return { ok: true, snapshot }
+}
+
 
 /**
  * Insert `post` into `posts`, replacing any existing post with the same slug.
@@ -157,20 +212,9 @@ export async function publishPostToStore(
   commitMessage?: string,
   options: { refuseExisting?: boolean } = {}
 ): Promise<PublishOutcome> {
-  let existing: BlogPost[]
-  try {
-    existing = await store.read()
-  } catch (error) {
-    return readFailure(error)
-  }
-
-  if (!Array.isArray(existing)) {
-    return {
-      success: false,
-      code: "read-failed",
-      error: "Could not read the current post list, so nothing was written (unexpected shape)",
-    }
-  }
+  const read = await readStore(store)
+  if (!("snapshot" in read)) return read
+  const existing = read.snapshot.posts
 
   const created = !existing.some((candidate) => candidate.slug === post.slug)
   if (!created && options.refuseExisting) {
@@ -183,9 +227,9 @@ export async function publishPostToStore(
   }
 
   const posts = upsertPost(existing, post)
-  const message = commitMessage ?? `feat(blog): publish "${post.title}"`
+  const message = commitMessage ?? `feat(blog): publish "${commitTitle(post.title)}"`
 
-  const result = await store.write(posts, message)
+  const result = await store.write(posts, message, read.snapshot.sha)
   if (!result.success) {
     return writeFailure(result)
   }
@@ -207,20 +251,9 @@ export async function updatePostInStore(
   update: unknown,
   commitMessage?: string
 ): Promise<UpdateOutcome> {
-  let existing: BlogPost[]
-  try {
-    existing = await store.read()
-  } catch (error) {
-    return readFailure(error)
-  }
-
-  if (!Array.isArray(existing)) {
-    return {
-      success: false,
-      code: "read-failed",
-      error: "Could not read the current post list, so nothing was written (unexpected shape)",
-    }
-  }
+  const read = await readStore(store)
+  if (!("snapshot" in read)) return read
+  const existing = read.snapshot.posts
 
   const current = existing.find((candidate) => candidate.slug === slug)
   if (!current) {
@@ -229,9 +262,9 @@ export async function updatePostInStore(
 
   const post = applyPostUpdate(current, update)
   const posts = upsertPost(existing, post)
-  const message = commitMessage ?? `feat(blog): update post "${post.title}"`
+  const message = commitMessage ?? `feat(blog): update post "${commitTitle(post.title)}"`
 
-  const result = await store.write(posts, message)
+  const result = await store.write(posts, message, read.snapshot.sha)
   if (!result.success) {
     return writeFailure(result)
   }
@@ -248,20 +281,9 @@ export async function deletePostFromStore(
   slug: string,
   commitMessage?: string
 ): Promise<DeleteOutcome> {
-  let existing: BlogPost[]
-  try {
-    existing = await store.read()
-  } catch (error) {
-    return readFailure(error)
-  }
-
-  if (!Array.isArray(existing)) {
-    return {
-      success: false,
-      code: "read-failed",
-      error: "Could not read the current post list, so nothing was written (unexpected shape)",
-    }
-  }
+  const read = await readStore(store)
+  if (!("snapshot" in read)) return read
+  const existing = read.snapshot.posts
 
   const deleted = existing.find((candidate) => candidate.slug === slug)
   if (!deleted) {
@@ -269,9 +291,9 @@ export async function deletePostFromStore(
   }
 
   const posts = existing.filter((candidate) => candidate.slug !== slug)
-  const message = commitMessage ?? `feat(blog): delete post "${deleted.title}"`
+  const message = commitMessage ?? `feat(blog): delete post "${commitTitle(deleted.title)}"`
 
-  const result = await store.write(posts, message)
+  const result = await store.write(posts, message, read.snapshot.sha)
   if (!result.success) {
     return writeFailure(result)
   }

@@ -56,18 +56,20 @@ function makeFileStore(initial: BlogPost[]) {
   let file = initial.length ? JSON.stringify({ posts: initial }, null, 2) : null
   const writtenPayloads: string[] = []
   const committedMessages: string[] = []
+  const committedShas: string[] = []
 
   const store: PostStore = {
     read: async () => {
       if (file === null) throw new Error("data/blogs.json not readable")
       const parsed = JSON.parse(file) as { posts?: BlogPost[] }
       if (!Array.isArray(parsed.posts)) throw new Error("no post list in file")
-      return parsed.posts
+      return { posts: parsed.posts, sha: "read-sha" }
     },
-    write: async (posts, commitMessage) => {
+    write: async (posts, commitMessage, sha) => {
       const payload = JSON.stringify({ posts }, null, 2)
       writtenPayloads.push(payload)
       committedMessages.push(commitMessage)
+      committedShas.push(sha)
       file = payload
       return { success: true, url: "https://github.com/gashotoxic/gasho.tech/commit/abc" }
     },
@@ -77,6 +79,7 @@ function makeFileStore(initial: BlogPost[]) {
     store,
     writtenPayloads,
     committedMessages,
+    committedShas,
     /** What a reader of the repo would see. */
     postsInFile: () => (JSON.parse(file as string) as { posts: BlogPost[] }).posts,
   }
@@ -165,9 +168,53 @@ test("a publish refuses to write when the current list cannot be read", async ()
   assert.equal(writes, 0, "a blind write on an unreadable list is the original bug")
 })
 
+test("a store that reports no sha is a read failure, not a blind write", async () => {
+  // The shared-layer guard the routes inherit: a 404 from the contents API
+  // arrives as `{ posts: [], missing: true }`, and a store built from it has no
+  // sha. Writing that would commit one post over the archive, unpinned.
+  const writes: string[] = []
+  const store: PostStore = {
+    read: async () => ({ posts: [], sha: "" }),
+    write: async (posts, commitMessage) => {
+      writes.push(commitMessage)
+      return { success: true }
+    },
+  }
+
+  const published = await publishPostToStore(store, newPost("would-clobber"))
+  const updated = await updatePostInStore(store, "any", { title: "x" })
+  const deleted = await deletePostFromStore(store, "any")
+
+  for (const [name, result] of [
+    ["publish", published],
+    ["update", updated],
+    ["delete", deleted],
+  ] as const) {
+    assert.equal(result.success, false, `${name} accepted a store with no sha`)
+    assert.equal(result.success ? "" : result.code, "read-failed", `${name} must report read-failed`)
+    assert.match(result.success ? "" : result.error, /no sha/)
+  }
+
+  assert.equal(writes.length, 0, "a list with no sha behind it must never be written over")
+})
+
+test("every write names the sha its read returned", async () => {
+  const repo = makeFileStore(EXISTING)
+
+  await publishPostToStore(repo.store, newPost("pinned"))
+  await updatePostInStore(repo.store, EXISTING[1].slug, { title: "edited" })
+  await deletePostFromStore(repo.store, EXISTING[2].slug)
+
+  assert.deepEqual(
+    repo.committedShas,
+    ["read-sha", "read-sha", "read-sha"],
+    "each write must pin the sha carried by its own read"
+  )
+})
+
 test("a failed commit is reported as a failure, not a success", async () => {
   const store: PostStore = {
-    read: async () => EXISTING,
+    read: async () => ({ posts: EXISTING, sha: "read-sha" }),
     write: async () => ({ success: false, error: "Commit failed: 409" }),
   }
 
