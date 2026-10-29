@@ -2,7 +2,8 @@
  * Per-client rate limiting for the two public endpoints that cost something.
  *
  * 1. Login lockout for the blog admin endpoint (below).
- * 2. Token bucket for the public chat proxy (`consumeChatRequest`).
+ * 2. Token bucket for the public chat proxy (`consumeChatRequest`), plus a
+ *    per-instance ceiling on paid upstream calls (`consumeChatUpstreamBudget`).
  *
  * Scope: per client IP, per server instance, in memory. Vercel sets
  * x-forwarded-for on every request, so the key is trustworthy there; on other
@@ -289,13 +290,49 @@ export function consumeChatRequest(key: string, now: number = Date.now()): Gate 
   return { allowed: true, retryAfterSeconds: 0 }
 }
 
+/**
+ * Per-instance ceiling on how many requests may reach the paid upstream at all.
+ *
+ * The per-IP bucket above is a speed bump: an attacker rotating addresses gets
+ * a fresh allowance per IP. This second, global budget bounds total upstream
+ * spend per server instance; once it is spent the route serves the rule-based
+ * reply instead of calling upstream, so a visitor still gets an answer while the
+ * bill stays bounded. It is deliberately generous relative to real traffic.
+ *
+ * This is a per-instance backstop, not a hard financial cap: the real cap is a
+ * spend limit on the provider key itself.
+ */
+export const CHAT_UPSTREAM_PER_MINUTE = 60
+
+let upstreamWindowStartedAt = 0
+let upstreamUsedInWindow = 0
+
+/** Consume one unit of the per-instance upstream budget. False when spent. */
+export function consumeChatUpstreamBudget(now: number = Date.now()): boolean {
+  if (now < upstreamWindowStartedAt || now - upstreamWindowStartedAt >= 60_000) {
+    upstreamWindowStartedAt = now
+    upstreamUsedInWindow = 0
+  }
+  if (upstreamUsedInWindow >= CHAT_UPSTREAM_PER_MINUTE) return false
+  upstreamUsedInWindow += 1
+  return true
+}
+
 /** Test hook: drop all in-memory state. */
 export function resetRateLimiter(): void {
   buckets.clear()
   chatBuckets.clear()
+  resetChatUpstreamBudget()
 }
 
 /** Test hook: drop chat bucket state only. */
 export function resetChatRateLimiter(): void {
   chatBuckets.clear()
+  resetChatUpstreamBudget()
+}
+
+/** Test hook: clear the per-instance upstream budget only. */
+export function resetChatUpstreamBudget(): void {
+  upstreamWindowStartedAt = 0
+  upstreamUsedInWindow = 0
 }
