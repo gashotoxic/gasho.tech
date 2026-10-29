@@ -84,3 +84,38 @@ test("the post list really does live in state (so the reset above is not vacuous
   const source = readFileSync(ADMIN_PAGE, "utf-8")
   assert.match(source, /const \[posts, setPosts\] = useState<BlogPost\[\]>\(\[\]\)/)
 })
+
+/**
+ * The harder half of sign-out: the list is loaded asynchronously, so a response
+ * can land *after* `handleLogout` cleared state and put the archive back.
+ *
+ * The mechanism is `lib/load-guard.ts`, and the race itself is tested as
+ * behaviour in `test/load-guard.test.ts` (start a load, sign out, ask the load
+ * whether it may still write). What is asserted here is only the wiring, because
+ * a correct guard that the page never consults protects nothing.
+ */
+test("sign-out invalidates any load that is still in flight", () => {
+  const source = readFileSync(ADMIN_PAGE, "utf-8")
+  const body = functionBody(source, "handleLogout")
+  assert.match(
+    body,
+    /loadGuard\.current\?\.invalidate\(\)/,
+    "handleLogout must invalidate outstanding loads, or a late response repopulates the archive"
+  )
+})
+
+test("loadPosts refuses to write state once its ticket is stale", () => {
+  const source = readFileSync(ADMIN_PAGE, "utf-8")
+  const body = functionBody(source, "loadPosts")
+
+  assert.match(body, /const ticket = loadGuard\.current!?\.begin\(\)/, "loadPosts must take a ticket")
+  assert.match(body, /ticket\.isCurrent\(\)/, "loadPosts must consult its ticket")
+
+  // Every write of the list must come after a ticket check: the check must exist,
+  // and the first `setPosts(` that writes the loaded list must not precede it.
+  const firstCheck = body.indexOf("ticket.isCurrent()")
+  const listWrite = body.indexOf("setPosts(Array.isArray")
+  assert.notEqual(firstCheck, -1)
+  assert.notEqual(listWrite, -1, "loadPosts no longer assigns the loaded list")
+  assert.ok(firstCheck < listWrite, "the ticket must be checked before the list is written")
+})

@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import Link from "next/link"
 import { Plus, Edit3, Trash2, ExternalLink, LogOut, Lock, RefreshCw } from "lucide-react"
 import type { BlogPost } from "@/lib/blogs"
+import { createLoadGuard, type LoadGuard } from "@/lib/load-guard"
 import {
   clearAdminToken,
   readAdminToken,
@@ -57,21 +58,35 @@ export default function BlogAdminPage() {
     type: "success" as "success" | "error" | "warning",
   })
 
+  // Which post-list load is allowed to write state. `loadPosts` is async and can
+  // land after the admin signed out (or after a newer load started); without this
+  // the late response put the archive back on screen — drafts included — behind a
+  // cleared session. See `lib/load-guard.ts`.
+  const loadGuard = useRef<LoadGuard | null>(null)
+  if (loadGuard.current === null) loadGuard.current = createLoadGuard()
+
   /**
    * Load the post list for this session, drafts included.
    *
-   * `GET /api/blogs` answers 200 with the *public* (published-only) projection
-   * for a missing or expired token, so it can never be the "your session is
-   * gone" signal — a stale session would silently render the public list inside
-   * the admin panel and an admin would think their drafts had been deleted.
-   * `refreshAdminSession()` is the honest check: it returns null only on a
-   * genuine 401, and keeps the token on a 429/5xx where the session may still
-   * be perfectly valid.
+   * `GET /api/blogs` answers 401 to a header that is present and does not verify,
+   * so a stale session can no longer be mistaken for the published-only list: it
+   * used to answer 200 with the public projection, which made every draft look
+   * deleted with no "sign in again". `refreshAdminSession()` still runs first —
+   * it is what *extends* the session, and it keeps the token on a 429/5xx where
+   * the session may be perfectly valid.
+   *
+   * Every load takes a ticket from `loadGuard`, so a response that arrives after a
+   * sign-out (or after a newer load began) stops at the next check instead of
+   * writing state.
    */
   const loadPosts = useCallback(async (sessionToken: string) => {
+    // Non-null: the ref is initialised on first render, before any handler runs.
+    const ticket = loadGuard.current!.begin()
     setPostsStatus("loading")
 
     const live = await refreshAdminSession()
+    if (!ticket.isCurrent()) return
+
     if (!live) {
       setToken(null)
       setPosts([])
@@ -87,8 +102,10 @@ export default function BlogAdminPage() {
         cache: "no-store",
       })
 
-      // Kept as a safety net: today the endpoint degrades to the public
-      // projection instead, but a 401 must never render as a working session.
+      // Signed out (or superseded) while the request was in flight: this response
+      // must not repopulate the archive after `handleLogout` cleared it.
+      if (!ticket.isCurrent()) return
+
       if (res.status === 401) {
         clearAdminToken()
         setToken(null)
@@ -100,9 +117,11 @@ export default function BlogAdminPage() {
       if (!res.ok) throw new Error(`GET /api/blogs returned ${res.status}`)
 
       const data = await res.json()
+      if (!ticket.isCurrent()) return
       setPosts(Array.isArray(data) ? (data as BlogPost[]) : [])
       setPostsStatus("ready")
     } catch (error) {
+      if (!ticket.isCurrent()) return
       console.error("Could not load the post list:", error)
       setPostsStatus("error")
     }
@@ -163,6 +182,10 @@ export default function BlogAdminPage() {
     clearAdminToken()
     setToken(null)
     setPassword("")
+    // Any load still in flight (the mount restore, a refresh, a post-save
+    // reload) must not write state from here on: its ticket stops being current,
+    // so the archive cannot come back after the session went away.
+    loadGuard.current?.invalidate()
     // The panel held the live archive in React state: every post body, drafts
     // included. Signing out on a shared browser must not leave that resident
     // until someone reloads the tab, so the data goes with the session.
@@ -442,7 +465,8 @@ export default function BlogAdminPage() {
               <div>
                 <label className="block text-sm font-medium mb-1">Content (Markdown-style) *</label>
                 <p className="text-xs text-muted-foreground mb-1">
-                  Use ## for H2, ### for H3, #### for H4, - for bullet lists, 1. for numbered lists
+                  Use # for H1, ## for H2, ### for H3, - for bullets, 1. for numbered lists.
+                  #### and deeper are not rendered.
                 </p>
                 <textarea
                   value={form.content}
