@@ -341,7 +341,7 @@ class ChatWidget {
                 <strong>Contact GashoTech</strong><br><br>
                 📍 <strong>Location:</strong> Nairobi, Kenya<br>
                 📞 <strong>Phone:</strong> +254 792329179 / +254 788467652<br>
-                📧 <strong>Email:</strong> gashotechnologies@gmail.com<br><br>
+                📧 <strong>Email:</strong> contact@gashotech.com<br><br>
                 <strong>Follow us:</strong><br>
                 Facebook: /gashotech<br>
                 Twitter: @gashotech<br>

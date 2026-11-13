@@ -51,8 +51,8 @@ export default function TermsPage() {
             <h2 className="text-xl font-semibold mb-3">5. Contact</h2>
             <p className="text-muted-foreground">
               For any questions regarding these terms, please contact us at{" "}
-              <a href="mailto:gashotechnologies@gmail.com" className="text-[#1abc9c] hover:underline">
-                gashotechnologies@gmail.com
+              <a href="mailto:contact@gashotech.com" className="text-[#1abc9c] hover:underline">
+                contact@gashotech.com
               </a>
               .
             </p>

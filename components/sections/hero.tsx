@@ -42,7 +42,7 @@ export default function Hero() {
 
           {/* Subscribe form — properly proportioned input + button */}
           <form
-            action="https://formsubmit.io/send/gashotechnologies@gmail.com"
+            action="https://formsubmit.io/send/contact@gashotech.com"
             method="POST"
             className="mx-auto flex w-full max-w-xl flex-col items-center gap-4 sm:flex-row sm:items-stretch"
           >

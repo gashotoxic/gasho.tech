@@ -45,7 +45,7 @@ export default function Contact() {
             {/* Right column — 7/12 */}
             <div className="md:col-span-7">
               <form
-                action="https://formsubmit.io/send/gashotechnologies@gmail.com"
+                action="https://formsubmit.io/send/contact@gashotech.com"
                 method="POST"
                 onSubmit={handleSubmit}
                 className="space-y-4"

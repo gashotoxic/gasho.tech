@@ -488,7 +488,7 @@ export default function RootLayout({ children }) {
 NEXT_PUBLIC_GA_ID=G-C1V1G33QVD
 NEXT_PUBLIC_FB_PIXEL_ID=1479801696585443
 EMAIL_SERVICE_API_KEY=your_key
-CONTACT_EMAIL=gashotechnologies@gmail.com
+CONTACT_EMAIL=contact@gashotech.com
 ```
 
 ---
