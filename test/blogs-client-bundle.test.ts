@@ -297,8 +297,32 @@ test("the admin page loads the list from the API, not from the archive", () => {
   assert.match(admin, /Authorization/, "the list request must carry the admin session token")
 })
 
-// --- the helper the sections use -------------------------------------------
+test("components/sections/blogs.tsx stays a server component", () => {
+  // The homepage preview strip renders the three latest published posts. While it
+  // was a client component it had to import the archive, which put every post
+  // body — drafts included — in a public chunk of `/`. Interactivity comes from
+  // <FadeIn>, a client component a server component may render as a child, so
+  // the directive is never needed here and adding one re-opens the whole leak.
+  const section = readFileSync(path.join(REPO_ROOT, "components", "sections", "blogs.tsx"), "utf-8")
 
+  assert.equal(
+    isClientModule(section),
+    false,
+    "components/sections/blogs.tsx must not be a client component"
+  )
+  assert.doesNotMatch(
+    section,
+    /^\s*["']use client["']/m,
+    "no 'use client' directive statement anywhere in components/sections/blogs.tsx"
+  )
+  assert.match(
+    section,
+    /\blatestPublishedPosts\b/,
+    "the preview must filter to published posts, not slice the raw archive"
+  )
+})
+
+// --- the helper the sections use -------------------------------------------
 function post(overrides: Partial<BlogPost> = {}): BlogPost {
   return {
     slug: "a-post",

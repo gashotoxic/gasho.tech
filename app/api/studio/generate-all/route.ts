@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { enforceStudioThrottle } from '@/lib/studio-throttle'
 import { webSearch, callLLM } from '@/lib/studio-api'
 
 const PUBLIC_MODEL = 'google/gemma-4-31B-turbo-TEE'
@@ -26,6 +27,17 @@ export interface GenerateAllRequest {
 
 export async function POST(request: Request) {
   try {
+    // Gate — the first statement in the handler, before the body is parsed and
+    // before the first paid upstream call (DuckDuckGo search + an 8k-token Chutes
+    // completion). Anonymous callers used to drive both, so every hit billed the
+    // Chutes key. `enforceStudioThrottle` is the shared admin-session reader plus
+    // the per-session spend budget: 401 when there is no valid session, 429 when
+    // this session has spent its tokens. A server with no
+    // BLOG_ADMIN_PASSWORD/BLOG_SESSION_SECRET fails closed: no session can
+    // verify, so nothing runs.
+    const denied = enforceStudioThrottle(request, 'generate-all')
+    if (denied) return denied
+
     const body: GenerateAllRequest = await request.json()
 
     if (!body.query) {

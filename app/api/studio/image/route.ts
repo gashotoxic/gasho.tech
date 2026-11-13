@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { enforceStudioThrottle } from '@/lib/studio-throttle'
 import { generateImage } from '@/lib/studio-api'
 
 const PROMPT_TEMPLATES = {
@@ -40,6 +41,13 @@ export async function POST(request: Request) {
   let category = ''
 
   try {
+    // Gate before the body is read. `generateImage` bills the Chutes image
+    // endpoint — with a retry on a second endpoint — so an anonymous caller was
+    // spending the company's image credits. 401 without a valid session, 429 when
+    // this session has spent its token budget.
+    const denied = enforceStudioThrottle(request, 'image')
+    if (denied) return denied
+
     const body: ImageRequest = await request.json()
     title = body.title
     category = body.category

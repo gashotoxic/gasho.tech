@@ -3,8 +3,10 @@
 // must be imported before the route module.
 import "./support/alias-hook.mjs"
 
-import { test } from "node:test"
+import { beforeEach, test } from "node:test"
 import assert from "node:assert/strict"
+
+import { resetStudioRateLimiter } from "../lib/rate-limit.ts"
 
 /**
  * Route-layer regression tests for `POST /api/studio/publish`.
@@ -22,6 +24,12 @@ import assert from "node:assert/strict"
 process.env.GH_TOKEN = "test-token"
 process.env.BLOG_ADMIN_PASSWORD = "test-password"
 process.env.BLOG_SESSION_SECRET = "test-session-secret-that-is-long-enough"
+
+// `publish` is metered like the other paid routes (lib/rate-limit.ts), and this
+// file publishes far more than one budget's worth as the same admin. Reset per
+// test so the suite is not throttled by its own earlier calls; the limiter's
+// behaviour is tested in test/studio-spend-limit.test.ts.
+beforeEach(() => resetStudioRateLimiter())
 
 interface Call {
   url: string

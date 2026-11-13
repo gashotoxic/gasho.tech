@@ -174,3 +174,149 @@ export function recordLoginSuccess(key: string): void {
 export function resetRateLimiter(): void {
   buckets.clear()
 }
+
+/**
+ * Studio spend limiting: one token bucket per admin session.
+ *
+ * Why this exists next to the login limiter: every `/api/studio/*` paid route is
+ * reachable with a single valid session token, and the studio page keeps that
+ * token in `localStorage`. A script with that token (or the owner leaning on the
+ * generate button) could drive an unbounded bill — an 8k-token completion per
+ * call, image generation with its own retries. The auth gate answers "may this
+ * caller spend at all"; this answers "how much, how fast".
+ *
+ * Shape: a classic token bucket, so a normal drafting session is unaffected
+ * (bursts are what a human does) while a loop is slowed to the refill rate.
+ *
+ *   capacity 24 tokens, refilled at 6 tokens/minute
+ *   generate-all costs 6  → 4 back-to-back, then one per minute
+ *   write        costs 4
+ *   image        costs 4
+ *   research     costs 2
+ *
+ * Deliberately NOT shared with the login limiter: that one fails closed on
+ * saturation to stop password guessing, and a spent spend-budget must not be able
+ * to lock the owner out of signing in.
+ *
+ * Key: the credential fingerprint (`pwf`, via `readAdminSessionKey`), never the
+ * token and never the session start. A token is rotated by `refresh` on every
+ * call, and `sess` is stamped at login, so either choice lets the caller refill
+ * the bucket on demand — by refreshing before each paid request, or by signing in
+ * again. `pwf` survives both and changes only when the password or the signing
+ * secret rotates, which already revokes every session. One password therefore has
+ * one budget, shared by whatever devices are signed in with it.
+ *
+ * Scope is per server instance and in memory, like the login limiter: on Vercel
+ * each instance keeps its own bucket, so the real ceiling is `instances × 24`.
+ * That is a spend brake, not an accounting system; it does not claim to be exact.
+ */
+export const STUDIO_BUCKET_CAPACITY = 24
+/** Tokens per second. 6/minute: a burst of four generations, then one a minute. */
+export const STUDIO_REFILL_PER_SECOND = 0.1
+/** What one call to each paid route costs, in tokens. */
+export const STUDIO_COST = {
+  "generate-all": 6,
+  write: 4,
+  image: 4,
+  research: 2,
+  // The cheapest paid call: `publish` bills no model, but it commits an image blob
+  // and the archive to GitHub, so a stolen token must not be able to drive it in a
+  // loop either. One token keeps a normal drafting rhythm free of friction.
+  publish: 1,
+} as const
+
+export type StudioAction = keyof typeof STUDIO_COST
+
+/**
+ * Bound on tracked budgets. With credential keying that is one entry per admin
+ * password in use (this site has one), so 200 is slack; it exists so a future
+ * multi-tenant change cannot grow the map without a bound.
+ */
+export const MAX_STUDIO_SESSIONS = 200
+
+interface StudioBucket {
+  tokens: number
+  updatedAt: number
+}
+
+const studioBuckets = new Map<string, StudioBucket>()
+
+export interface StudioGate {
+  allowed: boolean
+  /** Seconds until this action's cost can be afforded again. */
+  retryAfterSeconds: number
+  /** Whole tokens left; advisory, for logs and headers. */
+  remaining: number
+}
+
+/** Refill a bucket to `now`, then return it. */
+function refillStudioBucket(key: string, now: number): StudioBucket {
+  const existing = studioBuckets.get(key)
+  if (existing) {
+    const elapsedSeconds = Math.max(0, now - existing.updatedAt) / 1000
+    existing.tokens = Math.min(
+      STUDIO_BUCKET_CAPACITY,
+      existing.tokens + elapsedSeconds * STUDIO_REFILL_PER_SECOND
+    )
+    existing.updatedAt = now
+    return existing
+  }
+
+  if (studioBuckets.size >= MAX_STUDIO_SESSIONS) {
+    // Evict the budget that has been idle longest: it has refilled the most and is
+    // the least likely to still be drafting. A budget that is actively spending is
+    // by definition recently updated. (Eviction cannot be used to escape the limit
+    // by anyone without the password: with credential keying, an attacker cannot
+    // mint keys at all, and each key requires a successful login.)
+    let oldestKey: string | null = null
+    let oldestUpdate = Number.POSITIVE_INFINITY
+    for (const [candidate, bucket] of studioBuckets) {
+      if (bucket.updatedAt < oldestUpdate) {
+        oldestUpdate = bucket.updatedAt
+        oldestKey = candidate
+      }
+    }
+    if (oldestKey !== null) studioBuckets.delete(oldestKey)
+  }
+
+  const bucket: StudioBucket = { tokens: STUDIO_BUCKET_CAPACITY, updatedAt: now }
+  studioBuckets.set(key, bucket)
+  return bucket
+}
+
+/**
+ * Try to charge `cost` tokens to a session.
+ *
+ * Refuses (and charges nothing) when the bucket cannot cover the whole cost, so
+ * a call is either paid for or not made — a route must not run a partial call.
+ */
+export function spendStudioTokens(
+  key: string,
+  cost: number,
+  now: number = Date.now()
+): StudioGate {
+  const bucket = refillStudioBucket(key, now)
+  const weight = Math.max(0, cost)
+
+  if (bucket.tokens >= weight) {
+    bucket.tokens -= weight
+    return { allowed: true, retryAfterSeconds: 0, remaining: Math.floor(bucket.tokens) }
+  }
+
+  const deficit = weight - bucket.tokens
+  return {
+    allowed: false,
+    retryAfterSeconds: Math.max(1, Math.ceil(deficit / STUDIO_REFILL_PER_SECOND)),
+    remaining: Math.floor(bucket.tokens),
+  }
+}
+
+/** Test hook: drop all studio spend state. */
+export function resetStudioRateLimiter(): void {
+  studioBuckets.clear()
+}
+
+/** Test hook: how many sessions are tracked (boundedness is part of the contract). */
+export function trackedStudioSessions(): number {
+  return studioBuckets.size
+}

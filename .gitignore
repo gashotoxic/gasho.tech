@@ -37,5 +37,7 @@ next-env.d.ts
 /FIX_PLAN.md
 /TASK.md
 # Backup files
-# Backup files
 **/*.bak-*
+# Left behind by an interrupted scripts/check-client-bundles.mjs run: a 550KB copy
+# of data/blogs.json that must never be staged by `git add -A`.
+*.canary-backup

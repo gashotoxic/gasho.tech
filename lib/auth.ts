@@ -54,6 +54,12 @@ export interface SessionInfo {
   expiresAt: number
   sessionStartedAt: number
   secondsRemaining: number
+  /**
+   * Keyed fingerprint of the admin password this session was issued under (the
+   * token's `pwf`). Stable across a token refresh *and* a fresh login, which is
+   * what makes it usable as an accounting identity: see `readAdminSessionKey`.
+   */
+  credentialFingerprint: string
 }
 
 function configuredPassword(): string | null {
@@ -183,6 +189,7 @@ export function readSession(token: unknown, now: number = Date.now()): SessionIn
     expiresAt: exp,
     sessionStartedAt: sess,
     secondsRemaining: exp - nowSeconds,
+    credentialFingerprint: pwf,
   }
 }
 
@@ -243,6 +250,36 @@ export function readAdminToken(request: Request, now: number = Date.now()): stri
 /** True only for a valid admin session (an invalid header is not a caller). */
 export function isAuthorizedRequest(request: Request, now: number = Date.now()): boolean {
   return readAdminAuth(request, now) === "admin"
+}
+
+/**
+ * A stable identity for the caller's session, for per-session accounting (the
+ * studio spend limiter).
+ *
+ * Deliberately the *credential* fingerprint (`pwf`), not the token and not the
+ * session start:
+ *
+ * - not the token: `refreshSessionToken` issues a new token on every call, so a
+ *   token-keyed bucket could be refilled by refreshing before each paid request;
+ * - not the session start: `createSessionToken` stamps `sess` at login, so
+ *   signing in again would mint a fresh full bucket — an unlimited budget for
+ *   whoever holds the password, which is exactly the caller the spend brake is
+ *   for (a stolen token cannot re-login, but the owner's own runaway script can).
+ *
+ * `pwf` survives refreshes, re-logins and new browsers, and changes only when the
+ * password or the signing secret rotates — both of which already revoke every
+ * outstanding session. For a single-admin site that means the budget is shared by
+ * all of one password's sessions, which is the intent: it is a bill brake, not
+ * per-device accounting.
+ *
+ * Returns null when there is no verifying session — a caller that cannot prove a
+ * session gets no identity and no budget.
+ */
+export function readAdminSessionKey(request: Request, now: number = Date.now()): string | null {
+  const token = readAdminToken(request, now)
+  if (!token) return null
+  const session = readSession(token, now)
+  return session ? `admin:${session.credentialFingerprint}` : null
 }
 
 /**

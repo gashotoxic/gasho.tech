@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { enforceStudioThrottle } from '@/lib/studio-throttle'
 import { callLLM } from '@/lib/studio-api'
 
 const SYSTEM_PROMPT = `You are a professional blog writer for GashoTech — an AI, Automation, and Cybersecurity company based in Nairobi, Kenya.
@@ -38,6 +39,12 @@ export interface WriteRequest {
 
 export async function POST(request: Request) {
   try {
+    // Gate before the body is read: a 4k-token LLM completion billed to the
+    // Chutes key is the whole body of this route. 401 without a valid session,
+    // 429 when this session has spent its token budget.
+    const denied = enforceStudioThrottle(request, 'write')
+    if (denied) return denied
+
     const body: WriteRequest = await request.json()
 
     if (!body.title || !body.excerpt || !body.topics || !body.category || !body.model || !body.provider) {
