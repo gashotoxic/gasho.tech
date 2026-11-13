@@ -1,13 +1,100 @@
 import { NextResponse } from 'next/server';
+import { buildChatMessages } from '@/lib/chat-guard';
+import {
+  clientKey,
+  consumeChatRequest,
+  consumeChatUpstreamBudget,
+} from '@/lib/rate-limit';
 
-interface ChatMessage {
-  role: string;
-  content: string;
-}
+const UPSTREAM_URL = 'https://chutes.ai/api/v1/chat/completions';
 
-interface ChatRequest {
-  message: string;
-  history: ChatMessage[];
+/**
+ * Largest body this endpoint will accept. The caps in `lib/chat-guard.ts` bound
+ * what reaches the upstream model; this bounds what reaches `JSON.parse`, so a
+ * single request cannot make the server buffer megabytes it will only reject.
+ *
+ * Enforced three ways, because each one alone is bypassable:
+ *
+ * 1. the declared `content-length` is rejected up front (cheap fast path);
+ * 2. the body STREAM is read through a byte counter and cancelled the moment it
+ *    passes the cap — `await request.text()` used to buffer the whole body
+ *    first, so a 4 MB body was pulled off the network before the 413;
+ * 3. the decoded text is rejected if it somehow exceeds the cap anyway.
+ */
+const MAX_BODY_BYTES = 64 * 1024;
+
+/**
+ * A hung upstream must not hold a function instance open until the platform
+ * kills it: the caller falls back to the rule-based reply after this long.
+ */
+const UPSTREAM_TIMEOUT_MS = 15_000;
+
+/**
+ * Output reservation per upstream call. Across a full window (60 calls) this is
+ * ~30k tokens, about half of the per-instance budget again on top of the prompt
+ * allowance.
+ */
+const MAX_OUTPUT_TOKENS = 512;
+
+const NO_STORE = { 'Cache-Control': 'no-store' };
+
+/**
+ * Origins this endpoint answers to. `gasho.tech` is the CNAME, the
+ * `gashotech.com` pair is the marketing domain, and preview deployments are
+ * added from the platform-provided hostnames plus the request's own origin (see
+ * `allowedOrigins`). Anything else that sends an `Origin` is refused.
+ */
+const FIXED_SITE_ORIGINS = [
+  'https://gasho.tech',
+  'https://www.gasho.tech',
+  'https://gashotech.com',
+  'https://www.gashotech.com',
+];
+
+/**
+ * Origins a browser request may carry. The fixed list and the platform-provided
+ * hostnames are the actual controls; `new URL(request.url).origin` is a safety net
+ * so a deployment on a host nobody listed still accepts its own same-origin
+ * callers instead of failing silently.
+ *
+ * This does NOT read the `Host` header on its own: Next resolves `request.url`
+ * from its configured host, and a spoofed `Host` / `x-forwarded-host` does not
+ * change it (verified against `next start`). On Vercel the platform routes by
+ * domain, so "the origin you posted to" is the real one either way.
+ *
+ * `GT_ASSIST_ALLOWED_ORIGINS` (comma-separated) is the escape hatch for anything
+ * else, e.g. a temporary staging host.
+ */
+function allowedOrigins(request: Request): Set<string> {
+  const origins = new Set<string>(FIXED_SITE_ORIGINS);
+
+  for (const name of ['VERCEL_URL', 'VERCEL_BRANCH_URL', 'VERCEL_PROJECT_PRODUCTION_URL']) {
+    const host = process.env[name]?.trim();
+    if (!host) continue;
+    origins.add(host.startsWith('http') ? host.replace(/\/+$/, '') : `https://${host}`);
+  }
+
+  const extra = process.env.GT_ASSIST_ALLOWED_ORIGINS;
+  if (extra) {
+    for (const entry of extra.split(',')) {
+      const trimmed = entry.trim().replace(/\/+$/, '');
+      if (trimmed) origins.add(trimmed);
+    }
+  }
+
+  try {
+    origins.add(new URL(request.url).origin);
+  } catch {
+    // An unparseable request URL just means no extra origin is trusted.
+  }
+
+  // `next dev` serves on localhost; production never trusts it.
+  if (process.env.NODE_ENV !== 'production') {
+    origins.add('http://localhost:3000');
+    origins.add('http://127.0.0.1:3000');
+  }
+
+  return origins;
 }
 
 const services = [
@@ -101,62 +188,217 @@ function ruleBasedReply(message: string): string {
   );
 }
 
-export async function POST(request: Request) {
+function reply(body: Record<string, unknown>, status: number, headers: Record<string, string> = {}) {
+  return NextResponse.json(body, { status, headers: { ...NO_STORE, ...headers } });
+}
+
+/**
+ * Read the request body without ever holding more than `maxBytes` of it.
+ *
+ * A plain `request.text()` buffers the entire body before the caller can look at
+ * its length, so the byte ceiling has to live in the read loop: chunks are
+ * counted as they arrive and the reader is cancelled as soon as the cap is
+ * crossed, which stops the platform from streaming the rest into memory.
+ */
+async function readBodyWithCap(
+  request: Request,
+  maxBytes: number
+): Promise<{ ok: true; text: string } | { ok: false; tooLarge: boolean }> {
+  const body = request.body;
+  if (!body) return { ok: true, text: '' };
+
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+
   try {
-    const body: ChatRequest = await request.json();
-    const { message, history } = body;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value || value.byteLength === 0) continue;
 
-    if (!message || typeof message !== 'string') {
-      return NextResponse.json(
-        { reply: 'Invalid request: message is required and must be a string.' },
-        { status: 400 }
-      );
-    }
-
-    // Try the chutes.ai API first
-    try {
-      const apiKey = process.env.GT_ASSIST_API_KEY || 'gasho';
-      const messages = [
-        ...(Array.isArray(history) ? history : []),
-        { role: 'user', content: message },
-      ];
-
-      const response = await fetch('https://chutes.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: 'gasho/AIx',
-          messages,
-          max_tokens: 512,
-          temperature: 0.7,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const reply =
-          data?.choices?.[0]?.message?.content?.trim() ||
-          'I received your message but could not generate a response.';
-        return NextResponse.json({ reply });
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => undefined);
+        return { ok: false, tooLarge: true };
       }
-
-      // If API returned non-ok status, fall through to rule-based
-      console.warn(`Chutes API returned status ${response.status}, falling back to rule-based`);
-    } catch (apiError) {
-      console.warn('Chutes API request failed, falling back to rule-based:', apiError);
+      chunks.push(value);
     }
+  } finally {
+    try {
+      reader.releaseLock();
+    } catch {
+      // Already released by cancel(); nothing to do.
+    }
+  }
 
-    // Fallback: rule-based chatbot
-    const reply = ruleBasedReply(message);
-    return NextResponse.json({ reply });
-  } catch (error) {
-    console.error('Chat API error:', error);
-    return NextResponse.json(
-      { reply: 'Sorry, an internal error occurred while processing your request.' },
-      { status: 500 }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return { ok: true, text: new TextDecoder('utf-8').decode(bytes) };
+}
+
+/** Log the missing-key refusal once per instance, not once per request. */
+let missingKeyLogged = false;
+
+/**
+ * Public chat proxy.
+ *
+ * This endpoint is unauthenticated and spends a paid upstream key, so it is
+ * treated as hostile input:
+ *
+ * 1. Browser-only abuse gates first (no state, no cost): a cross-origin
+ *    `Origin` is refused with 403 and a non-JSON `Content-Type` with 415. A CORS
+ *    "simple" request needs no preflight, so without these gates any website
+ *    could spend a visitor's per-IP allowance and this instance's budget with
+ *    `Content-Type: text/plain`.
+ * 2. Per-IP token bucket before anything expensive or logged. It runs BEFORE the
+ *    configuration check on purpose: the 503 used to be free, which made it an
+ *    unmetered key-probe oracle and an unmetered log flood.
+ * 3. Fail closed when `GT_ASSIST_API_KEY` is missing. There is no fallback
+ *    credential: without a key the endpoint answers 503 and never calls
+ *    upstream. (It used to fall back to a literal `|| 'gasho'`.)
+ * 4. The body is read through a 64 KB byte-counter (see `readBodyWithCap`).
+ * 5. `history` is validated and capped (`lib/chat-guard.ts`): entry count,
+ *    per-message length, allowed roles, and total prompt tokens. Over-cap is a
+ *    400 with zero upstream calls. The contract is reject-not-truncate.
+ * 6. A per-instance upstream budget, denominated in estimated prompt tokens,
+ *    stops paid calls when the instance has spent its minute; the caller still
+ *    gets the rule-based reply. The financial cap is the provider key's spend
+ *    limit, not this counter (a fleet runs many instances).
+ * 7. Upstream failures are logged server-side only. Callers get the rule-based
+ *    reply or a generic message, never the upstream status body.
+ */
+export async function POST(request: Request) {
+  // --- 1. Cheap browser gates: no rate-limit token, no body read, no log. -----
+
+  const origin = request.headers.get('origin');
+  if (origin && !allowedOrigins(request).has(origin.trim())) {
+    return reply({ reply: 'Invalid request: cross-origin requests are not accepted.' }, 403);
+  }
+
+  const mediaType = (request.headers.get('content-type') ?? '')
+    .split(';')[0]
+    .trim()
+    .toLowerCase();
+  if (mediaType !== 'application/json') {
+    return reply({ reply: 'Invalid request: content-type must be application/json.' }, 415);
+  }
+
+  // --- 2. Metering before any work, including the config check. ---------------
+
+  const gate = consumeChatRequest(clientKey(request));
+  if (!gate.allowed) {
+    return reply(
+      { reply: 'Too many messages. Please wait a moment and try again.' },
+      429,
+      { 'Retry-After': String(gate.retryAfterSeconds) }
     );
   }
+
+  // --- 3. Fail closed on configuration. --------------------------------------
+
+  // `trim()` so a whitespace-only value is treated as missing rather than sent
+  // as `Bearer `. Logged once per instance: this branch is now metered, but a
+  // steady 503 stream must not also be a log stream.
+  const apiKey = process.env.GT_ASSIST_API_KEY?.trim();
+  if (!apiKey) {
+    if (!missingKeyLogged) {
+      missingKeyLogged = true;
+      console.error(
+        'Chat proxy refused: GT_ASSIST_API_KEY is not set; no upstream call made (logged once per instance)'
+      );
+    }
+    return reply({ reply: 'Chat is temporarily unavailable. Please try again later.' }, 503);
+  }
+
+  // --- 4. Bounded body read. -------------------------------------------------
+
+  const declaredLength = Number(request.headers.get('content-length') ?? Number.NaN);
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
+    return reply({ reply: 'Invalid request: body is too large.' }, 413);
+  }
+
+  let raw: string;
+  try {
+    const read = await readBodyWithCap(request, MAX_BODY_BYTES);
+    if (!read.ok) {
+      return reply({ reply: 'Invalid request: body is too large.' }, 413);
+    }
+    raw = read.text;
+  } catch {
+    return reply({ reply: 'Invalid request: body could not be read.' }, 400);
+  }
+
+  // A multi-byte body can decode to fewer characters than bytes, so the text is
+  // checked too — cheap, and it keeps the ceiling true regardless of encoding.
+  if (raw.length > MAX_BODY_BYTES) {
+    return reply({ reply: 'Invalid request: body is too large.' }, 413);
+  }
+
+  // --- 5. Parse and validate. ------------------------------------------------
+
+  let body: unknown;
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    return reply({ reply: 'Invalid request: body must be JSON.' }, 400);
+  }
+
+  const validation = buildChatMessages(body);
+  if (!validation.ok) {
+    return reply({ reply: validation.error }, 400);
+  }
+
+  // --- 6. Per-instance upstream budget. --------------------------------------
+
+  if (!consumeChatUpstreamBudget(validation.promptTokens)) {
+    console.warn('Chat upstream budget for this instance is spent; using rule-based reply');
+    return reply({ reply: ruleBasedReply(validation.message) }, 200);
+  }
+
+  // --- 7. Upstream call. -----------------------------------------------------
+
+  try {
+    const response = await fetch(UPSTREAM_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gasho/AIx',
+        messages: validation.messages,
+        max_tokens: MAX_OUTPUT_TOKENS,
+        temperature: 0.7,
+      }),
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+    });
+
+    if (response.ok) {
+      const data = (await response.json()) as {
+        choices?: Array<{ message?: { content?: string } }>;
+      };
+      const generated = data?.choices?.[0]?.message?.content;
+      const replyText =
+        typeof generated === 'string' && generated.trim().length > 0
+          ? generated.trim()
+          : 'I received your message but could not generate a response.';
+      return reply({ reply: replyText }, 200);
+    }
+
+    // Only the status is logged. The upstream body is NOT logged and NOT
+    // returned: it is cancelled and discarded, so a provider error string (which
+    // can echo the key or the prompt) never reaches a log or the caller.
+    console.warn(`Chat upstream returned status ${response.status}; using rule-based reply`);
+    await response.body?.cancel().catch(() => undefined);
+  } catch (apiError) {
+    console.error('Chat upstream request failed:', apiError);
+  }
+
+  return reply({ reply: ruleBasedReply(validation.message) }, 200);
 }
