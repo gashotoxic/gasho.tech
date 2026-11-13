@@ -33,7 +33,7 @@ export default function ProfilePage() {
               Visit Our Website
             </Link>
             <a
-              href="mailto:gashotechnologies@gmail.com"
+              href="mailto:contact@gashotech.com"
               className="inline-block border-2 border-[#1abc9c] text-[#1abc9c] hover:bg-[#1abc9c] hover:text-white px-6 py-2 rounded-lg font-semibold transition-all duration-300 hover:shadow-lg"
             >
               Email Us

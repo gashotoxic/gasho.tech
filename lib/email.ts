@@ -7,7 +7,7 @@ export async function sendContactEmail(data: { name: string; email: string; comm
 
   return resend.emails.send({
     from: "GashoTech Contact <onboarding@resend.dev>",
-    to: process.env.CONTACT_EMAIL || "gashotechnologies@gmail.com",
+    to: process.env.CONTACT_EMAIL || "contact@gashotech.com",
     replyTo: email,
     subject: `New Contact Form Submission from ${name}`,
     html: `
@@ -23,7 +23,7 @@ export async function sendContactEmail(data: { name: string; email: string; comm
 export async function sendSubscriptionEmail(email: string) {
   return resend.emails.send({
     from: "GashoTech <onboarding@resend.dev>",
-    to: process.env.CONTACT_EMAIL || "gashotechnologies@gmail.com",
+    to: process.env.CONTACT_EMAIL || "contact@gashotech.com",
     subject: "New Newsletter Subscription",
     html: `
       <h2>New Newsletter Subscription</h2>

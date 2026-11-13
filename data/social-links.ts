@@ -16,5 +16,5 @@ export const socialLinks: SocialLink[] = [
 export const contactInfo = {
   location: "Nairobi, Kenya",
   phones: ["+254 792329179", "+254 788467652"],
-  email: "gashotechnologies@gmail.com",
+  email: "contact@gashotech.com",
 }
